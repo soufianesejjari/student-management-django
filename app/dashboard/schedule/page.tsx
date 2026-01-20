@@ -1,36 +1,20 @@
+"use client"
+
 import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 
-export default function SchedulePage() {
-  // Données fictives pour la démonstration
-  const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
-  const hours = ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"]
+import { useSchedule } from "@/hooks/useSchedule"
 
-  const schedule = [
-    { day: "Lundi", hour: "10:00", course: "Piano - Niveau débutant", teacher: "Marie Dupont", room: "Salle 1" },
-    { day: "Lundi", hour: "14:00", course: "Flûte - Niveau débutant", teacher: "Claire Rousseau", room: "Salle 3" },
-    { day: "Mardi", hour: "14:00", course: "Guitare - Niveau intermédiaire", teacher: "Jean Martin", room: "Salle 2" },
-    { day: "Mercredi", hour: "16:00", course: "Violon - Niveau avancé", teacher: "Sophie Leclerc", room: "Salle 4" },
-    { day: "Jeudi", hour: "17:00", course: "Batterie - Niveau débutant", teacher: "Pierre Durand", room: "Salle 5" },
-    {
-      day: "Vendredi",
-      hour: "18:00",
-      course: "Chant - Niveau intermédiaire",
-      teacher: "Isabelle Lefebvre",
-      room: "Salle 1",
-    },
-    {
-      day: "Samedi",
-      hour: "10:00",
-      course: "Saxophone - Niveau débutant",
-      teacher: "François Moreau",
-      room: "Salle 2",
-    },
-    { day: "Samedi", hour: "14:00", course: "Orchestre - Tous niveaux", teacher: "Michel Lambert", room: "Auditorium" },
-  ]
+export default function SchedulePage() {
+  const { sessions, isLoading } = useSchedule()
+  const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
+  const daysMap = { "Lundi": 0, "Mardi": 1, "Mercredi": 2, "Jeudi": 3, "Vendredi": 4, "Samedi": 5 }
+  const hours = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"]
+
+
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,14 +66,21 @@ export default function SchedulePage() {
                   <React.Fragment key={hour}>
                     <div className="h-20 flex items-center justify-center text-sm text-muted-foreground">{hour}</div>
                     {days.map((day) => {
-                      const event = schedule.find((s) => s.day === day && s.hour === hour)
+                      const dayIndex = daysMap[day as keyof typeof daysMap]
+                      const hourPrefix = hour.substring(0, 2)
+
+                      const event = sessions?.find((s: any) => {
+                        return s.day_of_week === dayIndex && s.start_time.startsWith(hourPrefix)
+                      })
+
                       return (
                         <div key={`${day}-${hour}`} className="h-20 border rounded-md p-1 relative">
+                          {isLoading && <div className="absolute inset-0 bg-muted/20 animate-pulse" />}
                           {event && (
-                            <div className="absolute inset-1 rounded bg-primary/10 p-1 overflow-hidden">
-                              <div className="font-medium text-xs">{event.course}</div>
-                              <div className="text-xs text-muted-foreground">{event.teacher}</div>
-                              <div className="text-xs text-muted-foreground">{event.room}</div>
+                            <div className="absolute inset-1 rounded bg-primary/10 p-1 overflow-hidden" title={`${event.course_name} - ${event.room_name}`}>
+                              <div className="font-medium text-xs truncate">{event.course_name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{event.teacher_name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{event.room_name}</div>
                             </div>
                           )}
                         </div>

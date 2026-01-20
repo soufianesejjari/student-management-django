@@ -5,6 +5,8 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import api from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,15 +14,25 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Music2 } from "lucide-react"
 
 export default function LoginPage() {
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const router = useRouter()
+  const [error, setError] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Dans une application réelle, vous implémenteriez ici l'authentification
-    // Pour cette démo, nous redirigeons simplement vers le tableau de bord
-    router.push("/dashboard")
+    setError("")
+
+    try {
+      const response = await api.post('/auth/token/', {
+        username: email, // Assuming email is username for now, or change backend to accept email
+        password: password
+      })
+
+      login(response.data.access, response.data.refresh)
+    } catch (err) {
+      setError("Identifiants incorrects")
+    }
   }
 
   return (
@@ -36,12 +48,13 @@ export default function LoginPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {error && <div className="text-red-500 text-sm text-center">{error}</div>}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Nom d'utilisateur</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="exemple@email.com"
+                type="text"
+                placeholder="Votre nom d'utilisateur"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

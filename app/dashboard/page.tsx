@@ -1,8 +1,13 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart, BookOpen, Calendar, CreditCard, DollarSign, Music, Users } from "lucide-react"
+import { useDashboardStats, useUpcomingClasses } from "@/hooks/useDashboard"
 
 export default function DashboardPage() {
+  const { stats, isLoading: statsLoading } = useDashboardStats()
+  const { classes: upcomingClasses, isLoading: classesLoading } = useUpcomingClasses()
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -22,8 +27,8 @@ export default function DashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">127</div>
-                <p className="text-xs text-muted-foreground">+5 ce mois-ci</p>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.active_students}</div>
+                <p className="text-xs text-muted-foreground">+{stats?.new_students_this_month} ce mois-ci</p>
               </CardContent>
             </Card>
             <Card>
@@ -32,8 +37,8 @@ export default function DashboardPage() {
                 <Music className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">+1 ce mois-ci</p>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.active_teachers}</div>
+                <p className="text-xs text-muted-foreground">Actifs</p>
               </CardContent>
             </Card>
             <Card>
@@ -42,8 +47,8 @@ export default function DashboardPage() {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">24</div>
-                <p className="text-xs text-muted-foreground">+2 ce mois-ci</p>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : stats?.active_courses}</div>
+                <p className="text-xs text-muted-foreground">Dispensés</p>
               </CardContent>
             </Card>
             <Card>
@@ -52,8 +57,8 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12 450 €</div>
-                <p className="text-xs text-muted-foreground">+8% par rapport au mois dernier</p>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_revenue || 0} €`}</div>
+                <p className="text-xs text-muted-foreground">Dépenses: {stats?.monthly_expenses || 0} €</p>
               </CardContent>
             </Card>
           </div>
@@ -76,23 +81,26 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { time: "10:00", title: "Piano - Niveau débutant", teacher: "Marie Dupont" },
-                    { time: "14:00", title: "Guitare - Niveau intermédiaire", teacher: "Jean Martin" },
-                    { time: "16:30", title: "Violon - Niveau avancé", teacher: "Sophie Leclerc" },
-                  ].map((course) => (
-                    <div key={course.time} className="flex items-center">
-                      <div className="flex items-center justify-center rounded-md border p-2 mr-3">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                  {classesLoading ? (
+                    <div>Chargement...</div>
+                  ) : upcomingClasses?.length === 0 ? (
+                    <div>Aucun cours à venir</div>
+                  ) : (
+                    upcomingClasses?.map((course: any) => (
+                      <div key={course.id} className="flex items-center">
+                        <div className="flex items-center justify-center rounded-md border p-2 mr-3">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {course.start.substring(0, 5)} - {course.course}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Prof: {course.teacher}</p>
+                          <p className="text-xs text-muted-foreground">Salle: {course.room}</p>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {course.time} - {course.title}
-                        </p>
-                        <p className="text-sm text-muted-foreground">Prof: {course.teacher}</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

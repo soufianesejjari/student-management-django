@@ -1,77 +1,39 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react"
+import { useCourses } from "@/hooks/useCourses"
+import { useSearchParams, usePathname, useRouter } from "next/navigation"
 
 export default function CoursesPage() {
-  // Données fictives pour la démonstration
-  const courses = [
-    {
-      id: 1,
-      name: "Piano - Niveau débutant",
-      teacher: "Marie Dupont",
-      students: 8,
-      schedule: "Lundi, 10:00 - 12:00",
-      status: "Actif",
-    },
-    {
-      id: 2,
-      name: "Guitare - Niveau intermédiaire",
-      teacher: "Jean Martin",
-      students: 6,
-      schedule: "Mardi, 14:00 - 16:00",
-      status: "Actif",
-    },
-    {
-      id: 3,
-      name: "Violon - Niveau avancé",
-      teacher: "Sophie Leclerc",
-      students: 4,
-      schedule: "Mercredi, 16:30 - 18:30",
-      status: "Actif",
-    },
-    {
-      id: 4,
-      name: "Batterie - Niveau débutant",
-      teacher: "Pierre Durand",
-      students: 5,
-      schedule: "Jeudi, 17:00 - 19:00",
-      status: "Actif",
-    },
-    {
-      id: 5,
-      name: "Chant - Niveau intermédiaire",
-      teacher: "Isabelle Lefebvre",
-      students: 10,
-      schedule: "Vendredi, 18:00 - 20:00",
-      status: "Actif",
-    },
-    {
-      id: 6,
-      name: "Saxophone - Niveau débutant",
-      teacher: "François Moreau",
-      students: 3,
-      schedule: "Samedi, 10:00 - 12:00",
-      status: "Actif",
-    },
-    {
-      id: 7,
-      name: "Flûte - Niveau débutant",
-      teacher: "Claire Rousseau",
-      students: 4,
-      schedule: "Lundi, 14:00 - 16:00",
-      status: "Inactif",
-    },
-    {
-      id: 8,
-      name: "Orchestre - Tous niveaux",
-      teacher: "Michel Lambert",
-      students: 15,
-      schedule: "Samedi, 14:00 - 17:00",
-      status: "Actif",
-    },
-  ]
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const { replace } = useRouter()
+
+  const page = Number(searchParams.get('page')) || 1
+  const search = searchParams.get('search') || ""
+
+  const { courses, isLoading, next, previous, totalCount } = useCourses(page, search)
+
+  const handleSearch = (term: string) => {
+    const params = new URLSearchParams(searchParams)
+    if (term) {
+      params.set('search', term)
+    } else {
+      params.delete('search')
+    }
+    params.set('page', '1') // Reset to page 1 on search
+    replace(`${pathname}?${params.toString()}`)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('page', newPage.toString())
+    replace(`${pathname}?${params.toString()}`)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -91,7 +53,14 @@ export default function CoursesPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 w-full max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Rechercher un cours..." className="h-9" />
+              <Input
+                placeholder="Rechercher un cours..."
+                className="h-9"
+                defaultValue={search}
+                onChange={(e) => {
+                  handleSearch(e.target.value)
+                }}
+              />
             </div>
             <Button variant="outline" size="sm">
               <Download className="mr-2 h-4 w-4" />
@@ -111,39 +80,65 @@ export default function CoursesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell className="font-medium">{course.name}</TableCell>
-                    <TableCell>{course.teacher}</TableCell>
-                    <TableCell>{course.students}</TableCell>
-                    <TableCell>{course.schedule}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          course.status === "Actif"
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                  </TableRow>
+                ) : courses?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center h-24">Aucun cours trouvé.</TableCell>
+                  </TableRow>
+                ) : (
+                  courses?.map((course: any) => (
+                    <TableRow key={course.id}>
+                      <TableCell className="font-medium">{course.name}</TableCell>
+                      <TableCell>{course.teacher_name}</TableCell>
+                      <TableCell>{course.enrollment_count}</TableCell>
+                      <TableCell>{course.schedule_summary}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${course.status === "ACTIVE"
                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                             : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                        }`}
-                      >
-                        {course.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        Détails
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            }`}
+                        >
+                          {course.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          Détails
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
           <div className="flex items-center justify-end space-x-2 py-4">
-            <Button variant="outline" size="sm">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {totalCount > 0 ? (
+                <>
+                  Page {page} of {Math.ceil(totalCount / 10)} ({totalCount} items)
+                </>
+              ) : null}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={!previous || isLoading}
+            >
               <ChevronLeft className="h-4 w-4" />
               Précédent
             </Button>
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={!next || isLoading}
+            >
               Suivant
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
