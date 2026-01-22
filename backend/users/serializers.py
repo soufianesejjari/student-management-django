@@ -20,7 +20,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status', 'courses', 'first_name', 'last_name', 'email', 'username']
 
     def get_courses(self, obj):
-        return ", ".join([e.course.name for e in obj.enrollments.filter(is_active=True)])
+        return ", ".join([e.course.name for e in obj.enrollments.filter(status='ACTIVE')])
     
     def create(self, validated_data):
         user_data = {
@@ -79,7 +79,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
         from django.db.models import Count
         count = 0
         for course in obj.default_courses.all():
-            count += course.enrollments.filter(is_active=True).count()
+            count += course.enrollments.filter(status='ACTIVE').count()
         return count
 
     def create(self, validated_data):

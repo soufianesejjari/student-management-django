@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
-
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,11 +12,7 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
 import useSWR from "swr"
 import api from "@/lib/api"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -25,12 +20,13 @@ import { useDebounce } from "@/hooks/useDebounce"
 interface AsyncSelectProps {
     endpoint: string
     label: string
-    value?: string | number
+    value?: string | number | null
     onChange: (value: string | number) => void
     renderLabel: (item: any) => string
     renderValue: (item: any) => string | number
     searchParam?: string
     placeholder?: string
+    disabled?: boolean
 }
 
 const fetcher = (url: string) => api.get(url).then((res) => res.data)
@@ -44,6 +40,7 @@ export function AsyncSelect({
     renderValue,
     searchParam = "search",
     placeholder = "Select item...",
+    disabled = false,
 }: AsyncSelectProps) {
     const [open, setOpen] = React.useState(false)
     const [query, setQuery] = React.useState("")
@@ -51,19 +48,13 @@ export function AsyncSelect({
 
     const { data: searchResults, isLoading } = useSWR(
         open ? `${endpoint}?${searchParam}=${debouncedQuery}` : null,
-        fetcher
+        fetcher,
+        { keepPreviousData: true }
     )
 
-    // Determine displayed label for selected value
-    // We might not have the item in searchResults if it was selected previously or pre-filled.
-    // For simplicity, we assume we might need to fetch it separately or pass it in.
-    // BUT for now, let's rely on the label passed in if possible, OR just show ID if not found in list.
-    // Better UX: Allow passing `selectedLabel` prop, or fetch single item if value exists but not in list.
+    const items = Array.isArray(searchResults) ? searchResults : searchResults?.results || []
 
-    // Quick fix: user just sees the ID if not in list, or we assume the parent handles the display if needed.
-    // Actually, Shadcn Combobox usually wants to display the label.
-    const selectedItem = searchResults?.results?.find((item: any) => renderValue(item) === value)
-
+    const selectedItem = items.find((item: any) => renderValue(item) === value)
     const [displayLabel, setDisplayLabel] = React.useState<string>("")
 
     React.useEffect(() => {
@@ -72,61 +63,76 @@ export function AsyncSelect({
         }
     }, [selectedItem, renderLabel])
 
-    // If we have a value but no display label (e.g. initial load), we might want to fetch it.
-    // TODO: Add single item fetch logic if needed.
-
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
+        <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+            <PopoverPrimitive.Trigger asChild>
                 <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
                     className="w-full justify-between"
+                    disabled={disabled}
                 >
-                    {value
-                        ? (displayLabel || value) // Fallback to value if label not found yet
-                        : placeholder}
+                    {value ? (displayLabel || value) : placeholder}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
+            </PopoverPrimitive.Trigger>
+
+            {/* CRITICAL FIX: 
+               1. We do NOT use <PopoverPrimitive.Portal>. This keeps the content in the DOM flow 
+                  of the Dialog, preventing the Focus Trap / Aria-Hidden conflict.
+               2. We use 'z-[9999]' to ensure it floats above other dialog elements.
+               3. We manually style the content to match shadcn's 'PopoverContent'.
+            */}
+            <PopoverPrimitive.Content
+                align="start"
+                className="z-[9999] w-[--radix-popover-trigger-width] min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+            >
                 <Command shouldFilter={false}>
-                    {/* We handle filtering via backend */}
                     <CommandInput
                         placeholder={`Search ${label}...`}
                         value={query}
                         onValueChange={setQuery}
                     />
                     <CommandList>
-                        {isLoading && <CommandEmpty>Loading...</CommandEmpty>}
-                        {!isLoading && searchResults?.results?.length === 0 && (
+                        {isLoading && (
+                            <div className="flex items-center justify-center p-4">
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                        )}
+                        {!isLoading && items.length === 0 && (
                             <CommandEmpty>No results found.</CommandEmpty>
                         )}
                         <CommandGroup>
-                            {searchResults?.results?.map((item: any) => (
-                                <CommandItem
-                                    key={renderValue(item)}
-                                    value={String(renderValue(item))}
-                                    onSelect={(currentValue) => {
-                                        onChange(item.id) // Assuming ID is always what we want to save
-                                        setDisplayLabel(renderLabel(item))
-                                        setOpen(false)
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === renderValue(item) ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {renderLabel(item)}
-                                </CommandItem>
-                            ))}
+                            {items.map((item: any) => {
+                                const itemValue = renderValue(item)
+                                const itemLabel = renderLabel(item)
+                                const isSelected = String(value) === String(itemValue)
+
+                                return (
+                                    <CommandItem
+                                        key={itemValue}
+                                        value={itemLabel}
+                                        onSelect={() => {
+                                            onChange(itemValue)
+                                            setDisplayLabel(itemLabel)
+                                            setOpen(false)
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                isSelected ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        {itemLabel}
+                                    </CommandItem>
+                                )
+                            })}
                         </CommandGroup>
                     </CommandList>
                 </Command>
-            </PopoverContent>
-        </Popover>
+            </PopoverPrimitive.Content>
+        </PopoverPrimitive.Root>
     )
 }

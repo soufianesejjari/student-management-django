@@ -1,62 +1,35 @@
+"""
+Serializers for Enrollment, Subscription, and Payment models.
+"""
 from rest_framework import serializers
-from .models import Subject, Course, Enrollment, Subscription
+from .models import Enrollment, Subscription, Payment
+from academics.models import Course
 from users.models import StudentProfile
-from django.db.models import Count
 
-class SubjectSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Subject
-        fields = ['id', 'name', 'color_code']
-
-class CourseSerializer(serializers.ModelSerializer):
-    subject_name = serializers.CharField(source='subject.name', read_only=True)
-    teacher_name = serializers.SerializerMethodField()
-    enrollment_count = serializers.SerializerMethodField()
-    schedule_summary = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Course
-        fields = ['id', 'name', 'subject', 'subject_name', 'level', 'default_teacher', 'teacher_name', 'price', 'status', 'enrollment_count', 'schedule_summary', 'created_at']
-
-    def get_teacher_name(self, obj):
-        if obj.default_teacher:
-            return obj.default_teacher.user.get_full_name() or obj.default_teacher.user.username
-        return None
-
-    def get_enrollment_count(self, obj):
-        return obj.enrollments.filter(status='ACTIVE').count()
-
-    def get_schedule_summary(self, obj):
-        sessions = obj.sessions.all()
-        if not sessions.exists():
-            return "Non planifié"
-        
-        days_map = {0: 'Lun', 1: 'Mar', 2: 'Mer', 3: 'Jeu', 4: 'Ven', 5: 'Sam', 6: 'Dim'}
-        res = []
-        for s in sessions:
-            day = days_map.get(s.day_of_week, '')
-            start = s.start_time.strftime("%H:%M")
-            end = s.end_time.strftime("%H:%M")
-            res.append(f"{day} {start}-{end}")
-        return ", ".join(res)
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
-    course_name = serializers.CharField(source='course.name', read_only=True)
-    course_subject = serializers.CharField(source='course.subject.name', read_only=True)
-
+    course_name = serializers.SerializerMethodField()
+    course_subject = serializers.SerializerMethodField()
+    
     class Meta:
         model = Enrollment
         fields = [
             'id', 'student', 'student_name', 'course', 'course_name', 'course_subject',
             'enrolled_at', 'status', 'default_price', 'custom_price',
-            'is_promotional', 'promotional_reason', 'notes', 'final_price',
-            'is_active'
+            'is_promotional', 'promotional_reason', 'notes', 'final_price'
         ]
-        read_only_fields = ['enrolled_at', 'final_price', 'is_active']
-
+        read_only_fields = ['enrolled_at',  'final_price']
+    
     def get_student_name(self, obj):
-        return obj.student.user.get_full_name() or obj.student.user.username
+        return f"{obj.student.user.first_name} {obj.student.user.last_name}"
+    
+    def get_course_name(self, obj):
+        return obj.course.name
+    
+    def get_course_subject(self, obj):
+        return obj.course.subject.name if obj.course.subject else None
+
 
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     """
@@ -95,7 +68,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        from .services import EnrollmentService
+        from enrollments.services import EnrollmentService
         from datetime import timedelta
         from dateutil.relativedelta import relativedelta
         
@@ -137,6 +110,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         
         return enrollment
 
+
 class SubscriptionSerializer(serializers.ModelSerializer):
     enrollment_details = EnrollmentSerializer(source='enrollment', read_only=True)
     student_name = serializers.SerializerMethodField()
@@ -152,7 +126,40 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
     
     def get_student_name(self, obj):
-        return obj.enrollment.student.user.get_full_name() or obj.enrollment.student.user.username
+        return f"{obj.enrollment.student.user.first_name} {obj.enrollment.student.user.last_name}"
     
     def get_course_name(self, obj):
         return obj.enrollment.course.name
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    subscription_details = SubscriptionSerializer(source='subscription', read_only=True)
+    student_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Payment
+        fields = [
+            'id', 'subscription', 'subscription_details', 'student', 'student_name',
+            'amount', 'payment_date', 'payment_method', 'receipt_number', 'notes'
+        ]
+        read_only_fields = ['payment_date']
+    
+    def get_student_name(self, obj):
+        return f"{obj.student.user.first_name} {obj.student.user.last_name}"
+    
+    def create(self, validated_data):
+        import uuid
+        
+        # Auto-generate receipt number if not provided
+        if 'receipt_number' not in validated_data or not validated_data['receipt_number']:
+            validated_data['receipt_number'] = f"RCP-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Create payment
+        payment = super().create(validated_data)
+        
+        # Update subscription status to PAID
+        subscription = payment.subscription
+        subscription.payment_status = 'PAID'
+        subscription.save()
+        
+        return payment

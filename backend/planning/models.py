@@ -12,6 +12,33 @@ class Room(models.Model):
     def __str__(self):
         return self.name
 
+class SessionInstance(models.Model):
+    """Individual occurrence of a class session (for exceptions/rescheduling)"""
+    class_session = models.ForeignKey('ClassSession', on_delete=models.CASCADE, related_name='instances')
+    original_date = models.DateField()
+    
+    # Rescheduling fields
+    is_rescheduled = models.BooleanField(default=False)
+    new_date = models.DateField(null=True, blank=True)
+    new_start_time = models.TimeField(null=True, blank=True)
+    new_end_time = models.TimeField(null=True, blank=True)
+    new_room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Cancellation field
+    is_cancelled = models.BooleanField(default=False)
+    
+    # Audit
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('class_session', 'original_date')
+        ordering = ['original_date']
+
+    def __str__(self):
+        status = "Cancelled" if self.is_cancelled else "Rescheduled" if self.is_rescheduled else "Normal"
+        return f"{self.class_session} - {self.original_date} ({status})"
+
 class ClassSession(models.Model):
     """The core scheduling unit - represents a recurring class session"""
     course = models.ForeignKey('academics.Course', on_delete=models.CASCADE, related_name='sessions')
@@ -21,7 +48,7 @@ class ClassSession(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     start_date = models.DateField(help_text="When this session plan starts")
-    end_date = models.DateField(help_text="When this session plan ends")
+    end_date = models.DateField(null=True, blank=True, help_text="When this session plan ends (None = Indefinite)")
     recurrence_rule = models.CharField(max_length=255, blank=True, null=True, help_text="RRULE format for complex recurrence")
 
     class Meta:
@@ -30,6 +57,42 @@ class ClassSession(models.Model):
     def __str__(self):
         days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         return f"{self.course.name} - {days[self.day_of_week]} {self.start_time}-{self.end_time} ({self.room.name})"
+
+    def get_student_conflicts(self):
+        """
+        Check if any enrolled students have other classes at this time.
+        Returns a list of dictionaries with student info and conflicting session.
+        """
+        conflicts = []
+        # Get active enrollments for this course
+        # Note: We need to import Enrollment dynamically or rely on related_name if defined
+        # Assuming course.enrollments is available
+        enrolled_students = self.course.enrollments.filter(is_active=True)
+        
+        for enrollment in enrolled_students:
+            student = enrollment.student
+            
+            # Find overlapping sessions for this student
+            # Conflict condition: Same day AND Overlapping Time
+            student_sessions = ClassSession.objects.filter(
+                course__enrollments__student=student,
+                course__enrollments__is_active=True,
+                day_of_week=self.day_of_week
+            ).filter(
+                # (StartA < EndB) and (EndA > StartB)
+                Q(start_time__lt=self.end_time, end_time__gt=self.start_time)
+            ).exclude(pk=self.pk)
+
+            if student_sessions.exists():
+                for conflict_session in student_sessions:
+                    conflicts.append({
+                        'student_name': student.user.get_full_name() or student.user.username,
+                        'student_id': student.id,
+                        'conflicting_session': str(conflict_session),
+                        'conflicting_course': conflict_session.course.name
+                    })
+        
+        return conflicts
 
     def clean(self):
         """Validate no conflicts for room and teacher"""
@@ -57,6 +120,9 @@ class ClassSession(models.Model):
 
         if teacher_conflicts.exists():
             raise ValidationError(f"Teacher {self.teacher.user.get_full_name()} already has a class at this time")
+        
+        # NOTE: Student conflicts are NOT checked here to allow "Soft" validation (Force option)
+        # They should be checked in the View/Service layer using get_student_conflicts()
 
     def save(self, *args, **kwargs):
         self.clean()

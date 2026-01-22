@@ -4,7 +4,7 @@ import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 // Create Axios Instance
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8009/api';
 
-const api = axios.create({
+const axiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -12,7 +12,7 @@ const api = axios.create({
 });
 
 // Request Interceptor to add Token
-api.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
     const token = getCookie('access_token');
     if (token) {
@@ -26,7 +26,7 @@ api.interceptors.request.use(
 );
 
 // Response Interceptor for Token Refresh
-api.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
@@ -58,10 +58,10 @@ api.interceptors.response.use(
         setCookie('access_token', access);
 
         // Update header
-        api.defaults.headers['Authorization'] = `Bearer ${access}`;
+        axiosInstance.defaults.headers['Authorization'] = `Bearer ${access}`;
         originalRequest.headers['Authorization'] = `Bearer ${access}`;
 
-        return api(originalRequest);
+        return axiosInstance(originalRequest);
       } catch (refreshError) {
         // Refresh failed, force logout
         deleteCookie('access_token');
@@ -73,5 +73,58 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const api = {
+    // Generic methods
+    get: (url: string, config?: any) => axiosInstance.get(url, config),
+    post: (url: string, data?: any, config?: any) => axiosInstance.post(url, data, config),
+    put: (url: string, data?: any, config?: any) => axiosInstance.put(url, data, config),
+    patch: (url: string, data?: any, config?: any) => axiosInstance.patch(url, data, config),
+    delete: (url: string, config?: any) => axiosInstance.delete(url, config),
+
+    auth: {
+        login: (data: any) => axiosInstance.post('/auth/token/', data),
+        refreshToken: (data: any) => axiosInstance.post('/auth/token/refresh/', data),
+    },
+    students: {
+        list: () => axiosInstance.get('/users/students/').then(res => res.data),
+        get: (id: string) => axiosInstance.get(`/users/students/${id}/`).then(res => res.data),
+        create: (data: any) => axiosInstance.post('/users/students/', data).then(res => res.data),
+        update: (id: string, data: any) => axiosInstance.patch(`/users/students/${id}/`, data).then(res => res.data),
+    },
+    teachers: {
+        list: () => axiosInstance.get('/users/teachers/').then(res => res.data),
+    },
+    courses: {
+        list: () => axiosInstance.get('/academics/courses/').then(res => res.data),
+        get: (id: string) => axiosInstance.get(`/academics/courses/${id}/`).then(res => res.data),
+        create: (data: any) => axiosInstance.post('/academics/courses/', data).then(res => res.data),
+        update: (id: string, data: any) => axiosInstance.patch(`/academics/courses/${id}/`, data).then(res => res.data),
+        sessions: (id: string) => axiosInstance.get(`/academics/courses/${id}/sessions/`).then(res => res.data),
+    },
+    enrollments: {
+        list: (params?: any) => axiosInstance.get('/academics/enrollments/', { params }).then(res => res.data),
+        create: (data: any) => axiosInstance.post('/academics/enrollments/', data).then(res => res.data),
+        get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
+        suggestPrice: (data: { student_id: number, course_id: number }) => 
+            axiosInstance.post('/academics/enrollments/suggest-price/', data).then(res => res.data),
+    },
+    subscriptions: {
+        list: (params?: any) => axiosInstance.get('/academics/subscriptions/', { params }).then(res => res.data),
+    },
+    payments: {
+        list: (params?: any) => axiosInstance.get('/finances/payments/', { params }).then(res => res.data),
+        create: (data: any) => axiosInstance.post('/finances/payments/', data).then(res => res.data),
+    },
+    subjects: {
+        list: () => axiosInstance.get('/academics/subjects/').then(res => res.data),
+    },
+    rooms: {
+        list: () => axiosInstance.get('/planning/rooms/').then(res => res.data),
+    },
+    planning: {
+        createSession: (data: any) => axiosInstance.post('/planning/sessions/', data).then(res => res.data),
+    }
+};
 
 export default api;

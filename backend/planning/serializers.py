@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Room, ClassSession
+from .models import Room, ClassSession, SessionInstance
 from datetime import datetime, time
 
 class RoomSerializer(serializers.ModelSerializer):
@@ -33,3 +33,8 @@ class SlotSuggestionSerializer(serializers.Serializer):
     teacher_id = serializers.IntegerField()
     duration_minutes = serializers.IntegerField(min_value=30)
     day_of_week = serializers.IntegerField(min_value=0, max_value=6)
+
+class SessionInstanceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SessionInstance
+        fields = '__all__'

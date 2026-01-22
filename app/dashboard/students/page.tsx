@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2 } fro
 import { useStudents, createStudent, updateStudent, deleteStudent } from "@/hooks/useStudents"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import Link from "next/link"
 import { StudentDialog } from "@/components/students/student-dialog"
 import { toast } from "sonner"
 import {
@@ -21,7 +22,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export default function StudentsPage() {
+import { Suspense } from "react"
+import { Loader2 } from "lucide-react"
+
+function StudentsContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -164,7 +168,9 @@ export default function StudentsPage() {
                   students?.map((student: any) => (
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">
-                        {student.user.first_name} {student.user.last_name}
+                        <Link href={`/dashboard/students/${student.id}`} className="hover:underline text-primary">
+                          {student.user.first_name} {student.user.last_name}
+                        </Link>
                       </TableCell>
                       <TableCell>{student.user.email}</TableCell>
                       <TableCell>{student.courses || "Aucun"}</TableCell>
@@ -249,5 +255,17 @@ export default function StudentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  )
+}
+
+export default function StudentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <StudentsContent />
+    </Suspense>
   )
 }

@@ -1,5 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -10,10 +15,6 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { useForm } from "react-hook-form"
-import { useEffect } from "react"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 import {
     Form,
     FormControl,
@@ -21,17 +22,42 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
+    FormDescription,
 } from "@/components/ui/form"
-import { AsyncSelect } from "@/components/ui/async-select"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { AsyncSelect } from "@/components/ui/async-select"
 
+// --- Schema Definition ---
 const courseSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    subject: z.string().or(z.number()), // Subject ID
-    default_teacher: z.string().or(z.number()).nullable(), // Teacher ID (nullable)
-    level: z.string(),
+    subject: z.union([z.string(), z.number()], { required_error: "Subject is required" }),
+    default_teacher: z.union([z.string(), z.number()]).nullable(),
+    level: z.string().min(1, "Level is required"),
     price: z.coerce.number().min(0, "Price must be positive"),
     status: z.string(),
+    // Schedule fields
+    create_schedule: z.boolean().default(false),
+    day_of_week: z.string().optional(),
+    start_time: z.string().optional(),
+    end_time: z.string().optional(),
+    room: z.number().optional(),
+}).superRefine((data, ctx) => {
+    // Custom refinement for conditional schedule validation
+    if (data.create_schedule) {
+        if (!data.day_of_week) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Day is required", path: ["day_of_week"] })
+        }
+        if (!data.start_time) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start time is required", path: ["start_time"] })
+        }
+        if (!data.end_time) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End time is required", path: ["end_time"] })
+        }
+        if (!data.room) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Room is required", path: ["room"] })
+        }
+    }
 })
 
 type CourseFormValues = z.infer<typeof courseSchema>
@@ -39,7 +65,7 @@ type CourseFormValues = z.infer<typeof courseSchema>
 interface CourseDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    course?: any
+    course?: any // Ideally replace 'any' with your Course type
     onSubmit: (data: CourseFormValues) => Promise<void>
 }
 
@@ -49,6 +75,8 @@ export function CourseDialog({
     course,
     onSubmit,
 }: CourseDialogProps) {
+    const [step, setStep] = useState(1)
+
     const form = useForm<CourseFormValues>({
         resolver: zodResolver(courseSchema),
         defaultValues: {
@@ -58,174 +86,339 @@ export function CourseDialog({
             level: "BEGINNER",
             price: 0,
             status: "ACTIVE",
+            create_schedule: false,
+            day_of_week: "0",
+            start_time: "",
+            end_time: "",
         },
     })
 
+    // Reset form when dialog opens/closes or course changes
     useEffect(() => {
-        if (course) {
-            form.reset({
-                name: course.name,
-                subject: course.subject, // Assuming ID is returned
-                default_teacher: course.default_teacher ? course.default_teacher : null,
-                level: course.level,
-                price: course.price,
-                status: course.status,
-            })
-        } else {
-            form.reset({
-                name: "",
-                subject: "",
-                default_teacher: null,
-                level: "BEGINNER",
-                price: 0,
-                status: "ACTIVE",
-            })
+        if (open) {
+            if (course) {
+                form.reset({
+                    name: course.name,
+                    subject: course.subject,
+                    default_teacher: course.default_teacher ?? null,
+                    level: course.level,
+                    price: course.price,
+                    status: course.status,
+                    create_schedule: false, // Usually false when editing existing course
+                })
+            } else {
+                form.reset({
+                    name: "",
+                    subject: "",
+                    default_teacher: null,
+                    level: "BEGINNER",
+                    price: 0,
+                    status: "ACTIVE",
+                    create_schedule: true,
+                    day_of_week: "0",
+                    start_time: "10:00",
+                    end_time: "11:00",
+                })
+            }
+            setStep(1)
         }
     }, [course, form, open])
 
-    const handleSubmit = async (data: CourseFormValues) => {
-        // Need to ensure subject is ID.
-        // AsyncSelect returns ID (number/string).
-        await onSubmit(data)
-        onOpenChange(false)
-        form.reset()
+    const handleFormSubmit = async (data: CourseFormValues) => {
+        try {
+            await onSubmit(data)
+            onOpenChange(false)
+        } catch (error) {
+            console.error("Failed to submit", error)
+        }
     }
+
+    const nextStep = async () => {
+        // Trigger validation for step 1 fields only
+        const step1Valid = await form.trigger(["name", "subject", "level", "price", "status"])
+        if (step1Valid) {
+            setStep(2)
+        }
+    }
+
+    const prevStep = () => setStep(1)
+
+    // Check if we should show the schedule form
+    const isCreatingNew = !course
+    const createSchedule = form.watch("create_schedule")
+    const showSchedule = isCreatingNew && createSchedule
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{course ? "Edit Course" : "Add Course"}</DialogTitle>
+                    <DialogTitle>
+                        {course ? "Edit Course" : "Create New Course"}
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                            (Step {step} of {isCreatingNew ? 2 : 1})
+                        </span>
+                    </DialogTitle>
                     <DialogDescription>
-                        {course
-                            ? "Modify course details."
-                            : "Create a new course."}
+                        {step === 1 ? "Enter course details." : "Configure the official schedule."}
                     </DialogDescription>
                 </DialogHeader>
+
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4 py-4">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Course Name</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Piano Beginner 1" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4">
 
-                        <FormField
-                            control={form.control}
-                            name="subject"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Subject</FormLabel>
-                                    <FormControl>
-                                        <AsyncSelect
-                                            endpoint="/academics/subjects/"
-                                            label="Subject"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            renderLabel={(item: any) => item.name}
-                                            renderValue={(item: any) => item.id}
-                                            placeholder="Select subject"
-                                            searchParam="search" // backend is using ?search=
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="default_teacher"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Default Teacher</FormLabel>
-                                    <FormControl>
-                                        <AsyncSelect
-                                            endpoint="/users/teachers/"
-                                            label="Teacher"
-                                            value={field.value || ""} // Handle null
-                                            onChange={field.onChange}
-                                            renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
-                                            renderValue={(item: any) => item.id}
-                                            placeholder="Select teacher"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* STEP 1 */}
+                        <div className={step === 1 ? "block space-y-4" : "hidden"}>
                             <FormField
                                 control={form.control}
-                                name="level"
+                                name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Level</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select level" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="BEGINNER">Beginner</SelectItem>
-                                                <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-                                                <SelectItem value="ADVANCED">Advanced</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <FormLabel>Course Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Piano Beginner 1" {...field} />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
 
-                            <FormField
-                                control={form.control}
-                                name="status"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Status</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="subject"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Subject</FormLabel>
                                             <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select status" />
-                                                </SelectTrigger>
+                                                <AsyncSelect
+                                                    endpoint="/academics/subjects/"
+                                                    label="Subject"
+                                                    value={field.value ?? ""}
+                                                    onChange={field.onChange}
+                                                    renderLabel={(item: any) => item.name}
+                                                    renderValue={(item: any) => item.id}
+                                                />
                                             </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="ACTIVE">Active</SelectItem>
-                                                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="default_teacher"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <FormLabel>Teacher</FormLabel>
+                                            <FormControl>
+                                                <AsyncSelect
+                                                    endpoint="/users/teachers/"
+                                                    label="Teacher"
+                                                    value={field.value ?? ""}
+                                                    onChange={field.onChange}
+                                                    renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
+                                                    renderValue={(item: any) => item.id}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="level"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Level</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select level" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="BEGINNER">Beginner</SelectItem>
+                                                    <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
+                                                    <SelectItem value="ADVANCED">Advanced</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="price"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Price (€)</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" step="0.01" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="status"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Status</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select status" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="ACTIVE">Active</SelectItem>
+                                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                         </div>
 
-                        <FormField
-                            control={form.control}
-                            name="price"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Price (€)</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" step="0.01" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {/* STEP 2 */}
+                        {isCreatingNew && (
+                            <div className={step === 2 ? "block space-y-4" : "hidden"}>
+                                <FormField
+                                    control={form.control}
+                                    name="create_schedule"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                                <FormLabel>Create Official Schedule</FormLabel>
+                                                <FormDescription>
+                                                    Automatically create the planning schedule for this course.
+                                                </FormDescription>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
 
-                        <DialogFooter>
-                            <Button type="submit">Save changes</Button>
+                                {showSchedule && (
+                                    <div className="rounded-md bg-muted/50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                        <h4 className="text-sm font-medium">Official Schedule</h4>
+
+                                        <FormField
+                                            control={form.control}
+                                            name="room"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Room</FormLabel>
+                                                    <AsyncSelect
+                                                        endpoint="/planning/rooms/"
+                                                        label="Room"
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        renderLabel={(item: any) => `${item.name} (${item.capacity})`}
+                                                        renderValue={(item: any) => item.id}
+                                                    />
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="day_of_week"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Day</FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select day" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="0">Monday</SelectItem>
+                                                                <SelectItem value="1">Tuesday</SelectItem>
+                                                                <SelectItem value="2">Wednesday</SelectItem>
+                                                                <SelectItem value="3">Thursday</SelectItem>
+                                                                <SelectItem value="4">Friday</SelectItem>
+                                                                <SelectItem value="5">Saturday</SelectItem>
+                                                                <SelectItem value="6">Sunday</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="start_time"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Start Time</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="time" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="end_time"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>End Time</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="time" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* FOOTER */}
+                        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancel
+                            </Button>
+
+                            <div className="flex gap-2">
+                                {step === 2 && (
+                                    <Button type="button" variant="ghost" onClick={prevStep}>
+                                        Back
+                                    </Button>
+                                )}
+
+                                {step === 1 && isCreatingNew ? (
+                                    <Button type="button" onClick={nextStep}>
+                                        Next
+                                    </Button>
+                                ) : (
+                                    <Button type="submit">
+                                        {course ? "Save Changes" : "Create Course"}
+                                    </Button>
+                                )}
+                            </div>
                         </DialogFooter>
                     </form>
                 </Form>

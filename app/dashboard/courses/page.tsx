@@ -7,8 +7,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react"
 import { useCourses } from "@/hooks/useCourses"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
+import { useState } from "react"
+import Link from "next/link"
+import { CourseDialog } from "@/components/courses/course-dialog"
+import api from "@/lib/api"
+import { toast } from "sonner"
+import { format } from "date-fns"
 
-export default function CoursesPage() {
+import { Suspense } from "react"
+import { Loader2 } from "lucide-react"
+
+function CoursesContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -16,7 +25,9 @@ export default function CoursesPage() {
   const page = Number(searchParams.get('page')) || 1
   const search = searchParams.get('search') || ""
 
-  const { courses, isLoading, next, previous, totalCount } = useCourses(page, search)
+  const { courses, isLoading, next, previous, totalCount, mutate } = useCourses(page, search)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [selectedCourse, setSelectedCourse] = useState<any>(null)
 
   const handleSearch = (term: string) => {
     const params = new URLSearchParams(searchParams)
@@ -35,15 +46,87 @@ export default function CoursesPage() {
     replace(`${pathname}?${params.toString()}`)
   }
 
+  const handleOpenDialog = (course?: any) => {
+    setSelectedCourse(course)
+    setIsDialogOpen(true)
+  }
+
+  const handleCourseSubmit = async (data: any) => {
+    try {
+      let courseId;
+      if (selectedCourse) {
+        // Edit 
+        await api.put(`/academics/courses/${selectedCourse.id}/`, data)
+        toast.success("Cours mis à jour")
+      } else {
+        // Create
+        // 1. Create Course
+        const courseRes = await api.post("/academics/courses/", {
+          name: data.name,
+          subject: data.subject,
+          default_teacher: data.default_teacher,
+          level: data.level,
+          price: data.price,
+          status: data.status
+        })
+        courseId = courseRes.data.id;
+        toast.success("Cours créé avec succès")
+
+        // 2. Create Schedule (if requested)
+        if (data.create_schedule) {
+          try {
+            // Determine start date (e.g. Next occurrence of that day)
+            // For simplicity, let's just use Today/Tomorrow logic or a default
+            // Ideally we should ask for start_date in the form too, but let's assume "Next applicable day" logic 
+            // in a real app, but for now we'll send a fixed date or today. 
+            // However, backend requires start_date.
+
+            // Let's default start_date to "Next occurrence of Day X"
+            // ...Simpler: Default to today.
+            const today = new Date();
+
+            await api.post("/planning/sessions/", {
+              course: courseId,
+              teacher: data.default_teacher, // Use course teacher
+              room: data.room,
+              day_of_week: parseInt(data.day_of_week),
+              start_time: data.start_time,
+              end_time: data.end_time,
+              start_date: format(today, "yyyy-MM-dd"), // Default to starting now
+              end_date: null // Indefinite
+            })
+            toast.success("Planning officiel créé")
+          } catch (scheduleError: any) {
+            console.error(scheduleError)
+            toast.warning("Le cours est créé mais le planning a échoué (Conflit). Vérifiez le planning.")
+          }
+        }
+      }
+      mutate()
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error(error)
+      toast.error("Une erreur est survenue")
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Gestion des cours</h1>
-        <Button>
+        <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau cours
         </Button>
       </div>
+
+      <CourseDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        course={selectedCourse}
+        onSubmit={handleCourseSubmit}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Cours</CardTitle>
@@ -75,6 +158,7 @@ export default function CoursesPage() {
                   <TableHead>Professeur</TableHead>
                   <TableHead>Étudiants</TableHead>
                   <TableHead>Horaire</TableHead>
+                  <TableHead>Prix (Mensuel)</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -82,36 +166,44 @@ export default function CoursesPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">Chargement...</TableCell>
                   </TableRow>
                 ) : courses?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Aucun cours trouvé.</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">Aucun cours trouvé.</TableCell>
                   </TableRow>
                 ) : (
-                  courses?.map((course: any) => (
-                    <TableRow key={course.id}>
-                      <TableCell className="font-medium">{course.name}</TableCell>
-                      <TableCell>{course.teacher_name}</TableCell>
-                      <TableCell>{course.enrollment_count}</TableCell>
-                      <TableCell>{course.schedule_summary}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${course.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
-                            }`}
-                        >
-                          {course.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          Détails
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  courses?.map((course: any) => {
+                    if (!course) return null;
+                    return (
+                      <TableRow key={course.id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/dashboard/courses/${course.id}`} className="hover:underline text-primary">
+                            {course?.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{course?.teacher_name || "-"}</TableCell>
+                        <TableCell>{course?.enrollment_count || 0}</TableCell>
+                        <TableCell>{course?.schedule_summary || "Non planifié"}</TableCell>
+                        <TableCell>{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(course?.price || 0)}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${course?.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                              }`}
+                          >
+                            {course?.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(course)}>
+                            Détails
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -146,5 +238,17 @@ export default function CoursesPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <CoursesContent />
+    </Suspense>
   )
 }

@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class Subject(models.Model):
     """Musical instruments or subject areas (Piano, Guitar, Solfège, etc.)"""
@@ -31,15 +32,125 @@ class Course(models.Model):
     def __str__(self):
         return f"{self.name} ({self.level})"
 
+    def save(self, *args, **kwargs):
+        # Check if status is changing to INACTIVE
+        if self.pk:
+            old_instance = Course.objects.get(pk=self.pk)
+            if old_instance.status == 'ACTIVE' and self.status == 'INACTIVE':
+                # Disable related Enrollments
+                self.enrollments.filter(status='ACTIVE').update(status='CANCELLED')
+                
+                # Stop/Cancel related ClassSessions
+                # "le cours c'ets la source de descartivation de planing.. pour tjr"
+                # We should set end_date=today for all active sessions
+                from planning.models import ClassSession
+                today = timezone.now().date()
+                ClassSession.objects.filter(
+                    course=self,
+                    end_date__isnull=True
+                ).update(end_date=today)
+                
+                ClassSession.objects.filter(
+                    course=self,
+                    end_date__gt=today
+                ).update(end_date=today)
+
+        super().save(*args, **kwargs)
+
 class Enrollment(models.Model):
-    """Student enrollments in courses"""
+    """Student enrollments in courses with flexible pricing"""
+    STATUS_CHOICES = [
+        ('ACTIVE', 'Active'),
+        ('SUSPENDED', 'Suspended'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+    
     student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='enrollments')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
     enrolled_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    
+    # Flexible pricing fields
+    default_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Original course price at time of enrollment"
+    )
+    custom_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Actual price charged (admin can override)"
+    )
+    is_promotional = models.BooleanField(
+        default=False,
+        help_text="Whether a promotional rule was suggested"
+    )
+    promotional_reason = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Reason for promotional pricing"
+    )
+    notes = models.TextField(blank=True)
+    
+    # Backward compatibility property
+    @property
+    def is_active(self):
+        return self.status == 'ACTIVE'
 
     class Meta:
         unique_together = ('student', 'course')
+        ordering = ['-enrolled_at']
 
     def __str__(self):
         return f"{self.student} enrolled in {self.course}"
+    
+    @property
+    def final_price(self):
+        """Returns the price that will be charged."""
+        return self.custom_price
+
+
+class Subscription(models.Model):
+    """Payment subscription for an enrollment (monthly or quarterly)"""
+    SUBSCRIPTION_TYPE_CHOICES = [
+        ('MONTHLY', 'Monthly'),
+        ('QUARTERLY', 'Quarterly (3 months)'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PAID', 'Paid'),
+        ('OVERDUE', 'Overdue'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+    
+    enrollment = models.ForeignKey(
+        Enrollment,
+        on_delete=models.CASCADE,
+        related_name='subscriptions'
+    )
+    subscription_type = models.CharField(
+        max_length=20,
+        choices=SUBSCRIPTION_TYPE_CHOICES,
+        default='MONTHLY'
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Amount to be paid for this subscription period"
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='PENDING'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-start_date']
+    
+    def __str__(self):
+        return f"{self.enrollment} - {self.get_subscription_type_display()} ({self.start_date} to {self.end_date})"

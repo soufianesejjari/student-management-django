@@ -11,6 +11,7 @@ class Payment(models.Model):
         ('CARD', 'Credit Card'),
         ('TRANSFER', 'Bank Transfer'),
         ('CASH', 'Cash'),
+        ('CHECK', 'Check'),
     )
     STATUS_CHOICES = (
         ('PAID', 'Paid'),
@@ -19,11 +20,20 @@ class Payment(models.Model):
     )
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='payments')
+    subscription = models.ForeignKey(
+        'academics.Subscription',
+        on_delete=models.CASCADE,
+        related_name='payments',
+        null=True,
+        blank=True,
+        help_text="Link to subscription (if applicable)"
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()
     method = models.CharField(max_length=20, choices=METHOD_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
     invoice_ref = models.CharField(max_length=50, blank=True, null=True)
+    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

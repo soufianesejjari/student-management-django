@@ -19,7 +19,10 @@ import {
 import { usePayments, useExpenses } from "@/hooks/useFinances"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 
-export default function FinancesPage() {
+import { Suspense } from "react"
+import { Loader2 } from "lucide-react"
+
+function FinancesContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -388,5 +391,17 @@ export default function FinancesPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function FinancesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <FinancesContent />
+    </Suspense>
   )
 }

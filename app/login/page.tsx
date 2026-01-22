@@ -24,8 +24,8 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await api.post('/auth/token/', {
-        username: email, // Assuming email is username for now, or change backend to accept email
+      const response = await api.auth.login({
+        username: email,
         password: password
       })
 
@@ -50,11 +50,11 @@ export default function LoginPage() {
           <CardContent className="space-y-4">
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}
             <div className="space-y-2">
-              <Label htmlFor="email">Nom d'utilisateur</Label>
+              <Label htmlFor="email">Nom d'utilisateur ou Email</Label>
               <Input
                 id="email"
                 type="text"
-                placeholder="Votre nom d'utilisateur"
+                placeholder="Votre nom d'utilisateur ou email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

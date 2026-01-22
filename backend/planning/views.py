@@ -1,14 +1,17 @@
 from rest_framework import viewsets, permissions, status, views, filters
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from django.db.models import Q
+from django.db import transaction
 from datetime import datetime, timedelta, time, date
-from .models import Room, ClassSession
+from .models import Room, ClassSession, SessionInstance
 from .serializers import (
     RoomSerializer, 
     ClassSessionSerializer, 
     AvailabilityCheckSerializer, 
-    SlotSuggestionSerializer
+    SlotSuggestionSerializer,
+    SessionInstanceSerializer
 )
 from users.models import TeacherProfile, TeacherAvailability, TeacherPreferences
 
@@ -25,6 +28,105 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['course__name', 'teacher__user__first_name', 'teacher__user__last_name', 'room__name']
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new class session with custom conflict validation.
+        Flow:
+        1. Validate Serializer (Basic types)
+        2. Perform 'Hard' validations (Room & Teacher) - Already in model.clean()
+        3. Perform 'Soft' validation (Student conflicts)
+        4. If Soft Conflict & !force: Return 409 + conflict data
+        5. If !Soft Conflict OR force: Save
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # We need to construct a temporary instance to check logic without saving yet
+        # However, model instance needs foreign keys resolved. 
+        # Easier approach: Use transaction.atomic to save, check, and rollback if needed.
+        # OR: Manually check before saving.
+        
+        force_conflicts = request.data.get('force_conflicts', False)
+        
+        try:
+            instance = serializer.save() # validation in clean() handles Room/Teacher conflicts (Hard)
+            
+            # Now Check Student Conflicts (Soft)
+            conflicts = instance.get_student_conflicts()
+            
+            if conflicts and not force_conflicts:
+                # Rollback! We don't want to save if there are unforced conflicts
+                # Since we already saved, we must delete or use atomic transaction block
+                # Better: Use atomic block from start
+                instance.delete()
+                
+                return Response({
+                    "status": "conflict",
+                    "message": "Student scheduling conflicts detected",
+                    "conflicts": conflicts,
+                    "can_force": True
+                }, status=status.HTTP_409_CONFLICT)
+                
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except ValidationError as e:
+            # Catch Django ValidationErrors (Room/Teacher hard conflicts)
+             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post']) 
+    def check_conflicts(self, request):
+        """Dry-run check for conflicts"""
+        # Logic to simulate creation and return conflicts
+        pass
+
+    @action(detail=True, methods=['post'])
+    def reschedule(self, request, pk=None):
+        """
+        Create a SessionInstance to reschedule a specific occurrence.
+        """
+        session = self.get_object()
+        data = request.data
+        
+        original_date = data.get('original_date')
+        new_date = data.get('new_date')
+        new_start = data.get('new_start_time')
+        new_end = data.get('new_end_time')
+        notes = data.get('notes', '')
+        
+        # Create Instance
+        instance, created = SessionInstance.objects.update_or_create(
+            class_session=session,
+            original_date=original_date,
+            defaults={
+                'is_rescheduled': True,
+                'new_date': new_date,
+                'new_start_time': new_start,
+                'new_end_time': new_end,
+                'notes': notes
+            }
+        )
+        
+        return Response(SessionInstanceSerializer(instance).data)
+
+    @action(detail=True, methods=['post'])
+    def cancel_occurrence(self, request, pk=None):
+        """
+        Cancel a specific occurrence
+        """
+        session = self.get_object()
+        date_str = request.data.get('original_date')
+        notes = request.data.get('notes', '')
+        
+        instance, created = SessionInstance.objects.update_or_create(
+            class_session=session,
+            original_date=date_str,
+            defaults={
+                'is_cancelled': True,
+                'notes': notes
+            }
+        )
+        return Response(SessionInstanceSerializer(instance).data)
 
     @action(detail=False, methods=['get'])
     def grid(self, request):
