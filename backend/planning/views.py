@@ -4,7 +4,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from django.db import transaction
+from django.http import HttpResponse
 from datetime import datetime, timedelta, time, date
+from calendar import monthrange
 from .models import Room, ClassSession, SessionInstance
 from .serializers import (
     RoomSerializer, 
@@ -14,6 +16,7 @@ from .serializers import (
     SessionInstanceSerializer
 )
 from users.models import TeacherProfile, TeacherAvailability, TeacherPreferences
+from .pdf_service import PDFReportGenerator
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
@@ -327,3 +330,381 @@ class SmartSchedulingView(views.APIView):
             })
             
         return Response(suggested_slots)
+
+
+class TeacherSessionsView(views.APIView):
+    """Get all sessions for a teacher in a given month with attendance status"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, teacher_id=None):
+        """
+        Get teacher sessions for a month.
+        Params: year, month (required)
+        Returns: List of all sessions occurring in that month with attendance status
+        """
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        year = int(request.query_params.get('year', date.today().year))
+        month = int(request.query_params.get('month', date.today().month))
+        
+        try:
+            teacher = TeacherProfile.objects.get(pk=teacher_id)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get first and last day of month
+        first_day = date(year, month, 1)
+        last_day = date(year, month, monthrange(year, month)[1])
+        
+        # Get all recurring sessions for this teacher active in this month
+        sessions = ClassSession.objects.filter(
+            teacher=teacher
+        ).filter(
+            Q(start_date__lte=last_day) & 
+            (Q(end_date__gte=first_day) | Q(end_date__isnull=True))
+        ).select_related('course', 'room')
+        
+        # Build occurrences for this month
+        occurrences = []
+        current_day = first_day
+        
+        while current_day <= last_day:
+            day_of_week = (current_day.weekday() + 1) % 7  # Convert Python weekday (0=Mon) to ISO (0=Mon, but adjust)
+            
+            for session in sessions:
+                if session.day_of_week == day_of_week:
+                    # Check if this session should occur on this date
+                    if session.start_date <= current_day and (session.end_date is None or session.end_date >= current_day):
+                        # Check for overrides in SessionInstance
+                        instance = SessionInstance.objects.filter(
+                            class_session=session,
+                            original_date=current_day
+                        ).first()
+                        
+                        is_cancelled = instance and instance.is_cancelled
+                        is_absent = instance and instance.teacher_is_absent
+                        
+                        # Calculate duration in hours
+                        start_dt = datetime.combine(current_day, session.start_time)
+                        end_dt = datetime.combine(current_day, session.end_time)
+                        duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                        
+                        occurrences.append({
+                            'id': session.id,
+                            'instance_id': instance.id if instance else None,
+                            'date': current_day.isoformat(),
+                            'day_of_week': session.day_of_week,
+                            'course': session.course.name,
+                            'start_time': session.start_time.isoformat(),
+                            'end_time': session.end_time.isoformat(),
+                            'room': session.room.name,
+                            'duration_hours': duration_hours,
+                            'is_cancelled': is_cancelled,
+                            'teacher_is_absent': is_absent,
+                            'hourly_rate': float(teacher.hourly_rate),
+                        })
+            
+            current_day += timedelta(days=1)
+        
+        # Calculate totals
+        total_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'])
+        worked_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'] and not o['teacher_is_absent'])
+        total_expense = worked_hours * float(teacher.hourly_rate)
+        
+        return Response({
+            'teacher': {
+                'id': teacher.id,
+                'name': teacher.user.get_full_name() or teacher.user.username,
+                'hourly_rate': float(teacher.hourly_rate),
+            },
+            'month': f"{year}-{month:02d}",
+            'occurrences': occurrences,
+            'summary': {
+                'total_sessions': len(occurrences),
+                'cancelled_sessions': sum(1 for o in occurrences if o['is_cancelled']),
+                'absent_sessions': sum(1 for o in occurrences if o['teacher_is_absent']),
+                'total_hours': total_hours,
+                'worked_hours': worked_hours,
+                'total_expense': round(total_expense, 2),
+            }
+        })
+
+    def patch(self, request, teacher_id=None):
+        """
+        Update attendance for a session occurrence
+        """
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        session_id = request.data.get('session_id')
+        occurrence_date = request.data.get('date')
+        teacher_is_absent = request.data.get('teacher_is_absent', False)
+        
+        try:
+            session = ClassSession.objects.get(pk=session_id, teacher_id=teacher_id)
+        except ClassSession.DoesNotExist:
+            return Response({"detail": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Update or create instance
+        instance, created = SessionInstance.objects.update_or_create(
+            class_session=session,
+            original_date=occurrence_date,
+            defaults={'teacher_is_absent': teacher_is_absent}
+        )
+        
+        return Response(SessionInstanceSerializer(instance).data)
+
+
+class TeacherPaymentReportView(views.APIView):
+    """Generate PDF payment report for a teacher"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, teacher_id=None):
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        year = int(request.query_params.get('year', date.today().year))
+        month = int(request.query_params.get('month', date.today().month))
+        
+        try:
+            teacher = TeacherProfile.objects.get(pk=teacher_id)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get session data using the same logic as TeacherSessionsView
+        first_day = date(year, month, 1)
+        last_day = date(year, month, monthrange(year, month)[1])
+        
+        sessions = ClassSession.objects.filter(
+            teacher=teacher
+        ).filter(
+            Q(start_date__lte=last_day) & 
+            (Q(end_date__gte=first_day) | Q(end_date__isnull=True))
+        ).select_related('course', 'room')
+        
+        occurrences = []
+        current_day = first_day
+        
+        while current_day <= last_day:
+            day_of_week = (current_day.weekday() + 1) % 7
+            
+            for session in sessions:
+                if session.day_of_week == day_of_week:
+                    if session.start_date <= current_day and (session.end_date is None or session.end_date >= current_day):
+                        instance = SessionInstance.objects.filter(
+                            class_session=session,
+                            original_date=current_day
+                        ).first()
+                        
+                        is_cancelled = instance and instance.is_cancelled
+                        is_absent = instance and instance.teacher_is_absent
+                        
+                        start_dt = datetime.combine(current_day, session.start_time)
+                        end_dt = datetime.combine(current_day, session.end_time)
+                        duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                        
+                        occurrences.append({
+                            'id': session.id,
+                            'instance_id': instance.id if instance else None,
+                            'date': current_day.isoformat(),
+                            'day_of_week': session.day_of_week,
+                            'course': session.course.name,
+                            'start_time': session.start_time.isoformat(),
+                            'end_time': session.end_time.isoformat(),
+                            'room': session.room.name,
+                            'duration_hours': duration_hours,
+                            'is_cancelled': is_cancelled,
+                            'teacher_is_absent': is_absent,
+                            'hourly_rate': float(teacher.hourly_rate),
+                        })
+            
+            current_day += timedelta(days=1)
+        
+        total_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'])
+        worked_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'] and not o['teacher_is_absent'])
+        total_expense = worked_hours * float(teacher.hourly_rate)
+        
+        teacher_data = {
+            'id': teacher.id,
+            'name': teacher.user.get_full_name() or teacher.user.username,
+            'hourly_rate': float(teacher.hourly_rate),
+        }
+        
+        sessions_data = {
+            'month': f"{year}-{month:02d}",
+            'occurrences': occurrences,
+            'summary': {
+                'total_sessions': len(occurrences),
+                'cancelled_sessions': sum(1 for o in occurrences if o['is_cancelled']),
+                'absent_sessions': sum(1 for o in occurrences if o['teacher_is_absent']),
+                'total_hours': total_hours,
+                'worked_hours': worked_hours,
+                'total_expense': round(total_expense, 2),
+            }
+        }
+        
+        # Generate PDF
+        pdf_generator = PDFReportGenerator()
+        pdf_buffer = pdf_generator.generate_teacher_payment_report(teacher_data, sessions_data)
+        
+        # Return PDF response
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="payment_report_{teacher.user.username}_{year}_{month:02d}.pdf"'
+        return response
+
+
+class TeacherSchedulePDFView(views.APIView):
+    """Generate PDF schedule for a teacher"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, teacher_id=None):
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            teacher = TeacherProfile.objects.get(pk=teacher_id)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get date range (default to current week)
+        today = date.today()
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        else:
+            start_date = today - timedelta(days=today.weekday())
+        
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            end_date = start_date + timedelta(days=6)
+        
+        # Get all sessions for teacher
+        sessions = ClassSession.objects.filter(
+            teacher=teacher
+        ).filter(
+            Q(start_date__lte=end_date) & 
+            (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
+        ).select_related('course', 'room')
+        
+        occurrences = []
+        for session in sessions:
+            occurrences.append({
+                'day_of_week': session.day_of_week,
+                'course': session.course.name,
+                'start_time': session.start_time.isoformat(),
+                'end_time': session.end_time.isoformat(),
+                'room': session.room.name,
+            })
+        
+        teacher_data = {
+            'name': teacher.user.get_full_name() or teacher.user.username,
+        }
+        
+        sessions_data = {
+            'occurrences': occurrences
+        }
+        
+        # Generate PDF
+        pdf_generator = PDFReportGenerator()
+        pdf_buffer = pdf_generator.generate_teacher_schedule(teacher_data, sessions_data, start_date, end_date)
+        
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="schedule_{teacher.user.username}.pdf"'
+        return response
+
+
+class StudentSchedulePDFView(views.APIView):
+    """
+    Generate and download student schedule PDF
+    GET /api/planning/student/<pk>/schedule-pdf/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        from users.models import StudentProfile
+        
+        try:
+            student = StudentProfile.objects.select_related('user').get(pk=pk)
+        except StudentProfile.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Get date range (default to current week)
+        today = date.today()
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+        
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        else:
+            start_date = today - timedelta(days=today.weekday())
+        
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        else:
+            end_date = start_date + timedelta(days=6)
+        
+        # Get all sessions for student's enrolled courses
+        from academics.models import Enrollment
+        
+        # First get the courses the student is enrolled in
+        enrolled_courses = Enrollment.objects.filter(
+            student=student,
+            status='ACTIVE'
+        ).values_list('course_id', flat=True)
+        
+        sessions = ClassSession.objects.filter(
+            course_id__in=enrolled_courses
+        ).filter(
+            Q(start_date__lte=end_date) & 
+            (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
+        ).select_related('course', 'room', 'teacher__user').distinct()
+        
+        occurrences = []
+        for session in sessions:
+            occurrences.append({
+                'day_of_week': session.day_of_week,
+                'course': session.course.name,
+                'teacher': session.teacher.user.get_full_name() or session.teacher.user.username,
+                'start_time': session.start_time.isoformat(),
+                'end_time': session.end_time.isoformat(),
+                'room': session.room.name,
+            })
+        
+        # Group sessions by course for PDF generation
+        courses_dict = {}
+        all_sessions = []
+        for session in sessions:
+            key = session.course.id
+            if key not in courses_dict:
+                courses_dict[key] = {
+                    'course_name': session.course.name,
+                    'teacher_name': session.teacher.user.get_full_name() or session.teacher.user.username,
+                    'sessions': []
+                }
+            session_data = {
+                'day_of_week': session.day_of_week,
+                'course_name': session.course.name,
+                'start_time': session.start_time.isoformat(),
+                'end_time': session.end_time.isoformat(),
+                'room_name': session.room.name,
+            }
+            courses_dict[key]['sessions'].append(session_data)
+            all_sessions.append(session_data)
+        
+        enrollments_data = list(courses_dict.values())
+        
+        student_data = {
+            'name': student.user.get_full_name() or student.user.username,
+        }
+        
+        # Generate PDF
+        pdf_generator = PDFReportGenerator()
+        pdf_buffer = pdf_generator.generate_student_schedule(student_data, enrollments_data, start_date, end_date)
+        
+        response = HttpResponse(pdf_buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="schedule_{student.user.username}.pdf"'
+        return response

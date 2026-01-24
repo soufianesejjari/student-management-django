@@ -31,6 +31,7 @@ const teacherSchema = z.object({
     username: z.string().min(1, "Username is required"),
     speciality: z.string().min(1, "Speciality is required"),
     bio: z.string().optional(),
+    hourly_rate: z.string().optional(),
 })
 
 type TeacherFormValues = z.infer<typeof teacherSchema>
@@ -57,6 +58,7 @@ export function TeacherDialog({
             username: "",
             speciality: "",
             bio: "",
+            hourly_rate: "",
         },
     })
 
@@ -69,6 +71,7 @@ export function TeacherDialog({
                 username: teacher.user.username,
                 speciality: teacher.speciality,
                 bio: teacher.bio || "",
+                hourly_rate: teacher.hourly_rate?.toString() || "",
             })
         } else {
             form.reset({
@@ -78,6 +81,7 @@ export function TeacherDialog({
                 username: "",
                 speciality: "",
                 bio: "",
+                hourly_rate: "",
             })
         }
     }, [teacher, form, open])
@@ -164,6 +168,19 @@ export function TeacherDialog({
                                     <FormLabel>Speciality</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Piano, Violin..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="hourly_rate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Hourly Rate ($)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="0.01" placeholder="25.00" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

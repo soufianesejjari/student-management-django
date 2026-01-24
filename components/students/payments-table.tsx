@@ -26,9 +26,17 @@ export function PaymentsTable({ studentId }: PaymentsTableProps) {
         try {
             setLoading(true)
             const data = await api.payments.list({ student_id: studentId })
-            setPayments(data)
+            // Handle both paginated and non-paginated responses
+            if (Array.isArray(data)) {
+                setPayments(data)
+            } else if (data.results && Array.isArray(data.results)) {
+                setPayments(data.results)
+            } else {
+                setPayments([])
+            }
         } catch (error) {
             console.error("Failed to fetch payments:", error)
+            setPayments([])
         } finally {
             setLoading(false)
         }

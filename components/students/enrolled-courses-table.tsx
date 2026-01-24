@@ -27,9 +27,17 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
         try {
             setLoading(true)
             const data = await api.enrollments.list({ student_id: studentId })
-            setEnrollments(data)
+            // Handle both paginated and non-paginated responses
+            if (Array.isArray(data)) {
+                setEnrollments(data)
+            } else if (data.results && Array.isArray(data.results)) {
+                setEnrollments(data.results)
+            } else {
+                setEnrollments([])
+            }
         } catch (error) {
             console.error("Failed to fetch enrollments:", error)
+            setEnrollments([])
         } finally {
             setLoading(false)
         }

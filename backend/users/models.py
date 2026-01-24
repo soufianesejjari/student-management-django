@@ -40,6 +40,7 @@ class TeacherProfile(models.Model):
     bio = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
     color_code = models.CharField(max_length=20, default='#3788d8') # Default blue for calendar
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Pay rate per hour in currency units")
 
     def __str__(self):
         return f"Teacher: {self.user.username}"

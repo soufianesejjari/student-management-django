@@ -126,6 +126,10 @@ export const api = {
         createSession: (data: any) => axiosInstance.post('/planning/sessions/', data).then(res => res.data),
         checkAvailability: (data: any) => axiosInstance.post('/planning/check-availability/', data).then(res => res.data),
         suggestSlots: (data: any) => axiosInstance.post('/planning/suggest-slots/', data).then(res => res.data),
+        getTeacherSessions: (teacherId: number, year: number, month: number) => 
+            axiosInstance.get(`/planning/teacher/${teacherId}/sessions/`, { params: { year, month } }).then(res => res.data),
+        updateSessionAttendance: (teacherId: number, data: any) => 
+            axiosInstance.patch(`/planning/teacher/${teacherId}/sessions/`, data).then(res => res.data),
     }
 };
 

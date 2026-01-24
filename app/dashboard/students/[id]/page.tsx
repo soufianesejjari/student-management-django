@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, Plus, Mail, Phone, Calendar, Music } from "lucide-react"
+import { Loader2, Plus, Mail, Phone, Calendar, Music, FileDown } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { EnrolledCoursesTable } from "@/components/students/enrolled-courses-table"
@@ -30,6 +30,26 @@ export default function StudentDetailPage() {
             toast.error("Failed to load student details")
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleDownloadSchedule = async () => {
+        try {
+            const response = await api.get(`/planning/student/${params.id}/schedule-pdf/`, {
+                responseType: 'blob'
+            })
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `student_schedule_${student?.user?.username || params.id}.pdf`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            toast.success("Schedule downloaded")
+        } catch (error) {
+            console.error(error)
+            toast.error("Failed to download schedule")
         }
     }
 
@@ -66,7 +86,10 @@ export default function StudentDetailPage() {
                     </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                    {/* Actions like Edit Profile could go here */}
+                    <Button variant="outline" onClick={handleDownloadSchedule}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Download Schedule
+                    </Button>
                 </div>
             </div>
 

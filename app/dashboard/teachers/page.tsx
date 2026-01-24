@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2, Eye } from "lucide-react"
 import { useTeachers, createTeacher, updateTeacher, deleteTeacher } from "@/hooks/useTeachers"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { TeacherDialog } from "@/components/teachers/teacher-dialog"
 import { toast } from "sonner"
+import Link from "next/link"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,6 +181,11 @@ export default function TeachersPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
+                        <Link href={`/dashboard/teachers/${teacher.id}`}>
+                          <Button variant="ghost" size="icon" title="View Profile">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(teacher)}>
                           <Pencil className="h-4 w-4" />
                         </Button>

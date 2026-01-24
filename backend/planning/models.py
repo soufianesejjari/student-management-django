@@ -27,6 +27,9 @@ class SessionInstance(models.Model):
     # Cancellation field
     is_cancelled = models.BooleanField(default=False)
     
+    # Attendance field for teacher
+    teacher_is_absent = models.BooleanField(default=False)
+    
     # Audit
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

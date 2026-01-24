@@ -1,0 +1,2 @@
+# PDF Generation Requirements
+reportlab==4.0.9

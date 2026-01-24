@@ -72,7 +72,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ['id', 'user', 'speciality', 'bio', 'status', 'color_code', 'availabilities', 'preferences', 'student_count', 'first_name', 'last_name', 'email', 'username']
+        fields = ['id', 'user', 'speciality', 'bio', 'status', 'color_code', 'hourly_rate', 'availabilities', 'preferences', 'student_count', 'first_name', 'last_name', 'email', 'username']
 
     def get_student_count(self, obj):
         # Count total active enrollments in courses where this teacher is the default teacher

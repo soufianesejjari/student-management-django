@@ -23,6 +23,16 @@
 - Backend dev: `cd backend && source venv/bin/activate && python manage.py runserver 0.0.0.0:8009`.
 - No separate test or lint scripts are defined for the Django backend.
 
+## Teacher Profile & Attendance System
+- Teachers have an `hourly_rate` field on `TeacherProfile` model (payment per hour).
+- Sessions are tracked via `ClassSession` (recurring schedule) with individual occurrences in `SessionInstance` (handles rescheduling, cancellations, and attendance).
+- `SessionInstance` has `teacher_is_absent` boolean flag to mark when teacher didn't work.
+- Expense calculation: `worked_hours * hourly_rate` (excludes cancelled sessions and absences).
+- Endpoint: `GET /api/planning/teacher/<id>/sessions/?year=YYYY&month=MM` returns all sessions for that month with attendance status and calculated expense.
+- Frontend page: `/dashboard/teachers/[id]` shows monthly calendar with ability to toggle absence status per session; auto-updates totals and salary calculation.
+- Use `useTeacherSessions` hook in `hooks/useTeacherSessions.ts` to fetch and `updateSessionAttendance()` to update attendance.
+
 ## Integration notes & examples
 - Scheduling workflow uses planning endpoints: `POST /api/planning/check-availability/` and `POST /api/planning/suggest-slots/` (see `components/courses/session-dialog.tsx`).
 - Course sessions are fetched via `/api/planning/sessions/?course=<id>` and may be paginated; handle both shapes (see `components/courses/course-schedule.tsx`).
+
