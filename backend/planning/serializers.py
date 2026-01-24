@@ -35,6 +35,8 @@ class SlotSuggestionSerializer(serializers.Serializer):
     day_of_week = serializers.IntegerField(min_value=0, max_value=6)
 
 class SessionInstanceSerializer(serializers.ModelSerializer):
+    class_session_details = ClassSessionSerializer(source='class_session', read_only=True)
+
     class Meta:
         model = SessionInstance
         fields = '__all__'

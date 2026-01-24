@@ -124,6 +124,8 @@ export const api = {
     },
     planning: {
         createSession: (data: any) => axiosInstance.post('/planning/sessions/', data).then(res => res.data),
+        checkAvailability: (data: any) => axiosInstance.post('/planning/check-availability/', data).then(res => res.data),
+        suggestSlots: (data: any) => axiosInstance.post('/planning/suggest-slots/', data).then(res => res.data),
     }
 };
 

@@ -27,6 +27,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { AsyncSelect } from "@/components/ui/async-select"
+import { api } from "@/lib/api"
+import { Loader2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // --- Schema Definition ---
 const courseSchema = z.object({
@@ -76,6 +79,10 @@ export function CourseDialog({
     onSubmit,
 }: CourseDialogProps) {
     const [step, setStep] = useState(1)
+    const [conflict, setConflict] = useState<{ is_available: boolean; reason?: string; details?: string } | null>(null)
+    const [isChecking, setIsChecking] = useState(false)
+    const [suggestedSlots, setSuggestedSlots] = useState<any[]>([])
+    const [isSuggesting, setIsSuggesting] = useState(false)
 
     const form = useForm<CourseFormValues>({
         resolver: zodResolver(courseSchema),
@@ -142,6 +149,69 @@ export function CourseDialog({
     }
 
     const prevStep = () => setStep(1)
+
+    // Check Availability Effect
+    const watchedSchedule = form.watch(["create_schedule", "day_of_week", "start_time", "end_time", "room", "default_teacher"])
+    useEffect(() => {
+        const [create_schedule, day_of_week, start_time, end_time, room, default_teacher] = watchedSchedule
+
+        if (create_schedule && day_of_week && start_time && end_time && room && default_teacher) {
+            const check = async () => {
+                setIsChecking(true)
+                setConflict(null)
+                try {
+                    const res = await api.planning.checkAvailability({
+                        teacher_id: Number(default_teacher),
+                        room_id: Number(room),
+                        day_of_week: Number(day_of_week),
+                        start_time,
+                        end_time
+                    })
+                    if (!res.is_available) {
+                        setConflict(res)
+                    }
+                } catch (e) {
+                    console.error("Check failed", e)
+                } finally {
+                    setIsChecking(false)
+                }
+            }
+            // Debounce slightly
+            const timer = setTimeout(check, 500)
+            return () => clearTimeout(timer)
+        } else {
+            setConflict(null)
+        }
+    }, [JSON.stringify(watchedSchedule)])
+
+    const handleSuggestSlots = async () => {
+        const teacher = form.getValues("default_teacher")
+        const day = form.getValues("day_of_week")
+
+        if (!teacher || !day) {
+            return // Need teacher and day to suggest
+        }
+
+        setIsSuggesting(true)
+        try {
+            const slots = await api.planning.suggestSlots({
+                teacher_id: Number(teacher),
+                day_of_week: Number(day),
+                duration_minutes: 60 // Default 1 hour
+            })
+            setSuggestedSlots(slots)
+        } catch (e) {
+            console.error("Failed to suggest slots", e)
+        } finally {
+            setIsSuggesting(false)
+        }
+    }
+
+    const applySuggestedSlot = (slot: any) => {
+        form.setValue("start_time", slot.start)
+        form.setValue("end_time", slot.end)
+        setSuggestedSlots([])
+    }
 
     // Check if we should show the schedule form
     const isCreatingNew = !course
@@ -315,6 +385,57 @@ export function CourseDialog({
                                 {showSchedule && (
                                     <div className="rounded-md bg-muted/50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
                                         <h4 className="text-sm font-medium">Official Schedule</h4>
+
+                                        {/* Status & Alerts */}
+                                        {isChecking && (
+                                            <div className="flex items-center text-xs text-muted-foreground">
+                                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                                Checking availability...
+                                            </div>
+                                        )}
+
+                                        {conflict && (
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Schedule Conflict</AlertTitle>
+                                                <AlertDescription>
+                                                    {conflict.details || conflict.reason}
+                                                </AlertDescription>
+                                            </Alert>
+                                        )}
+
+                                        {/* Suggest Slots Button */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleSuggestSlots}
+                                            disabled={isSuggesting || !form.getValues("default_teacher") || !form.getValues("day_of_week")}
+                                        >
+                                            {isSuggesting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                                            Suggest Available Slots
+                                        </Button>
+
+                                        {/* Display Suggested Slots */}
+                                        {suggestedSlots.length > 0 && (
+                                            <div className="border rounded-md p-3 space-y-2">
+                                                <p className="text-xs font-medium text-muted-foreground">Recommended Slots:</p>
+                                                {suggestedSlots.map((slot, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className="flex items-center justify-between p-2 border rounded hover:bg-accent cursor-pointer"
+                                                        onClick={() => applySuggestedSlot(slot)}
+                                                    >
+                                                        <div>
+                                                            <div className="font-medium text-sm">{slot.start} - {slot.end}</div>
+                                                            <div className="text-xs text-muted-foreground">{slot.reason}</div>
+                                                        </div>
+                                                        <Button type="button" size="sm" variant="ghost">Apply</Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
 
                                         <FormField
                                             control={form.control}

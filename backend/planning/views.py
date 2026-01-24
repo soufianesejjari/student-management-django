@@ -29,50 +29,55 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['course__name', 'teacher__user__first_name', 'teacher__user__last_name', 'room__name']
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        course_id = self.request.query_params.get('course')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        return queryset
+
     def create(self, request, *args, **kwargs):
         """
         Create a new class session with custom conflict validation.
-        Flow:
-        1. Validate Serializer (Basic types)
-        2. Perform 'Hard' validations (Room & Teacher) - Already in model.clean()
-        3. Perform 'Soft' validation (Student conflicts)
-        4. If Soft Conflict & !force: Return 409 + conflict data
-        5. If !Soft Conflict OR force: Save
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # We need to construct a temporary instance to check logic without saving yet
-        # However, model instance needs foreign keys resolved. 
-        # Easier approach: Use transaction.atomic to save, check, and rollback if needed.
-        # OR: Manually check before saving.
-        
         force_conflicts = request.data.get('force_conflicts', False)
         
         try:
-            instance = serializer.save() # validation in clean() handles Room/Teacher conflicts (Hard)
+            # We use a transaction to ensure we can check for soft conflicts after saving 
+            # (since our logic uses model instance) but rollback if needed.
+            # However, hard conflicts (Room/Teacher) are raised during .save() -> .clean()
             
-            # Now Check Student Conflicts (Soft)
-            conflicts = instance.get_student_conflicts()
-            
-            if conflicts and not force_conflicts:
-                # Rollback! We don't want to save if there are unforced conflicts
-                # Since we already saved, we must delete or use atomic transaction block
-                # Better: Use atomic block from start
-                instance.delete()
+            with transaction.atomic():
+                instance = serializer.save() 
                 
-                return Response({
-                    "status": "conflict",
-                    "message": "Student scheduling conflicts detected",
-                    "conflicts": conflicts,
-                    "can_force": True
-                }, status=status.HTTP_409_CONFLICT)
+                # Check Student Conflicts (Soft)
+                conflicts = instance.get_student_conflicts()
+                
+                if conflicts and not force_conflicts:
+                    # If we don't force, we must rollback manually by raising an exception 
+                    # OR we just let the transaction finish then delete. 
+                    # To effectively "rollback" and return error, raising an error is best inside atomic block.
+                    # But here we want to return a specific 409 response.
+                    # So we allow save, then delete.
+                    instance.delete()
+                    
+                    return Response({
+                        "status": "conflict",
+                        "message": "Student scheduling conflicts detected",
+                        "conflicts": conflicts,
+                        "can_force": True
+                    }, status=status.HTTP_409_CONFLICT)
                 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except ValidationError as e:
-            # Catch Django ValidationErrors (Room/Teacher hard conflicts)
-             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
+            # Catch Django ValidationErrors (Room/Teacher hard conflicts) from model.clean()
+            return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post']) 
     def check_conflicts(self, request):
@@ -133,6 +138,7 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         """
         Return all sessions in a format suitable for calendar grid.
         Params: start_date, end_date
+        Returns: { recurring: [...], instances: [...] }
         """
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
@@ -150,16 +156,26 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
         # Filter sessions that are active within this range
+        # A session is active if its recurrence period overlaps with the requested range
         sessions = ClassSession.objects.filter(
-            start_date__lte=end_date,
-            end_date__gte=start_date
+            Q(start_date__lte=end_date) &
+            (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
         )
         
-        # We need to expand recurring sessions into individual calendar events
-        # simpler approach for now: just return the session definitions
-        # Frontend usually handles RRULE, but for simple weekly schedule we can return the objects
-        serializer = self.get_serializer(sessions, many=True)
-        return Response(serializer.data)
+        # Get all session instances (exceptions) within the date range
+        instances = SessionInstance.objects.filter(
+            original_date__gte=start_date,
+            original_date__lte=end_date
+        ).select_related('class_session', 'class_session__course', 'class_session__teacher', 'class_session__room')
+        
+        # Serialize both
+        sessions_serializer = self.get_serializer(sessions, many=True)
+        instances_serializer = SessionInstanceSerializer(instances, many=True)
+        
+        return Response({
+            'recurring': sessions_serializer.data,
+            'instances': instances_serializer.data
+        })
 
 
 class AvailabilityCheckView(views.APIView):
@@ -176,10 +192,15 @@ class AvailabilityCheckView(views.APIView):
             day_of_week=data['day_of_week'],
             start_time__lt=data['end_time'],
             end_time__gt=data['start_time']
-        ).exists()
-
-        if room_conflict:
-            return Response({'is_available': False, 'reason': 'Room is occupied'}, status=status.HTTP_200_OK)
+        )
+        
+        if room_conflict.exists():
+            conflict = room_conflict.first()
+            return Response({
+                'is_available': False, 
+                'reason': 'Room Occupied',
+                'details': f"Occupied by {conflict.course.name} ({conflict.start_time.strftime('%H:%M')}-{conflict.end_time.strftime('%H:%M')})"
+            }, status=status.HTTP_200_OK)
 
         # Check Teacher Availability
         teacher_conflict = ClassSession.objects.filter(
@@ -187,10 +208,15 @@ class AvailabilityCheckView(views.APIView):
             day_of_week=data['day_of_week'],
             start_time__lt=data['end_time'],
             end_time__gt=data['start_time']
-        ).exists()
-
-        if teacher_conflict:
-            return Response({'is_available': False, 'reason': 'Teacher has another class'}, status=status.HTTP_200_OK)
+        )
+        
+        if teacher_conflict.exists():
+             conflict = teacher_conflict.first()
+             return Response({
+                 'is_available': False, 
+                 'reason': 'Teacher Busy',
+                 'details': f"Teacher busy with {conflict.course.name} ({conflict.start_time.strftime('%H:%M')}-{conflict.end_time.strftime('%H:%M')})"
+             }, status=status.HTTP_200_OK)
 
         return Response({'is_available': True}, status=status.HTTP_200_OK)
 

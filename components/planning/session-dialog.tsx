@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { format } from "date-fns"
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +19,6 @@ import {
 import {
     Form,
     FormControl,
-    FormDescription,
     FormField,
     FormItem,
     FormLabel,
@@ -27,36 +26,23 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AsyncSelect } from "@/components/ui/async-select"
 import { cn } from "@/lib/utils"
 import api from "@/lib/api"
 import { toast } from "sonner"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@radix-ui/react-alert-dialog"
+import { AlertDialogFooter, AlertDialogHeader } from "../ui/alert-dialog"
+
 
 const sessionSchema = z.object({
     course: z.number({ required_error: "Course is required" }),
     teacher: z.number({ required_error: "Teacher is required" }),
     room: z.number({ required_error: "Room is required" }),
-    day_of_week: z.string({ required_error: "Day is required" }),
     start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
     end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
     start_date: z.date({ required_error: "Start date is required" }),
-    end_date: z.date().optional().nullable(),
-    is_indefinite: z.boolean().default(false),
 })
+
 
 type SessionFormValues = z.infer<typeof sessionSchema>
 
@@ -74,18 +60,25 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
     const form = useForm<SessionFormValues>({
         resolver: zodResolver(sessionSchema),
         defaultValues: {
-            is_indefinite: false,
+            start_date: new Date(),
+            start_time: "10:00",
+            end_time: "11:00",
         },
     })
+
 
     const onSubmit = async (data: SessionFormValues, force = false) => {
         setIsSubmitting(true)
         try {
+            const jsDay = data.start_date.getDay()
+            const dayOfWeek = (jsDay + 6) % 7
+            const endDate = format(data.start_date, "yyyy-MM-dd")
+
             const payload = {
                 ...data,
-                day_of_week: parseInt(data.day_of_week),
+                day_of_week: dayOfWeek,
                 start_date: format(data.start_date, "yyyy-MM-dd"),
-                end_date: data.is_indefinite || !data.end_date ? null : format(data.end_date, "yyyy-MM-dd"),
+                end_date: endDate,
                 force_conflicts: force,
             }
 
@@ -104,10 +97,6 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
             } else {
                 console.error(error)
                 toast.error(error.response?.data?.detail || "Failed to create session")
-                // Check for specific field errors
-                if (error.response?.data) {
-                    // map backend errors to form fields if possible
-                }
             }
         } finally {
             setIsSubmitting(false)
@@ -125,7 +114,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                     <DialogHeader>
                         <DialogTitle>Schedule Class Session</DialogTitle>
                         <DialogDescription>
-                            Create a recurring class session.
+                            Create a single class session.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -191,33 +180,6 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                         </FormItem>
                                     )}
                                 />
-
-                                <FormField
-                                    control={form.control}
-                                    name="day_of_week"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Day</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select day" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="0">Monday</SelectItem>
-                                                    <SelectItem value="1">Tuesday</SelectItem>
-                                                    <SelectItem value="2">Wednesday</SelectItem>
-                                                    <SelectItem value="3">Thursday</SelectItem>
-                                                    <SelectItem value="4">Friday</SelectItem>
-                                                    <SelectItem value="5">Saturday</SelectItem>
-                                                    <SelectItem value="6">Sunday</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -255,110 +217,23 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     control={form.control}
                                     name="start_date"
                                     render={({ field }) => (
-                                        <FormItem className="flex flex-col">
+                                        <FormItem>
                                             <FormLabel>Start Date</FormLabel>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                            variant={"outline"}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                !field.value && "text-muted-foreground"
-                                                            )}
-                                                        >
-                                                            {field.value ? (
-                                                                format(field.value, "PPP")
-                                                            ) : (
-                                                                <span>Pick a date</span>
-                                                            )}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={field.value}
-                                                        onSelect={field.onChange}
-                                                        disabled={(date) =>
-                                                            date < new Date("1900-01-01")
-                                                        }
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="end_date"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                            <FormLabel>End Date (Optional)</FormLabel>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                            variant={"outline"}
-                                                            disabled={form.watch("is_indefinite")}
-                                                            className={cn(
-                                                                "w-full pl-3 text-left font-normal",
-                                                                (!field.value && !form.watch("is_indefinite")) && "text-muted-foreground"
-                                                            )}
-                                                        >
-                                                            {form.watch("is_indefinite") ? (
-                                                                <span>Indefinite</span>
-                                                            ) : field.value ? (
-                                                                format(field.value, "PPP")
-                                                            ) : (
-                                                                <span>Pick a date</span>
-                                                            )}
-                                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={field.value || undefined}
-                                                        onSelect={field.onChange}
-                                                        initialFocus
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
+                                            <FormControl>
+                                                <Input 
+                                                    type="date" 
+                                                    value={field.value ? format(field.value, "yyyy-MM-dd") : ""}
+                                                    onChange={(e) => {
+                                                        const date = e.target.value ? new Date(e.target.value) : new Date()
+                                                        field.onChange(date)
+                                                    }}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
                             </div>
-
-
-                            <FormField
-                                control={form.control}
-                                name="is_indefinite"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                        <FormControl>
-                                            <Checkbox
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>
-                                                Recur Indefinitely
-                                            </FormLabel>
-                                            <FormDescription>
-                                                This class will repeat every week until manually cancelled.
-                                            </FormDescription>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
 
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

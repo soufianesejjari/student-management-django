@@ -13,8 +13,13 @@ export function useSchedule(startDate?: string, endDate?: string) {
     
     const { data, error, isLoading, mutate } = useSWR(`/planning/sessions/grid/${queryString}`, fetcher);
 
+    // Handle new composite response structure
+    const sessions = data ? (Array.isArray(data) ? data : (data.recurring || [])) : []
+    const instances = data && !Array.isArray(data) ? (data.instances || []) : []
+
     return {
-        sessions: data,
+        sessions,
+        instances,
         isLoading,
         isError: error,
         mutate

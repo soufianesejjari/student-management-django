@@ -67,7 +67,7 @@ class ClassSession(models.Model):
         # Get active enrollments for this course
         # Note: We need to import Enrollment dynamically or rely on related_name if defined
         # Assuming course.enrollments is available
-        enrolled_students = self.course.enrollments.filter(is_active=True)
+        enrolled_students = self.course.enrollments.filter(status='ACTIVE')
         
         for enrollment in enrolled_students:
             student = enrollment.student
@@ -76,7 +76,7 @@ class ClassSession(models.Model):
             # Conflict condition: Same day AND Overlapping Time
             student_sessions = ClassSession.objects.filter(
                 course__enrollments__student=student,
-                course__enrollments__is_active=True,
+                course__enrollments__status='ACTIVE',
                 day_of_week=self.day_of_week
             ).filter(
                 # (StartA < EndB) and (EndA > StartB)
