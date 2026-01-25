@@ -115,10 +115,22 @@ WSGI_APPLICATION = 'musical_academy.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.getenv('DB_NAME', BASE_DIR / 'db.sqlite3'),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
     }
 }
+
+# Handle SQLite vs PostgreSQL
+if DATABASES['default']['ENGINE'] == 'postgresql':
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+elif DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    # For SQLite, NAME should be a Path object
+    if not isinstance(DATABASES['default']['NAME'], Path):
+        DATABASES['default']['NAME'] = BASE_DIR / 'db.sqlite3'
 
 
 # Password validation

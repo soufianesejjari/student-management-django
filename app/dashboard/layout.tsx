@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut, Music2, Settings, Users, UserCog } from "lucide-react"
+import { BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut, Music2, Settings, Users, UserCog, DoorOpen, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,7 @@ export default function DashboardLayout({
     { name: "Étudiants", href: "/dashboard/students", icon: Users },
     { name: "Professeurs", href: "/dashboard/teachers", icon: UserCog },
     { name: "Cours", href: "/dashboard/courses", icon: BookOpen },
+    { name: "Salles", href: "/dashboard/rooms", icon: DoorOpen },
     { name: "Planning", href: "/dashboard/schedule", icon: Calendar },
     { name: "Finances", href: "/dashboard/finances", icon: CreditCard },
     { name: "Rapports", href: "/dashboard/reports", icon: BarChart3 },
