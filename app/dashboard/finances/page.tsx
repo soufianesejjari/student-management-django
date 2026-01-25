@@ -17,7 +17,11 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { usePayments, useExpenses } from "@/hooks/useFinances"
+import { usePaymentStatus } from "@/hooks/usePaymentStatus"
 import { useSearchParams, usePathname, useRouter } from "next/navigation"
+import { ExpenseDialog } from "@/components/finances/expense-dialog"
+import { PaymentDialog } from "@/components/finances/payment-dialog"
+import { UpdatePaymentStatusDialog } from "@/components/finances/update-payment-status-dialog"
 
 import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
@@ -35,8 +39,15 @@ function FinancesContent() {
   const expensesPage = Number(searchParams.get('expenses_page')) || 1
   const expensesSearch = searchParams.get('expenses_search') || ""
 
-  const { payments, isLoading: paymentsLoading, next: paymentsNext, previous: paymentsPrevious, totalCount: paymentsTotal } = usePayments(paymentsPage, paymentsSearch)
-  const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal } = useExpenses(expensesPage, expensesSearch)
+  const { payments, isLoading: paymentsLoading, next: paymentsNext, previous: paymentsPrevious, totalCount: paymentsTotal, mutate: mutatePayments } = usePayments(paymentsPage, paymentsSearch)
+  const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal, mutate: mutateExpenses } = useExpenses(expensesPage, expensesSearch)
+  const { paymentStatus, isLoading: statusLoading, mutate: mutateStatus } = usePaymentStatus()
+
+  const mutate = () => {
+    mutatePayments()
+    mutateExpenses()
+    mutateStatus()
+  }
 
   const handlePaymentsSearch = (term: string) => {
     const params = new URLSearchParams(searchParams)
@@ -96,10 +107,10 @@ function FinancesContent() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Gestion financière</h1>
-        <Button>
-          <Download className="mr-2 h-4 w-4" />
-          Exporter les rapports
-        </Button>
+        <div className="flex gap-2">
+          <PaymentDialog onSuccess={() => { mutate() }} />
+          <ExpenseDialog onSuccess={() => { mutate() }} />
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -154,6 +165,7 @@ function FinancesContent() {
       <Tabs defaultValue="payments" className="space-y-4">
         <TabsList>
           <TabsTrigger value="payments">Paiements reçus</TabsTrigger>
+          <TabsTrigger value="status">Statut paiements</TabsTrigger>
           <TabsTrigger value="expenses">Dépenses</TabsTrigger>
           <TabsTrigger value="reports">Rapports</TabsTrigger>
         </TabsList>
@@ -193,23 +205,24 @@ function FinancesContent() {
                       <TableHead>Date</TableHead>
                       <TableHead>Méthode</TableHead>
                       <TableHead>Statut</TableHead>
+                      <TableHead className="w-[60px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paymentsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">Chargement...</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
                       </TableRow>
                     ) : payments?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">Aucun paiement trouvé.</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">Aucun paiement trouvé.</TableCell>
                       </TableRow>
                     ) : (
                       payments?.map((payment: any) => (
                         <TableRow key={payment.id}>
                           <TableCell className="font-medium">Étudiant #{payment.student}</TableCell>
                           <TableCell>{payment.amount} €</TableCell>
-                          <TableCell>{payment.date}</TableCell>
+                          <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
                           <TableCell>{payment.method}</TableCell>
                           <TableCell>
                             <span
@@ -222,6 +235,13 @@ function FinancesContent() {
                             >
                               {payment.status}
                             </span>
+                          </TableCell>
+                          <TableCell>
+                            <UpdatePaymentStatusDialog 
+                              paymentId={payment.id}
+                              currentStatus={payment.status}
+                              onSuccess={mutate}
+                            />
                           </TableCell>
                         </TableRow>
                       ))
@@ -255,6 +275,82 @@ function FinancesContent() {
                   Suivant
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="status" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Statut des paiements étudiants</CardTitle>
+              <CardDescription>Vue d'ensemble des statuts de paiement de tous les étudiants actifs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Étudiant</TableHead>
+                      <TableHead>Total dû</TableHead>
+                      <TableHead>Payé</TableHead>
+                      <TableHead>Solde</TableHead>
+                      <TableHead>Dernier paiement</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead className="w-[100px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {statusLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center h-24">Chargement...</TableCell>
+                      </TableRow>
+                    ) : paymentStatus.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center h-24">Aucun étudiant trouvé.</TableCell>
+                      </TableRow>
+                    ) : (
+                      paymentStatus.map((status) => (
+                        <TableRow key={status.student_id}>
+                          <TableCell className="font-medium">{status.student_name}</TableCell>
+                          <TableCell>{status.total_due.toFixed(2)} €</TableCell>
+                          <TableCell>{status.total_paid.toFixed(2)} €</TableCell>
+                          <TableCell className={status.balance > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-green-600 dark:text-green-400'}>
+                            {status.balance.toFixed(2)} €
+                          </TableCell>
+                          <TableCell>
+                            {status.last_payment_date 
+                              ? new Date(status.last_payment_date).toLocaleDateString('fr-FR')
+                              : 'Jamais'}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                status.status === "PAID"
+                                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                                  : status.status === "PENDING"
+                                    ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                              }`}
+                            >
+                              {status.status}
+                              {status.days_overdue !== null && status.days_overdue > 0 && (
+                                <span className="ml-1">({status.days_overdue}j)</span>
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {status.balance > 0 && (
+                              <PaymentDialog 
+                                studentId={status.student_id}
+                                onSuccess={mutate}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>

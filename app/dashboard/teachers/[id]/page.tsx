@@ -111,7 +111,7 @@ export default function TeacherProfile() {
 
     // Group occurrences by week for calendar display
     const groupedByWeek: { [key: string]: typeof occurrences } = {}
-    occurrences.forEach(occurrence => {
+    occurrences.forEach((occurrence: any) => {
         const date = new Date(occurrence.date)
         const weekStart = new Date(date)
         weekStart.setDate(weekStart.getDate() - date.getDay())
@@ -211,7 +211,7 @@ export default function TeacherProfile() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3">
-                                    {weekSessions.map(session => {
+                                    {weekSessions.map((session: any) => {
                                         const key = `${session.id}-${session.date}`
                                         const isSaving = savingStates[key]
                                         

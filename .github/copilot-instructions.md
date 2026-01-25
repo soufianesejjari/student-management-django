@@ -32,6 +32,15 @@
 - Frontend page: `/dashboard/teachers/[id]` shows monthly calendar with ability to toggle absence status per session; auto-updates totals and salary calculation.
 - Use `useTeacherSessions` hook in `hooks/useTeacherSessions.ts` to fetch and `updateSessionAttendance()` to update attendance.
 
+## Payment & Expense Management
+- Simple dialogs for recording student payments and school expenses
+- Payment tracking: Record student payments with amount, method (Cash/Card/Transfer/Check), date, notes
+- Expense tracking: Record expenses with description, amount, category (Salary/Rent/Utilities/Equipment/Maintenance/Other), date, status
+- Payment status dashboard: `GET /api/finances/payment-status/` shows all students with PAID/PENDING/OVERDUE status, calculates monthly dues from enrollments, marks OVERDUE after 7 days
+- Frontend components: `components/finances/payment-dialog.tsx`, `components/finances/expense-dialog.tsx`
+- Finance page: `/dashboard/finances` with tabs for Paiements reçus, Statut paiements, Dépenses, Rapports
+- Use `usePayments`, `useExpenses`, `usePaymentStatus` hooks in `hooks/useFinances.ts` and `hooks/usePaymentStatus.ts`
+
 ## Integration notes & examples
 - Scheduling workflow uses planning endpoints: `POST /api/planning/check-availability/` and `POST /api/planning/suggest-slots/` (see `components/courses/session-dialog.tsx`).
 - Course sessions are fetched via `/api/planning/sessions/?course=<id>` and may be paginated; handle both shapes (see `components/courses/course-schedule.tsx`).

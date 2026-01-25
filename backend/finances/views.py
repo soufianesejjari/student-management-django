@@ -1,10 +1,11 @@
 from rest_framework import viewsets, permissions, views, status, filters
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from .models import Payment, Expense
 from .serializers import PaymentSerializer, ExpenseSerializer
-from datetime import datetime
+from datetime import datetime, timedelta, date
+from users.models import StudentProfile
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().select_related('student__user', 'subscription__enrollment__course')
@@ -64,3 +65,66 @@ class FinancialReportView(views.APIView):
             'total_expenses': total_expenses,
             'net_profit': net_profit
         })
+
+
+class PaymentStatusView(views.APIView):
+    """
+    Simple view showing all students with their payment status
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from academics.models import Enrollment
+        
+        students = StudentProfile.objects.filter(status='ACTIVE').select_related('user')
+        today = date.today()
+        current_month = today.month
+        current_year = today.year
+        
+        students_data = []
+        
+        for student in students:
+            # Get active enrollments
+            enrollments = Enrollment.objects.filter(
+                student=student,
+                status='ACTIVE'
+            ).select_related('course')
+            
+            # Calculate total monthly amount from all enrollments
+            total_monthly = sum(e.custom_price for e in enrollments)
+            
+            # Get all payments for this month
+            month_payments = Payment.objects.filter(
+                student=student,
+                date__month=current_month,
+                date__year=current_year
+            )
+            
+            total_paid = month_payments.aggregate(Sum('amount'))['amount__sum'] or 0
+            balance = total_monthly - total_paid
+            
+            # Get last payment
+            last_payment = month_payments.order_by('-date').first()
+            
+            # Determine status
+            if balance <= 0:
+                payment_status = 'PAID'
+            elif today.day > 7:  # Give 7 days grace period
+                days_overdue = (today - date(current_year, current_month, 8)).days
+                payment_status = 'OVERDUE'
+            else:
+                days_overdue = None
+                payment_status = 'PENDING'
+            
+            students_data.append({
+                'student_id': student.id,
+                'student_name': f"{student.user.first_name} {student.user.last_name}",
+                'total_due': float(total_monthly),
+                'total_paid': float(total_paid),
+                'balance': float(balance),
+                'status': payment_status,
+                'last_payment_date': last_payment.date if last_payment else None,
+                'days_overdue': days_overdue if payment_status == 'OVERDUE' else None
+            })
+        
+        return Response(students_data)
