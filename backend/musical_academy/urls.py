@@ -23,9 +23,20 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+
+class HealthCheckView(APIView):
+    """Health check endpoint for Docker/Kubernetes"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        return Response({'status': 'healthy', 'message': 'API is running'})
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', HealthCheckView.as_view(), name='health-check'),
     path('api/users/', include('users.urls')),
     path('api/academics/', include('academics.urls')),
     path('api/planning/', include('planning.urls')),
