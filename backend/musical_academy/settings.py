@@ -29,9 +29,23 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-2+zeyp+_=28(&erw05lw%)a_7f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration - Allow frontend domain
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:8000',
+    os.getenv('FRONTEND_URL', ''),
+] if os.getenv('FRONTEND_URL') else [
+    'http://localhost:3000',
+    'http://localhost:8000',
+]
+
+# Remove empty strings from CORS list
+CORS_ALLOWED_ORIGINS = [url for url in CORS_ALLOWED_ORIGINS if url]
+
+# Allow credentials for cross-origin requests
+CORS_ALLOW_CREDENTIALS = True
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -72,6 +86,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'users',
     'academics',
+    'enrollments',
     'planning',
     'finances',
     'dashboard',
