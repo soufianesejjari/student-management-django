@@ -16,12 +16,12 @@ class Enrollment(models.Model):
     student = models.ForeignKey(
         'users.StudentProfile',
         on_delete=models.CASCADE,
-        related_name='enrollments'
+        related_name='enrollment_records'
     )
     course = models.ForeignKey(
         'academics.Course',
         on_delete=models.CASCADE,
-        related_name='enrollments'
+        related_name='enrollment_records'
     )
     
     # Enrollment metadata
@@ -134,7 +134,7 @@ class Payment(models.Model):
     student = models.ForeignKey(
         'users.StudentProfile',
         on_delete=models.CASCADE,
-        related_name='payments'
+        related_name='enrollment_payments'
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)
