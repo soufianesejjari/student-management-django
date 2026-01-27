@@ -29,16 +29,14 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-2+zeyp+_=28(&erw05lw%)a_7f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()]
 
 # CORS Configuration - Allow frontend domain
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
-    'http://localhost:8000',
     os.getenv('FRONTEND_URL', ''),
 ] if os.getenv('FRONTEND_URL') else [
     'http://localhost:3000',
-    'http://localhost:8000',
 ]
 
 # Remove empty strings from CORS list
