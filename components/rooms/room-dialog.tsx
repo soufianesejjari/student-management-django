@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Plus, Loader2, Edit } from "lucide-react"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations } from "next-intl"
 
 interface RoomDialogProps {
     room?: any
@@ -18,6 +19,7 @@ interface RoomDialogProps {
 }
 
 export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
+    const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -52,10 +54,10 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
         try {
             if (room) {
                 await api.put(`/planning/rooms/${room.id}/`, formData)
-                toast.success("Room updated successfully")
+                toast.success(t('rooms.updateSuccess'))
             } else {
                 await api.post("/planning/rooms/", formData)
-                toast.success("Room created successfully")
+                toast.success(t('rooms.createSuccess'))
             }
             
             setOpen(false)
@@ -68,7 +70,7 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
             onSuccess?.()
         } catch (error: any) {
             console.error(error)
-            toast.error(error.response?.data?.name?.[0] || "Failed to save room")
+            toast.error(error.response?.data?.name?.[0] || t('rooms.saveError'))
         } finally {
             setLoading(false)
         }
@@ -81,7 +83,7 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
     ) : (
         <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Add Room
+            {t('rooms.addRoom')}
         </Button>
     )
 
@@ -92,22 +94,22 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>{room ? "Edit Room" : "Add New Room"}</DialogTitle>
+                    <DialogTitle>{room ? t('rooms.editRoom') : t('rooms.addNewRoom')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name">Room Name *</Label>
+                        <Label htmlFor="name">{t('rooms.roomName')} *</Label>
                         <Input
                             id="name"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            placeholder="e.g., Studio A, Room 101"
+                            placeholder={t('rooms.roomNamePlaceholder')}
                             required
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="capacity">Capacity *</Label>
+                        <Label htmlFor="capacity">{t('rooms.capacity')} *</Label>
                         <Input
                             id="capacity"
                             type="number"
@@ -119,12 +121,12 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="resources">Resources / Equipment</Label>
+                        <Label htmlFor="resources">{t('rooms.resources')}</Label>
                         <Textarea
                             id="resources"
                             value={formData.resources}
                             onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
-                            placeholder="e.g., Grand Piano, Projector, Whiteboard"
+                            placeholder={t('rooms.resourcesPlaceholder')}
                             rows={3}
                         />
                     </div>
@@ -135,16 +137,16 @@ export function RoomDialog({ room, onSuccess, trigger }: RoomDialogProps) {
                             checked={formData.is_active}
                             onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                         />
-                        <Label htmlFor="is_active">Active</Label>
+                        <Label htmlFor="is_active">{t('rooms.active')}</Label>
                     </div>
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                            Cancel
+                            {t('rooms.cancel')}
                         </Button>
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {room ? "Update" : "Create"}
+                            {room ? t('rooms.update') : t('rooms.create')}
                         </Button>
                     </div>
                 </form>

@@ -24,8 +24,10 @@ import {
 
 import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 function StudentsContent() {
+  const t = useTranslations()
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -61,10 +63,10 @@ function StudentsContent() {
   const handleCreate = async (data: any) => {
     try {
       await createStudent(data)
-      toast.success("Student created successfully")
+      toast.success(t('students.createSuccess'))
       mutate() // Refresh list
     } catch (error) {
-      toast.error("Failed to create student")
+      toast.error(t('students.createError'))
       console.error(error)
     }
   }
@@ -73,10 +75,10 @@ function StudentsContent() {
     if (!selectedStudent) return
     try {
       await updateStudent(selectedStudent.id, data)
-      toast.success("Student updated successfully")
+      toast.success(t('students.updateSuccess'))
       mutate()
     } catch (error) {
-      toast.error("Failed to update student")
+      toast.error(t('students.updateError'))
       console.error(error)
     }
   }
@@ -85,10 +87,10 @@ function StudentsContent() {
     if (!studentToDelete) return
     try {
       await deleteStudent(studentToDelete.id)
-      toast.success("Student deleted successfully")
+      toast.success(t('students.deleteSuccess'))
       mutate()
     } catch (error) {
-      toast.error("Failed to delete student")
+      toast.error(t('students.deleteError'))
       console.error(error)
     } finally {
       setIsDeleteDialogOpen(false)
@@ -114,23 +116,23 @@ function StudentsContent() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Gestion des étudiants</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('students.title')}</h1>
         <Button onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouvel étudiant
+          {t('students.addStudent')}
         </Button>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Étudiants</CardTitle>
-          <CardDescription>Gérez les profils des étudiants, leurs inscriptions et leurs paiements.</CardDescription>
+          <CardTitle>{t('students.title')}</CardTitle>
+          <CardDescription>{t('students.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 w-full max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un étudiant..."
+                placeholder={t('students.search')}
                 className="h-9"
                 defaultValue={search}
                 onChange={(e) => {
@@ -140,29 +142,29 @@ function StudentsContent() {
             </div>
             <Button variant="outline" size="sm">
               <Download className="mr-2 h-4 w-4" />
-              Exporter
+              {t('common.export')}
             </Button>
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Cours</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Paiements</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('students.name')}</TableHead>
+                  <TableHead>{t('students.email')}</TableHead>
+                  <TableHead>{t('navigation.courses')}</TableHead>
+                  <TableHead>{t('students.status')}</TableHead>
+                  <TableHead>{t('navigation.finances')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
                   </TableRow>
                 ) : students?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Aucun étudiant trouvé.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">{t('students.noStudents')}</TableCell>
                   </TableRow>
                 ) : (
                   students?.map((student: any) => (
@@ -173,7 +175,7 @@ function StudentsContent() {
                         </Link>
                       </TableCell>
                       <TableCell>{student.user.email}</TableCell>
-                      <TableCell>{student.courses || "Aucun"}</TableCell>
+                      <TableCell>{student.courses || t('common.none')}</TableCell>
                       <TableCell>
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${student.status === "ACTIVE"
@@ -186,7 +188,7 @@ function StudentsContent() {
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
-                          À jour
+                          {t('students.paymentsUpToDate')}
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
@@ -207,7 +209,7 @@ function StudentsContent() {
             <div className="flex-1 text-sm text-muted-foreground">
               {totalCount > 0 ? (
                 <>
-                  Page {page} of {Math.ceil(totalCount / 10)} ({totalCount} items)
+                  {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.items')})
                 </>
               ) : null}
             </div>
@@ -218,7 +220,7 @@ function StudentsContent() {
               disabled={!previous || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
-              Précédent
+              {t('common.previous')}
             </Button>
             <Button
               variant="outline"
@@ -226,7 +228,7 @@ function StudentsContent() {
               onClick={() => handlePageChange(page + 1)}
               disabled={!next || isLoading}
             >
-              Suivant
+              {t('common.next')}
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
@@ -243,14 +245,14 @@ function StudentsContent() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t('students.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the student account.
+              {t('students.deleteConfirmDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">{t('common.delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -258,14 +260,20 @@ function StudentsContent() {
   )
 }
 
-export default function StudentsPage() {
+function StudentsPageContent() {
+  const t = useTranslations()
   return (
     <Suspense fallback={
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">{t('common.loading')}</span>
       </div>
     }>
       <StudentsContent />
     </Suspense>
   )
+}
+
+export default function StudentsPage() {
+  return <StudentsPageContent />
 }

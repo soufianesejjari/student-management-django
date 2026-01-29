@@ -23,6 +23,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form"
+import { useTranslations } from "next-intl"
 
 const studentSchema = z.object({
     first_name: z.string().min(1, "First name is required"),
@@ -47,6 +48,7 @@ export function StudentDialog({
     student,
     onSubmit,
 }: StudentDialogProps) {
+    const t = useTranslations()
     const form = useForm<StudentFormValues>({
         resolver: zodResolver(studentSchema),
         defaultValues: {
@@ -85,11 +87,11 @@ export function StudentDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>{student ? "Edit Student" : "Add Student"}</DialogTitle>
+                    <DialogTitle>{student ? t('students.editStudent') : t('students.addStudent')}</DialogTitle>
                     <DialogDescription>
                         {student
-                            ? "Make changes to the student profile here."
-                            : "Add a new student to the system."}
+                            ? t('students.editStudentDescription')
+                            : t('students.addStudentDescription')}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -99,9 +101,9 @@ export function StudentDialog({
                             name="first_name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>First Name</FormLabel>
+                                    <FormLabel>{t('students.firstName')}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="John" {...field} />
+                                        <Input placeholder={t('students.firstNamePlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -112,9 +114,9 @@ export function StudentDialog({
                             name="last_name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Last Name</FormLabel>
+                                    <FormLabel>{t('students.lastName')}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Doe" {...field} />
+                                        <Input placeholder={t('students.lastNamePlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -125,9 +127,9 @@ export function StudentDialog({
                             name="email"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Email</FormLabel>
+                                    <FormLabel>{t('students.email')}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="john@example.com" {...field} />
+                                        <Input placeholder={t('students.emailPlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -138,16 +140,16 @@ export function StudentDialog({
                             name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Username</FormLabel>
+                                    <FormLabel>{t('students.username')}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="johndoe" {...field} />
+                                        <Input placeholder={t('students.usernamePlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">Save changes</Button>
+                            <Button type="submit">{t('common.saveChanges')}</Button>
                         </DialogFooter>
                     </form>
                 </Form>

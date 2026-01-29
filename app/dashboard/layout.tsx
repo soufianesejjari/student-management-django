@@ -11,25 +11,27 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useMobile } from "@/hooks/use-mobile"
+import { useTranslations } from "next-intl"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const t = useTranslations()
   const pathname = usePathname()
   const isMobile = useMobile()
 
   const navigation = [
-    { name: "Tableau de bord", href: "/dashboard", icon: Home },
-    { name: "Étudiants", href: "/dashboard/students", icon: Users },
-    { name: "Professeurs", href: "/dashboard/teachers", icon: UserCog },
-    { name: "Cours", href: "/dashboard/courses", icon: BookOpen },
-    { name: "Salles", href: "/dashboard/rooms", icon: DoorOpen },
-    { name: "Planning", href: "/dashboard/schedule", icon: Calendar },
-    { name: "Finances", href: "/dashboard/finances", icon: CreditCard },
-    { name: "Rapports", href: "/dashboard/reports", icon: BarChart3 },
-    { name: "Paramètres", href: "/dashboard/settings", icon: Settings },
+    { name: t('navigation.dashboard'), href: "/dashboard", icon: Home },
+    { name: t('navigation.students'), href: "/dashboard/students", icon: Users },
+    { name: t('navigation.teachers'), href: "/dashboard/teachers", icon: UserCog },
+    { name: t('navigation.courses'), href: "/dashboard/courses", icon: BookOpen },
+    { name: t('navigation.rooms'), href: "/dashboard/rooms", icon: DoorOpen },
+    { name: t('navigation.schedule'), href: "/dashboard/schedule", icon: Calendar },
+    { name: t('navigation.finances'), href: "/dashboard/finances", icon: CreditCard },
+    { name: t('navigation.reports'), href: "/dashboard/reports", icon: BarChart3 },
+    { name: t('navigation.settings'), href: "/dashboard/settings", icon: Settings },
   ]
 
   const NavItems = () => (
@@ -62,7 +64,7 @@ export default function DashboardLayout({
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="shrink-0 md:hidden">
                   <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle navigation menu</span>
+                  <span className="sr-only">{t('navigation.toggleMenu')}</span>
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="flex flex-col">
@@ -95,7 +97,7 @@ export default function DashboardLayout({
             <div className="mt-auto">
               <Button variant="outline" size="sm" className="w-full justify-start gap-2">
                 <LogOut className="h-4 w-4" />
-                Déconnexion
+                {t('navigation.logout')}
               </Button>
             </div>
           </div>

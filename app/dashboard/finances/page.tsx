@@ -25,8 +25,10 @@ import { UpdatePaymentStatusDialog } from "@/components/finances/update-payment-
 
 import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 function FinancesContent() {
+  const t = useTranslations()
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -106,7 +108,7 @@ function FinancesContent() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Gestion financière</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('finances.title')}</h1>
         <div className="flex gap-2">
           <PaymentDialog onSuccess={() => { mutate() }} />
           <ExpenseDialog onSuccess={() => { mutate() }} />
@@ -115,31 +117,31 @@ function FinancesContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenus du mois (Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('finances.monthlyIncome')}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalIncome} €</div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <span className="text-muted-foreground">Mois en cours</span>
+              <span className="text-muted-foreground">{t('finances.currentMonth')}</span>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dépenses du mois (Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('finances.monthlyExpenses')}</CardTitle>
             <ArrowDownUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalExpenses} €</div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <span className="text-muted-foreground">Mois en cours</span>
+              <span className="text-muted-foreground">{t('finances.currentMonth')}</span>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bénéfice net (Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('finances.netProfit')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -151,35 +153,35 @@ function FinancesContent() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paiements en attente (Page)</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('finances.pendingPayments')}</CardTitle>
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingAmount} €</div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <span>{pendingPaymentsCount} paiements en attente</span>
+              <span>{pendingPaymentsCount} {t('finances.pendingPaymentsCount')}</span>
             </div>
           </CardContent>
         </Card>
       </div>
       <Tabs defaultValue="payments" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="payments">Paiements reçus</TabsTrigger>
-          <TabsTrigger value="status">Statut paiements</TabsTrigger>
-          <TabsTrigger value="expenses">Dépenses</TabsTrigger>
-          <TabsTrigger value="reports">Rapports</TabsTrigger>
+          <TabsTrigger value="payments">{t('finances.paymentsReceived')}</TabsTrigger>
+          <TabsTrigger value="status">{t('finances.paymentStatus')}</TabsTrigger>
+          <TabsTrigger value="expenses">{t('finances.expenses')}</TabsTrigger>
+          <TabsTrigger value="reports">{t('navigation.reports')}</TabsTrigger>
         </TabsList>
         <TabsContent value="payments" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Paiements des étudiants</CardTitle>
-              <CardDescription>Suivez les paiements reçus des étudiants.</CardDescription>
+              <CardTitle>{t('finances.studentPayments')}</CardTitle>
+              <CardDescription>{t('finances.paymentsDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 w-full max-w-sm">
                   <Input
-                    placeholder="Rechercher un paiement..."
+                    placeholder={t('finances.searchPayments')}
                     className="h-9"
                     defaultValue={paymentsSearch}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentsSearch(e.target.value)}
@@ -188,11 +190,11 @@ function FinancesContent() {
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm">
                     <Filter className="mr-2 h-4 w-4" />
-                    Filtrer
+                    {t('common.filter')}
                   </Button>
                   <Button variant="outline" size="sm">
                     <Download className="mr-2 h-4 w-4" />
-                    Exporter
+                    {t('common.export')}
                   </Button>
                 </div>
               </div>

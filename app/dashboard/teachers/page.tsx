@@ -11,6 +11,7 @@ import { useState } from "react"
 import { TeacherDialog } from "@/components/teachers/teacher-dialog"
 import { toast } from "sonner"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function TeachersPage() {
+  const t = useTranslations()
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { replace } = useRouter()
@@ -58,10 +60,10 @@ export default function TeachersPage() {
   const handleCreate = async (data: any) => {
     try {
       await createTeacher(data)
-      toast.success("Teacher created successfully")
+      toast.success(t('teachers.createSuccess'))
       mutate() // Refresh list
     } catch (error) {
-      toast.error("Failed to create teacher")
+      toast.error(t('teachers.createError'))
       console.error(error)
     }
   }
@@ -70,10 +72,10 @@ export default function TeachersPage() {
     if (!selectedTeacher) return
     try {
       await updateTeacher(selectedTeacher.id, data)
-      toast.success("Teacher updated successfully")
+      toast.success(t('teachers.updateSuccess'))
       mutate()
     } catch (error) {
-      toast.error("Failed to update teacher")
+      toast.error(t('teachers.updateError'))
       console.error(error)
     }
   }
@@ -82,10 +84,10 @@ export default function TeachersPage() {
     if (!teacherToDelete) return
     try {
       await deleteTeacher(teacherToDelete.id)
-      toast.success("Teacher deleted successfully")
+      toast.success(t('teachers.deleteSuccess'))
       mutate()
     } catch (error) {
-      toast.error("Failed to delete teacher")
+      toast.error(t('teachers.deleteError'))
       console.error(error)
     } finally {
       setIsDeleteDialogOpen(false)
@@ -111,23 +113,23 @@ export default function TeachersPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Gestion des professeurs</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('teachers.title')}</h1>
         <Button onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouveau professeur
+          {t('teachers.addTeacher')}
         </Button>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Professeurs</CardTitle>
-          <CardDescription>Gérez les profils des professeurs, leurs spécialités et leurs plannings.</CardDescription>
+          <CardTitle>{t('teachers.title')}</CardTitle>
+          <CardDescription>{t('teachers.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 w-full max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Rechercher un professeur..."
+                placeholder={t('teachers.search')}
                 className="h-9"
                 defaultValue={search}
                 onChange={(e) => {
@@ -137,29 +139,29 @@ export default function TeachersPage() {
             </div>
             <Button variant="outline" size="sm">
               <Download className="mr-2 h-4 w-4" />
-              Exporter
+              {t('common.export')}
             </Button>
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Spécialité</TableHead>
-                  <TableHead>Étudiants</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('teachers.name')}</TableHead>
+                  <TableHead>{t('teachers.email')}</TableHead>
+                  <TableHead>{t('teachers.specialty')}</TableHead>
+                  <TableHead>{t('teachers.students')}</TableHead>
+                  <TableHead>{t('teachers.status')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
                   </TableRow>
                 ) : teachers?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">Aucun professeur trouvé.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24">{t('teachers.noTeachers')}</TableCell>
                   </TableRow>
                 ) : (
                   teachers?.map((teacher: any) => (
@@ -182,7 +184,7 @@ export default function TeachersPage() {
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
                         <Link href={`/dashboard/teachers/${teacher.id}`}>
-                          <Button variant="ghost" size="icon" title="View Profile">
+                          <Button variant="ghost" size="icon" title={t('teachers.view')}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
@@ -203,7 +205,7 @@ export default function TeachersPage() {
             <div className="flex-1 text-sm text-muted-foreground">
               {totalCount > 0 ? (
                 <>
-                  Page {page} of {Math.ceil(totalCount / 10)} ({totalCount} items)
+                  {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.items')})
                 </>
               ) : null}
             </div>
@@ -214,7 +216,7 @@ export default function TeachersPage() {
               disabled={!previous || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
-              Précédent
+              {t('common.previous')}
             </Button>
             <Button
               variant="outline"
@@ -222,7 +224,7 @@ export default function TeachersPage() {
               onClick={() => handlePageChange(page + 1)}
               disabled={!next || isLoading}
             >
-              Suivant
+              {t('common.next')}
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
@@ -239,14 +241,14 @@ export default function TeachersPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t('teachers.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the teacher account.
+              {t('teachers.deleteConfirmDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">{t('common.delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

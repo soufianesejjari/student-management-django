@@ -5,17 +5,19 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { SessionDialog } from "@/components/planning/session-dialog"
 import { WeeklyCalendar } from "@/components/planning/weekly-calendar"
+import { useTranslations } from "next-intl"
 
 export default function SchedulePage() {
+  const t = useTranslations()
   const [isAddOpen, setIsAddOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-100px)]">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Planning des cours</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t('schedule.title')}</h1>
         <Button onClick={() => setIsAddOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Ajouter une séance
+          {t('schedule.addSession')}
         </Button>
       </div>
 

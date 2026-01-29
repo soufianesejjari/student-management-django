@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Music2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 export default function LoginPage() {
+  const t = useTranslations()
   const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -31,7 +33,7 @@ export default function LoginPage() {
 
       login(response.data.access, response.data.refresh)
     } catch (err) {
-      setError("Identifiants incorrects")
+      setError(t('login.error'))
     }
   }
 
@@ -43,18 +45,18 @@ export default function LoginPage() {
             <Music2 className="h-6 w-6" />
             <span>The Musical Academy</span>
           </div>
-          <CardTitle className="text-2xl">Connexion</CardTitle>
-          <CardDescription>Entrez vos identifiants pour accéder à votre compte</CardDescription>
+          <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
+          <CardDescription>{t('login.subtitle')}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}
             <div className="space-y-2">
-              <Label htmlFor="email">Nom d'utilisateur ou Email</Label>
+              <Label htmlFor="email">{t('login.usernameOrEmail')}</Label>
               <Input
                 id="email"
                 type="text"
-                placeholder="Votre nom d'utilisateur ou email"
+                placeholder={t('login.usernamePlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -62,9 +64,9 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t('login.password')}</Label>
                 <Link href="#" className="text-sm text-primary hover:underline">
-                  Mot de passe oublié?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
               <Input
@@ -78,7 +80,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full">
-              Se connecter
+              {t('login.signIn')}
             </Button>
           </CardFooter>
         </form>

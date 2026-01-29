@@ -11,6 +11,7 @@ import { RoomDialog } from "@/components/rooms/room-dialog"
 import { useState } from "react"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations } from "next-intl"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function RoomsPage() {
+  const t = useTranslations()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState("")
   const { rooms, isLoading, next, previous, totalCount, mutate } = useRooms(page, search)
@@ -31,11 +33,11 @@ export default function RoomsPage() {
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/planning/rooms/${id}/`)
-      toast.success("Room deleted successfully")
+      toast.success(t('rooms.deleteSuccess'))
       mutate()
     } catch (error) {
       console.error(error)
-      toast.error("Failed to delete room")
+      toast.error(t('rooms.deleteError'))
     }
   }
 
@@ -43,23 +45,23 @@ export default function RoomsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Rooms</h1>
-          <p className="text-muted-foreground">Manage your classrooms and studios</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('rooms.title')}</h1>
+          <p className="text-muted-foreground">{t('rooms.description')}</p>
         </div>
         <RoomDialog onSuccess={mutate} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Rooms</CardTitle>
-          <CardDescription>View and manage all available rooms</CardDescription>
+          <CardTitle>{t('rooms.allRooms')}</CardTitle>
+          <CardDescription>{t('rooms.viewDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search rooms..."
+                placeholder={t('rooms.search')}
                 className="pl-8"
                 value={search}
                 onChange={(e) => {
@@ -74,37 +76,37 @@ export default function RoomsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Resources</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
+                  <TableHead>{t('rooms.name')}</TableHead>
+                  <TableHead>{t('rooms.capacity')}</TableHead>
+                  <TableHead>{t('rooms.resources')}</TableHead>
+                  <TableHead>{t('rooms.status')}</TableHead>
+                  <TableHead className="w-[100px]">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
-                      Loading...
+                      {t('common.loading')}
                     </TableCell>
                   </TableRow>
                 ) : rooms.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
-                      No rooms found. Click "Add Room" to create one.
+                      {t('rooms.noRooms')}
                     </TableCell>
                   </TableRow>
                 ) : (
                   rooms.map((room: any) => (
                     <TableRow key={room.id}>
                       <TableCell className="font-medium">{room.name}</TableCell>
-                      <TableCell>{room.capacity} people</TableCell>
+                      <TableCell>{room.capacity} {t('rooms.people')}</TableCell>
                       <TableCell className="max-w-xs truncate">
-                        {room.resources || <span className="text-muted-foreground">None</span>}
+                        {room.resources || <span className="text-muted-foreground">{t('common.none')}</span>}
                       </TableCell>
                       <TableCell>
                         <Badge variant={room.is_active ? "default" : "secondary"}>
-                          {room.is_active ? "Active" : "Inactive"}
+                          {room.is_active ? t('rooms.active') : t('rooms.inactive')}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -118,18 +120,18 @@ export default function RoomsPage() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Room?</AlertDialogTitle>
+                                <AlertDialogTitle>{t('rooms.deleteConfirmTitle')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete "{room.name}"? This action cannot be undone.
+                                  {t('rooms.deleteConfirmDescription', { name: room.name })}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={() => handleDelete(room.id)}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  Delete
+                                  {t('common.delete')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -146,7 +148,7 @@ export default function RoomsPage() {
           {totalCount > 0 && (
             <div className="flex items-center justify-end space-x-2 py-4">
               <div className="flex-1 text-sm text-muted-foreground">
-                Page {page} of {Math.ceil(totalCount / 10)} ({totalCount} total)
+                {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.total')})
               </div>
               <Button
                 variant="outline"
@@ -155,7 +157,7 @@ export default function RoomsPage() {
                 disabled={!previous || isLoading}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous
+                {t('common.previous')}
               </Button>
               <Button
                 variant="outline"
@@ -163,7 +165,7 @@ export default function RoomsPage() {
                 onClick={() => setPage(page + 1)}
                 disabled={!next || isLoading}
               >
-                Next
+                {t('common.next')}
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
