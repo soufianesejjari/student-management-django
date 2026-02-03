@@ -149,7 +149,9 @@ export function StudentDialog({
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">{t('common.saveChanges')}</Button>
+                            <Button type="submit">
+                                {student ? t('common.saveChanges') : t('students.addStudent')}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>
