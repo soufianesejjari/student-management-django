@@ -22,7 +22,7 @@ export default function DashboardPage() {
           <TabsTrigger value="reports">{t('dashboard.reports')}</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{t('dashboard.activeStudents')}</CardTitle>
@@ -60,7 +60,17 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_revenue || 0} €`}</div>
-                <p className="text-xs text-muted-foreground">{t('dashboard.expenses')}: {stats?.monthly_expenses || 0} €</p>
+                <p className="text-xs text-muted-foreground">{t('finances.currentMonth')}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t('dashboard.expenses')}</CardTitle>
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_expenses || 0} €`}</div>
+                <p className="text-xs text-muted-foreground">{t('finances.currentMonth')}</p>
               </CardContent>
             </Card>
           </div>
