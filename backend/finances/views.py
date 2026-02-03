@@ -12,7 +12,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['student__user__first_name', 'student__user__last_name', 'invoice_ref']
+    search_fields = [
+        'student__user__first_name',
+        'student__user__last_name',
+        'student__user__username',
+        'student__user__email',
+        'invoice_ref'
+    ]
 
     def get_queryset(self):
         queryset = super().get_queryset()

@@ -4,7 +4,7 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut, Music2, Settings, Users, UserCog, DoorOpen, Menu } from "lucide-react"
+import { BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut, Music2, Settings, Users, UserCog, DoorOpen, Menu, Music } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -27,6 +27,7 @@ export default function DashboardLayout({
     { name: t('navigation.students'), href: "/dashboard/students", icon: Users },
     { name: t('navigation.teachers'), href: "/dashboard/teachers", icon: UserCog },
     { name: t('navigation.courses'), href: "/dashboard/courses", icon: BookOpen },
+    { name: t('navigation.subjects'), href: "/dashboard/subjects", icon: Music },
     { name: t('navigation.rooms'), href: "/dashboard/rooms", icon: DoorOpen },
     { name: t('navigation.schedule'), href: "/dashboard/schedule", icon: Calendar },
     { name: t('navigation.finances'), href: "/dashboard/finances", icon: CreditCard },

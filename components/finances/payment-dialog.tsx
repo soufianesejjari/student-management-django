@@ -97,7 +97,12 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
                                 label="Student"
                                 value={formData.student || ""}
                                 onChange={(value) => setFormData({ ...formData, student: Number(value) })}
-                                renderLabel={(item: any) => `${item.first_name} ${item.last_name}`}
+                                renderLabel={(item: any) => {
+                                    const first = item.user?.first_name ?? item.first_name ?? ""
+                                    const last = item.user?.last_name ?? item.last_name ?? ""
+                                    const name = `${first} ${last}`.trim()
+                                    return name || item.user?.username || item.username || "Unknown Student"
+                                }}
                                 renderValue={(item: any) => item.id}
                                 placeholder="Search student..."
                             />

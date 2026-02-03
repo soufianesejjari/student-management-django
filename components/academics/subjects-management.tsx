@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -13,14 +14,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Trash2, Edit2, Plus } from 'lucide-react';
 import { useSubjects } from '@/hooks/useSubjects';
+
+const SUBJECT_TYPES = [
+  { value: 'SOLFEGE', label: 'Solfege' },
+  { value: 'INSTRUMENT', label: 'Instrument' },
+];
 
 export function SubjectDialog({ subject, onSave }: { subject?: any; onSave: (data: any) => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: subject?.name || '',
     color_code: subject?.color_code || '#3788d8',
+    subject_type: subject?.subject_type || 'INSTRUMENT',
   });
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +44,7 @@ export function SubjectDialog({ subject, onSave }: { subject?: any; onSave: (dat
       setLoading(true);
       await onSave(formData);
       setOpen(false);
-      setFormData({ name: '', color_code: '#3788d8' });
+      setFormData({ name: '', color_code: '#3788d8', subject_type: 'INSTRUMENT' });
     } catch (error) {
       console.error('Error saving subject:', error);
     } finally {
@@ -63,6 +77,24 @@ export function SubjectDialog({ subject, onSave }: { subject?: any; onSave: (dat
               placeholder="ex: Piano, Guitare, Violon"
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <Select
+              value={formData.subject_type}
+              onValueChange={(value) => setFormData({ ...formData, subject_type: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner un type" />
+              </SelectTrigger>
+              <SelectContent>
+                {SUBJECT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="color">Couleur</Label>
@@ -100,12 +132,12 @@ export function SubjectsManagement() {
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const handleCreateSubject = async (data: any) => {
-    await createSubject(data.name, data.color_code);
+    await createSubject(data.name, data.color_code, data.subject_type);
   };
 
   const handleUpdateSubject = (subject: any) => {
     return async (data: any) => {
-      await updateSubject(subject.id, data.name, data.color_code);
+      await updateSubject(subject.id, data.name, data.color_code, data.subject_type);
     };
   };
 
@@ -145,7 +177,14 @@ export function SubjectsManagement() {
                   className="h-8 w-8 rounded-full border"
                   style={{ backgroundColor: subject.color_code }}
                 />
-                <span className="font-medium">{subject.name}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium">{subject.name}</span>
+                  {subject.subject_type && (
+                    <Badge variant="secondary" className="mt-1 w-fit">
+                      {SUBJECT_TYPES.find((t) => t.value === subject.subject_type)?.label || subject.subject_type}
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
                 <SubjectDialog subject={subject} onSave={handleUpdateSubject(subject)} />

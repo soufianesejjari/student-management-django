@@ -3,8 +3,17 @@ from django.utils import timezone
 
 class Subject(models.Model):
     """Musical instruments or subject areas (Piano, Guitar, Solfège, etc.)"""
+    SUBJECT_TYPE_CHOICES = (
+        ('SOLFEGE', 'Solfege'),
+        ('INSTRUMENT', 'Instrument'),
+    )
     name = models.CharField(max_length=100, unique=True)
     color_code = models.CharField(max_length=20, default='#3788d8')
+    subject_type = models.CharField(
+        max_length=20,
+        choices=SUBJECT_TYPE_CHOICES,
+        default='INSTRUMENT'
+    )
 
     def __str__(self):
         return self.name

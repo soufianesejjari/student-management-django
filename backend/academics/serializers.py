@@ -6,7 +6,7 @@ from django.db.models import Count
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'color_code']
+        fields = ['id', 'name', 'color_code', 'subject_type']
 
 class CourseSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
@@ -80,6 +80,18 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         # Check for duplicate enrollment
         student = attrs['student']
         course = attrs['course']
+
+        # Enforce at least one Solfège course for each student
+        if course.subject and course.subject.subject_type != 'SOLFEGE':
+            has_solfege = Enrollment.objects.filter(
+                student=student,
+                status='ACTIVE',
+                course__subject__subject_type='SOLFEGE'
+            ).exists()
+            if not has_solfege:
+                raise serializers.ValidationError(
+                    "Student must be enrolled in at least one Solfege course before enrolling in other subjects."
+                )
         
         existing = Enrollment.objects.filter(
             student=student,

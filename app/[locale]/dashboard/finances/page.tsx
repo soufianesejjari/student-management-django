@@ -14,6 +14,8 @@ import {
   DollarSign,
   Filter,
   PieChart,
+  Pencil,
+  Trash2,
   TrendingUp,
 } from "lucide-react"
 import { usePayments, useExpenses } from "@/hooks/useFinances"
@@ -22,10 +24,23 @@ import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { ExpenseDialog } from "@/components/finances/expense-dialog"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
 import { UpdatePaymentStatusDialog } from "@/components/finances/update-payment-status-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import api from "@/lib/api"
+import { toast } from "sonner"
 
 function FinancesContent() {
   const t = useTranslations()
@@ -44,6 +59,7 @@ function FinancesContent() {
   const { payments, isLoading: paymentsLoading, next: paymentsNext, previous: paymentsPrevious, totalCount: paymentsTotal, mutate: mutatePayments } = usePayments(paymentsPage, paymentsSearch)
   const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal, mutate: mutateExpenses } = useExpenses(expensesPage, expensesSearch)
   const { paymentStatus, isLoading: statusLoading, mutate: mutateStatus } = usePaymentStatus()
+  const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
 
   const mutate = () => {
     mutatePayments()
@@ -77,6 +93,20 @@ function FinancesContent() {
     const params = new URLSearchParams(searchParams)
     params.set('expenses_page', newPage.toString())
     replace(`${pathname}?${params.toString()}`)
+  }
+
+  const handleDeleteExpense = async (id: number) => {
+    try {
+      setDeletingExpenseId(id)
+      await api.delete(`/finances/expenses/${id}/`)
+      toast.success("Expense deleted successfully")
+      mutateExpenses()
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to delete expense")
+    } finally {
+      setDeletingExpenseId(null)
+    }
   }
 
   // Simple client-side calculation for KPIs (assuming all data returned)
@@ -222,7 +252,12 @@ function FinancesContent() {
                     ) : (
                       payments?.map((payment: any) => (
                         <TableRow key={payment.id}>
-                          <TableCell className="font-medium">Étudiant #{payment.student}</TableCell>
+                          <TableCell className="font-medium">
+                            {payment.student_name
+                              || payment.subscription_details?.student_name
+                              || payment.student_username
+                              || `Étudiant #${payment.student}`}
+                          </TableCell>
                           <TableCell>{payment.amount} €</TableCell>
                           <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
                           <TableCell>{payment.method}</TableCell>
@@ -393,16 +428,17 @@ function FinancesContent() {
                       <TableHead>Date</TableHead>
                       <TableHead>Catégorie</TableHead>
                       <TableHead>Statut</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expensesLoading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">Chargement...</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
                       </TableRow>
                     ) : expenses?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">Aucune dépense trouvée.</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">Aucune dépense trouvée.</TableCell>
                       </TableRow>
                     ) : (
                       expenses?.map((expense: any) => (
@@ -420,6 +456,43 @@ function FinancesContent() {
                             >
                               {expense.status}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <ExpenseDialog
+                                expense={expense}
+                                onSuccess={() => mutateExpenses()}
+                                trigger={
+                                  <Button variant="ghost" size="icon" aria-label="Edit expense">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                }
+                              />
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" aria-label="Delete expense">
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete expense</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete the expense.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeleteExpense(expense.id)}
+                                      disabled={deletingExpenseId === expense.id}
+                                    >
+                                      {deletingExpenseId === expense.id ? "Deleting..." : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))

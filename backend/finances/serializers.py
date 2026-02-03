@@ -3,13 +3,18 @@ from .models import Payment, Expense
 from academics.serializers import SubscriptionSerializer
 
 class PaymentSerializer(serializers.ModelSerializer):
-    student_name = serializers.CharField(source='student.user.get_full_name', read_only=True)
+    student_name = serializers.SerializerMethodField()
+    student_username = serializers.CharField(source='student.user.username', read_only=True)
     subscription_details = SubscriptionSerializer(source='subscription', read_only=True)
 
     class Meta:
         model = Payment
-        fields = ['id', 'student', 'student_name', 'subscription', 'subscription_details', 'amount', 'date', 'method', 'status', 'invoice_ref', 'notes', 'created_at']
+        fields = ['id', 'student', 'student_name', 'student_username', 'subscription', 'subscription_details', 'amount', 'date', 'method', 'status', 'invoice_ref', 'notes', 'created_at']
         read_only_fields = ['created_at']
+
+    def get_student_name(self, obj):
+        full_name = obj.student.user.get_full_name()
+        return full_name.strip() or obj.student.user.username
 
     def create(self, validated_data):
         import uuid

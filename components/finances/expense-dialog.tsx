@@ -1,21 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Plus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import api from "@/lib/api"
 
 interface ExpenseDialogProps {
     onSuccess?: () => void
+    expense?: any
+    trigger?: React.ReactNode
 }
 
-export function ExpenseDialog({ onSuccess }: ExpenseDialogProps) {
+export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProps) {
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -24,36 +25,58 @@ export function ExpenseDialog({ onSuccess }: ExpenseDialogProps) {
         category: "OTHER",
         date: new Date().toISOString().split('T')[0],
         status: "PENDING",
-        notes: ""
     })
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-
-        try {
-            await api.post("/finances/expenses/", {
-                description: formData.description,
-                amount: parseFloat(formData.amount),
-                category: formData.category,
-                date: formData.date,
-                status: formData.status
+    useEffect(() => {
+        if (!open) return
+        if (expense) {
+            setFormData({
+                description: expense.description || "",
+                amount: expense.amount?.toString?.() ?? `${expense.amount ?? ""}`,
+                category: expense.category || "OTHER",
+                date: expense.date || new Date().toISOString().split('T')[0],
+                status: expense.status || "PENDING",
             })
-
-            toast.success("Expense added successfully")
-            setOpen(false)
+        } else {
             setFormData({
                 description: "",
                 amount: "",
                 category: "OTHER",
                 date: new Date().toISOString().split('T')[0],
                 status: "PENDING",
-                notes: ""
             })
+        }
+    }, [open, expense])
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+
+        try {
+            if (expense) {
+                await api.patch(`/finances/expenses/${expense.id}/`, {
+                    description: formData.description,
+                    amount: parseFloat(formData.amount),
+                    category: formData.category,
+                    date: formData.date,
+                    status: formData.status
+                })
+                toast.success("Expense updated successfully")
+            } else {
+                await api.post("/finances/expenses/", {
+                    description: formData.description,
+                    amount: parseFloat(formData.amount),
+                    category: formData.category,
+                    date: formData.date,
+                    status: formData.status
+                })
+                toast.success("Expense added successfully")
+            }
+            setOpen(false)
             onSuccess?.()
         } catch (error) {
             console.error(error)
-            toast.error("Failed to add expense")
+            toast.error(expense ? "Failed to update expense" : "Failed to add expense")
         } finally {
             setLoading(false)
         }
@@ -62,14 +85,18 @@ export function ExpenseDialog({ onSuccess }: ExpenseDialogProps) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Expense
-                </Button>
+                {trigger ? (
+                    trigger
+                ) : (
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Expense
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Add Expense</DialogTitle>
+                    <DialogTitle>{expense ? "Edit Expense" : "Add Expense"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">

@@ -8,6 +8,7 @@
     "students": "Étudiants",
     "teachers": "Professeurs",
     "courses": "Cours",
+    "subjects": "Sujets",
     "rooms": "Salles",
     "schedule": "Planning",
     "finances": "Finances",
@@ -22,6 +23,10 @@
     "subtitle": "Plateforme de gestion complète pour votre école de musique",
     "accessPlatform": "Accéder à la plateforme",
     "copyright": "© {year} The Musical Academy. Tous droits réservés."
+  },
+  "subjectsPage": {
+    "title": "Sujets",
+    "description": "Gérez les sujets (instruments) et le Solfege"
   },
   "login": {
     "title": "Connexion",

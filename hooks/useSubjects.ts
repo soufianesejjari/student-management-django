@@ -5,6 +5,7 @@ export interface Subject {
   id: number;
   name: string;
   color_code: string;
+  subject_type?: string;
 }
 
 export function useSubjects() {
@@ -28,11 +29,12 @@ export function useSubjects() {
     fetchSubjects();
   }, []);
 
-  const createSubject = async (name: string, color_code: string) => {
+  const createSubject = async (name: string, color_code: string, subject_type: string) => {
     try {
       const response = await api.post('/academics/subjects/', {
         name,
         color_code,
+        subject_type,
       });
       setSubjects([...subjects, response.data]);
       return response.data;
@@ -41,11 +43,12 @@ export function useSubjects() {
     }
   };
 
-  const updateSubject = async (id: number, name: string, color_code: string) => {
+  const updateSubject = async (id: number, name: string, color_code: string, subject_type: string) => {
     try {
       const response = await api.patch(`/academics/subjects/${id}/`, {
         name,
         color_code,
+        subject_type,
       });
       setSubjects(subjects.map(s => s.id === id ? response.data : s));
       return response.data;
