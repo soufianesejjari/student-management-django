@@ -186,3 +186,18 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Course Offer Settings
+# Configure free course offered with every enrollment
+COURSE_OFFER_SETTINGS = {
+    'enabled': True,  # Set to False to disable the offer
+    'free_course_id': None,  # ID of the free course (Solfège). Set this via environment or admin
+    'max_times': 1,  # Maximum times a student can get the free course (1 = only once)
+}
+
+# Override from environment if set
+if os.getenv('OFFER_ENABLED'):
+    COURSE_OFFER_SETTINGS['enabled'] = os.getenv('OFFER_ENABLED').lower() == 'true'
+if os.getenv('FREE_COURSE_ID'):
+    COURSE_OFFER_SETTINGS['free_course_id'] = int(os.getenv('FREE_COURSE_ID'))
+if os.getenv('OFFER_MAX_TIMES'):
+    COURSE_OFFER_SETTINGS['max_times'] = int(os.getenv('OFFER_MAX_TIMES'))

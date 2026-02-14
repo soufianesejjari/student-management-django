@@ -68,12 +68,13 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         required=True
     )
     subscription_start_date = serializers.DateField(write_only=True, required=True)
+    is_free_offer = serializers.BooleanField(write_only=True, required=False, default=False)
     
     class Meta:
         model = Enrollment
         fields = [
             'id', 'student', 'course', 'custom_price', 'notes',
-            'subscription_type', 'subscription_start_date'
+            'subscription_type', 'subscription_start_date', 'is_free_offer'
         ]
     
     def validate(self, attrs):
@@ -81,18 +82,6 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         student = attrs['student']
         course = attrs['course']
 
-        # Enforce at least one Solfège course for each student
-        if course.subject and course.subject.subject_type != 'SOLFEGE':
-            has_solfege = Enrollment.objects.filter(
-                student=student,
-                status='ACTIVE',
-                course__subject__subject_type='SOLFEGE'
-            ).exists()
-            if not has_solfege:
-                raise serializers.ValidationError(
-                    "Student must be enrolled in at least one Solfege course before enrolling in other subjects."
-                )
-        
         existing = Enrollment.objects.filter(
             student=student,
             course=course,
@@ -113,6 +102,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         
         subscription_type = validated_data.pop('subscription_type')
         subscription_start_date = validated_data.pop('subscription_start_date')
+        is_free_offer = validated_data.pop('is_free_offer', False)
         
         student = validated_data['student']
         course = validated_data['course']
@@ -122,13 +112,22 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         pricing = EnrollmentService.suggest_enrollment_price(student.id, course.id)
         
         # Create enrollment
+        effective_custom_price = 0 if is_free_offer else (
+            custom_price if custom_price is not None else pricing['suggested_price']
+        )
+        effective_is_promotional = pricing['is_promotional'] or is_free_offer
+        effective_reason = pricing['reason'] if pricing['reason'] else (
+            "Free course offer" if is_free_offer else ""
+        )
+
         enrollment = Enrollment.objects.create(
             student=student,
             course=course,
             default_price=pricing['default_price'],
-            custom_price=custom_price if custom_price is not None else pricing['suggested_price'],
-            is_promotional=pricing['is_promotional'],
-            promotional_reason=pricing['reason'],
+            custom_price=effective_custom_price,
+            is_promotional=effective_is_promotional,
+            promotional_reason=effective_reason,
+            is_free_offer=is_free_offer,
             notes=validated_data.get('notes', '')
         )
         

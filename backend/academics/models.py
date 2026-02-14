@@ -100,6 +100,10 @@ class Enrollment(models.Model):
         blank=True,
         help_text="Reason for promotional pricing"
     )
+    is_free_offer = models.BooleanField(
+        default=False,
+        help_text="Whether this enrollment was auto-added as a free offer course"
+    )
     notes = models.TextField(blank=True)
     
     # Backward compatibility property

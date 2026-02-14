@@ -32,9 +32,10 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import { Loader2, AlertCircle, Wand2 } from "lucide-react"
+import { Loader2, Wand2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 const formSchema = z.object({
@@ -52,6 +53,23 @@ interface AddStudentToCourseDialogProps {
     onSuccess: () => void
 }
 
+interface OfferSettings {
+    enabled: boolean
+    free_course_id: number | null
+    max_times: number
+    free_course?: {
+        id: number
+        name: string
+        status: string
+        subject_type?: string | null
+    } | null
+    student_id?: number
+    active_enrollments_count?: number
+    existing_free_course_count?: number
+    can_add_free_course?: boolean
+    should_auto_add?: boolean
+}
+
 export function AddStudentToCourseDialog({
     open,
     onOpenChange,
@@ -62,6 +80,9 @@ export function AddStudentToCourseDialog({
 
     const [suggestingPrice, setSuggestingPrice] = useState(false)
     const [pricingSuggestion, setPricingSuggestion] = useState<any>(null)
+    const [offerSettings, setOfferSettings] = useState<OfferSettings | null>(null)
+    const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
+    const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -111,6 +132,32 @@ export function AddStudentToCourseDialog({
         }
     }, [selectedStudentId, course, form])
 
+    useEffect(() => {
+        if (!open || !selectedStudentId || !course) {
+            setOfferSettings(null)
+            setIncludeFreeCourse(false)
+            return
+        }
+
+        const loadOfferSettings = async () => {
+            setLoadingOfferSettings(true)
+            try {
+                const data = await api.enrollments.offerSettings(Number(selectedStudentId))
+                setOfferSettings(data)
+                const isDifferentCourse = Number(data.free_course_id) !== Number(course.id)
+                setIncludeFreeCourse(Boolean(data.should_auto_add && isDifferentCourse))
+            } catch (error) {
+                console.error("Failed to load offer settings", error)
+                setOfferSettings(null)
+                setIncludeFreeCourse(false)
+            } finally {
+                setLoadingOfferSettings(false)
+            }
+        }
+
+        loadOfferSettings()
+    }, [open, selectedStudentId, course?.id])
+
     // Update price when subscription type changes
     const subscriptionType = form.watch("subscriptionType")
     useEffect(() => {
@@ -124,9 +171,17 @@ export function AddStudentToCourseDialog({
     }, [subscriptionType, pricingSuggestion, course, form])
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        const studentId = Number(values.studentId)
+        const shouldAddFreeCourse = Boolean(
+            includeFreeCourse &&
+            offerSettings?.can_add_free_course &&
+            offerSettings?.free_course_id &&
+            Number(offerSettings.free_course_id) !== Number(course.id)
+        )
+
         try {
             await api.enrollments.create({
-                student: Number(values.studentId),
+                student: studentId,
                 course: course.id,
                 subscription_type: values.subscriptionType,
                 subscription_start_date: values.startDate,
@@ -134,10 +189,34 @@ export function AddStudentToCourseDialog({
                 notes: values.notes
             })
 
-            toast.success("Student enrolled successfully")
+            if (shouldAddFreeCourse) {
+                try {
+                    await api.enrollments.create({
+                        student: studentId,
+                        course: Number(offerSettings?.free_course_id),
+                        subscription_type: values.subscriptionType,
+                        subscription_start_date: values.startDate,
+                        custom_price: 0,
+                        is_free_offer: true,
+                        notes: `Auto-added free offer with ${course?.name || "course"} enrollment`
+                    })
+                    toast.success("Student enrolled and free Solfege added")
+                } catch (freeCourseError: any) {
+                    const detail =
+                        freeCourseError?.response?.data?.non_field_errors?.[0] ||
+                        freeCourseError?.response?.data?.detail ||
+                        "Could not add free Solfege course automatically"
+                    toast.warning(`Main enrollment created. ${detail}`)
+                }
+            } else {
+                toast.success("Student enrolled successfully")
+            }
+
             onSuccess()
             onOpenChange(false)
             form.reset()
+            setOfferSettings(null)
+            setIncludeFreeCourse(false)
         } catch (error: any) {
             toast.error(error.response?.data?.non_field_errors?.[0] || "Failed to enroll student")
         }
@@ -198,6 +277,35 @@ export function AddStudentToCourseDialog({
                                 </AlertDescription>
                             </Alert>
                         ) : null}
+
+                        {loadingOfferSettings && (
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Checking free Solfege eligibility...</span>
+                            </div>
+                        )}
+
+                        {!loadingOfferSettings &&
+                            offerSettings?.enabled &&
+                            offerSettings?.free_course &&
+                            Number(offerSettings.free_course_id) !== Number(course?.id) &&
+                            offerSettings?.can_add_free_course && (
+                                <div className="flex items-start space-x-3 rounded-md border p-3">
+                                    <Checkbox
+                                        id="include-free-course"
+                                        checked={includeFreeCourse}
+                                        onCheckedChange={(checked) => setIncludeFreeCourse(Boolean(checked))}
+                                    />
+                                    <div className="space-y-1">
+                                        <FormLabel htmlFor="include-free-course" className="cursor-pointer">
+                                            Add free {offerSettings.free_course.name} course
+                                        </FormLabel>
+                                        <p className="text-xs text-muted-foreground">
+                                            Suggested for first enrollment. You can uncheck it.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
