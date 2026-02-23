@@ -113,8 +113,8 @@ function CoursesContent() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4" suppressHydrationWarning>
+      <div className="flex items-center justify-between" suppressHydrationWarning>
         <h1 className="text-3xl font-bold tracking-tight">{t('courses.title')}</h1>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
@@ -129,7 +129,7 @@ function CoursesContent() {
         onSubmit={handleCourseSubmit}
       />
 
-      <Card>
+      <Card suppressHydrationWarning>
         <CardHeader>
           <CardTitle>{t('courses.title')}</CardTitle>
           <CardDescription>{t('courses.description')}</CardDescription>

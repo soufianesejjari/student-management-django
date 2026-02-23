@@ -335,7 +335,12 @@ export function AddStudentToCourseDialog({
                                         <Checkbox
                                             id="include-free-course"
                                             checked={includeFreeCourse}
-                                            onCheckedChange={(checked) => setIncludeFreeCourse(Boolean(checked))}
+                                            onClick={(event) => event.stopPropagation()}
+                                            onCheckedChange={(checked) => {
+                                                if (checked === true || checked === false) {
+                                                    setIncludeFreeCourse(checked)
+                                                }
+                                            }}
                                             className="mt-0.5"
                                         />
                                         <div className="flex-1">

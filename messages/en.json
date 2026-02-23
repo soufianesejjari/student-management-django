@@ -45,6 +45,7 @@
     "reports": "Reports",
     "activeStudents": "Active students",
     "newThisMonth": "+{count} this month",
+    "thisMonth": "this month",
     "teachers": "Teachers",
     "active": "Active",
     "activeCourses": "Active courses",
