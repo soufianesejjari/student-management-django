@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations } from "next-intl"
 
 interface ExpenseDialogProps {
     onSuccess?: () => void
@@ -17,6 +18,7 @@ interface ExpenseDialogProps {
 }
 
 export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProps) {
+    const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -61,7 +63,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                     date: formData.date,
                     status: formData.status
                 })
-                toast.success("Expense updated successfully")
+                toast.success(t('dialogs.expense.updateSuccess'))
             } else {
                 await api.post("/finances/expenses/", {
                     description: formData.description,
@@ -70,13 +72,13 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                     date: formData.date,
                     status: formData.status
                 })
-                toast.success("Expense added successfully")
+                toast.success(t('dialogs.expense.addSuccess'))
             }
             setOpen(false)
             onSuccess?.()
         } catch (error) {
             console.error(error)
-            toast.error(expense ? "Failed to update expense" : "Failed to add expense")
+            toast.error(expense ? t('dialogs.expense.updateError') : t('dialogs.expense.addError'))
         } finally {
             setLoading(false)
         }
@@ -90,29 +92,29 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                 ) : (
                     <Button>
                         <Plus className="mr-2 h-4 w-4" />
-                        New Expense
+                        {t('dialogs.expense.newExpense')}
                     </Button>
                 )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>{expense ? "Edit Expense" : "Add Expense"}</DialogTitle>
+                    <DialogTitle>{expense ? t('dialogs.expense.editTitle') : t('dialogs.expense.addTitle')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="description">{t('dialogs.expense.descriptionLabel')}</Label>
                         <Input
                             id="description"
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            placeholder="e.g. Monthly rent"
+                            placeholder={t('dialogs.expense.descriptionPlaceholder')}
                             required
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="amount">Amount (MAD)</Label>
+                            <Label htmlFor="amount">{t('dialogs.expense.amount')}</Label>
                             <Input
                                 id="amount"
                                 type="number"
@@ -126,7 +128,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="date">Date</Label>
+                            <Label htmlFor="date">{t('finances.date')}</Label>
                             <Input
                                 id="date"
                                 type="date"
@@ -139,7 +141,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="category">Category</Label>
+                            <Label htmlFor="category">{t('finances.category')}</Label>
                             <Select
                                 value={formData.category}
                                 onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -148,18 +150,18 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="SALARY">Salary</SelectItem>
-                                    <SelectItem value="RENT">Rent</SelectItem>
-                                    <SelectItem value="UTILITIES">Utilities</SelectItem>
-                                    <SelectItem value="EQUIPMENT">Equipment</SelectItem>
-                                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                                    <SelectItem value="OTHER">Other</SelectItem>
+                                    <SelectItem value="SALARY">{t('dialogs.expense.salary')}</SelectItem>
+                                    <SelectItem value="RENT">{t('dialogs.expense.rent')}</SelectItem>
+                                    <SelectItem value="UTILITIES">{t('dialogs.expense.utilities')}</SelectItem>
+                                    <SelectItem value="EQUIPMENT">{t('dialogs.expense.equipment')}</SelectItem>
+                                    <SelectItem value="MAINTENANCE">{t('dialogs.expense.maintenance')}</SelectItem>
+                                    <SelectItem value="OTHER">{t('dialogs.expense.other')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="status">Status</Label>
+                            <Label htmlFor="status">{t('finances.status')}</Label>
                             <Select
                                 value={formData.status}
                                 onValueChange={(value) => setFormData({ ...formData, status: value })}
@@ -168,8 +170,8 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
-                                    <SelectItem value="PAID">Paid</SelectItem>
+                                    <SelectItem value="PENDING">{t('dialogs.expense.pending')}</SelectItem>
+                                    <SelectItem value="PAID">{t('dialogs.expense.paid')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -177,11 +179,11 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save
+                            {t('common.save')}
                         </Button>
                     </div>
                 </form>

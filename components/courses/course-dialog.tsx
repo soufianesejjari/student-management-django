@@ -30,6 +30,7 @@ import { AsyncSelect } from "@/components/ui/async-select"
 import { api } from "@/lib/api"
 import { Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslations } from "next-intl"
 
 // --- Schema Definition ---
 const courseSchema = z.object({
@@ -78,6 +79,7 @@ export function CourseDialog({
     course,
     onSubmit,
 }: CourseDialogProps) {
+    const t = useTranslations()
     const [step, setStep] = useState(1)
     const [conflict, setConflict] = useState<{ is_available: boolean; reason?: string; details?: string } | null>(null)
     const [isChecking, setIsChecking] = useState(false)
@@ -223,13 +225,13 @@ export function CourseDialog({
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>
-                        {course ? "Edit Course" : "Create New Course"}
+                        {course ? t('dialogs.course.editTitle') : t('dialogs.course.createTitle')}
                         <span className="ml-2 text-sm font-normal text-muted-foreground">
                             (Step {step} of {isCreatingNew ? 2 : 1})
                         </span>
                     </DialogTitle>
                     <DialogDescription>
-                        {step === 1 ? "Enter course details." : "Configure the official schedule."}
+                        {step === 1 ? t('dialogs.course.step1Desc') : t('dialogs.course.step2Desc')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -243,9 +245,9 @@ export function CourseDialog({
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Course Name</FormLabel>
+                                        <FormLabel>{t('dialogs.course.courseName')}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Piano Beginner 1" {...field} />
+                                            <Input placeholder={t('dialogs.course.courseNamePlaceholder')} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -258,11 +260,11 @@ export function CourseDialog({
                                     name="subject"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Subject</FormLabel>
+                                            <FormLabel>{t('dialogs.course.subject')}</FormLabel>
                                             <FormControl>
                                                 <AsyncSelect
                                                     endpoint="/academics/subjects/"
-                                                    label="Subject"
+                                                    label={t('dialogs.course.subject')}
                                                     value={field.value ?? ""}
                                                     onChange={field.onChange}
                                                     renderLabel={(item: any) => item.name}
@@ -279,11 +281,11 @@ export function CourseDialog({
                                     name="default_teacher"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Teacher</FormLabel>
+                                            <FormLabel>{t('dialogs.course.teacher')}</FormLabel>
                                             <FormControl>
                                                 <AsyncSelect
                                                     endpoint="/users/teachers/"
-                                                    label="Teacher"
+                                                    label={t('dialogs.course.teacher')}
                                                     value={field.value ?? ""}
                                                     onChange={field.onChange}
                                                     renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
@@ -302,17 +304,17 @@ export function CourseDialog({
                                     name="level"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Level</FormLabel>
+                                            <FormLabel>{t('dialogs.course.level')}</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select level" />
+                                                        <SelectValue placeholder={t('dialogs.course.selectLevel')} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="BEGINNER">Beginner</SelectItem>
-                                                    <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-                                                    <SelectItem value="ADVANCED">Advanced</SelectItem>
+                                                    <SelectItem value="BEGINNER">{t('dialogs.course.beginner')}</SelectItem>
+                                                    <SelectItem value="INTERMEDIATE">{t('dialogs.course.intermediate')}</SelectItem>
+                                                    <SelectItem value="ADVANCED">{t('dialogs.course.advanced')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -325,7 +327,7 @@ export function CourseDialog({
                                     name="price"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Price (MAD)</FormLabel>
+                                            <FormLabel>{t('dialogs.course.priceCurrency')}</FormLabel>
                                             <FormControl>
                                                 <Input type="number" step="0.01" {...field} />
                                             </FormControl>
@@ -339,16 +341,16 @@ export function CourseDialog({
                                     name="status"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Status</FormLabel>
+                                            <FormLabel>{t('dialogs.course.status')}</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select status" />
+                                                        <SelectValue placeholder={t('dialogs.course.selectStatus')} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="ACTIVE">Active</SelectItem>
-                                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                                    <SelectItem value="ACTIVE">{t('dialogs.course.active')}</SelectItem>
+                                                    <SelectItem value="INACTIVE">{t('dialogs.course.inactive')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -373,9 +375,9 @@ export function CourseDialog({
                                                 />
                                             </FormControl>
                                             <div className="space-y-1 leading-none">
-                                                <FormLabel>Create Official Schedule</FormLabel>
+                                                <FormLabel>{t('dialogs.course.createScheduleLabel')}</FormLabel>
                                                 <FormDescription>
-                                                    Automatically create the planning schedule for this course.
+                                                    {t('dialogs.course.createScheduleDesc')}
                                                 </FormDescription>
                                             </div>
                                         </FormItem>
@@ -384,20 +386,20 @@ export function CourseDialog({
 
                                 {showSchedule && (
                                     <div className="rounded-md bg-muted/50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
-                                        <h4 className="text-sm font-medium">Official Schedule</h4>
+                                        <h4 className="text-sm font-medium">{t('dialogs.course.officialScheduleTitle')}</h4>
 
                                         {/* Status & Alerts */}
                                         {isChecking && (
                                             <div className="flex items-center text-xs text-muted-foreground">
                                                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                                Checking availability...
+                                                {t('dialogs.course.checkingAvailability')}
                                             </div>
                                         )}
 
                                         {conflict && (
                                             <Alert variant="destructive">
                                                 <AlertCircle className="h-4 w-4" />
-                                                <AlertTitle>Schedule Conflict</AlertTitle>
+                                                <AlertTitle>{t('dialogs.course.scheduleConflict')}</AlertTitle>
                                                 <AlertDescription>
                                                     {conflict.details || conflict.reason}
                                                 </AlertDescription>
@@ -413,13 +415,13 @@ export function CourseDialog({
                                             disabled={isSuggesting || !form.getValues("default_teacher") || !form.getValues("day_of_week")}
                                         >
                                             {isSuggesting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-                                            Suggest Available Slots
+                                            {t('dialogs.course.suggestSlots')}
                                         </Button>
 
                                         {/* Display Suggested Slots */}
                                         {suggestedSlots.length > 0 && (
                                             <div className="border rounded-md p-3 space-y-2">
-                                                <p className="text-xs font-medium text-muted-foreground">Recommended Slots:</p>
+                                                <p className="text-xs font-medium text-muted-foreground">{t('dialogs.course.recommendedSlots')}</p>
                                                 {suggestedSlots.map((slot, idx) => (
                                                     <div
                                                         key={idx}
@@ -430,7 +432,7 @@ export function CourseDialog({
                                                             <div className="font-medium text-sm">{slot.start} - {slot.end}</div>
                                                             <div className="text-xs text-muted-foreground">{slot.reason}</div>
                                                         </div>
-                                                        <Button type="button" size="sm" variant="ghost">Apply</Button>
+                                                        <Button type="button" size="sm" variant="ghost">{t('dialogs.course.apply')}</Button>
                                                     </div>
                                                 ))}
                                             </div>
@@ -442,10 +444,10 @@ export function CourseDialog({
                                             name="room"
                                             render={({ field }) => (
                                                 <FormItem className="flex flex-col">
-                                                    <FormLabel>Room</FormLabel>
+                                                    <FormLabel>{t('dialogs.course.room')}</FormLabel>
                                                     <AsyncSelect
                                                         endpoint="/planning/rooms/"
-                                                        label="Room"
+                                                        label={t('dialogs.course.room')}
                                                         value={field.value}
                                                         onChange={field.onChange}
                                                         renderLabel={(item: any) => `${item.name} (${item.capacity})`}
@@ -462,21 +464,21 @@ export function CourseDialog({
                                                 name="day_of_week"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Day</FormLabel>
+                                                        <FormLabel>{t('dialogs.course.day')}</FormLabel>
                                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                             <FormControl>
                                                                 <SelectTrigger>
-                                                                    <SelectValue placeholder="Select day" />
+                                                                    <SelectValue placeholder={t('dialogs.course.selectDay')} />
                                                                 </SelectTrigger>
                                                             </FormControl>
                                                             <SelectContent>
-                                                                <SelectItem value="0">Monday</SelectItem>
-                                                                <SelectItem value="1">Tuesday</SelectItem>
-                                                                <SelectItem value="2">Wednesday</SelectItem>
-                                                                <SelectItem value="3">Thursday</SelectItem>
-                                                                <SelectItem value="4">Friday</SelectItem>
-                                                                <SelectItem value="5">Saturday</SelectItem>
-                                                                <SelectItem value="6">Sunday</SelectItem>
+                                                                <SelectItem value="0">{t('dialogs.course.monday')}</SelectItem>
+                                                                <SelectItem value="1">{t('dialogs.course.tuesday')}</SelectItem>
+                                                                <SelectItem value="2">{t('dialogs.course.wednesday')}</SelectItem>
+                                                                <SelectItem value="3">{t('dialogs.course.thursday')}</SelectItem>
+                                                                <SelectItem value="4">{t('dialogs.course.friday')}</SelectItem>
+                                                                <SelectItem value="5">{t('dialogs.course.saturday')}</SelectItem>
+                                                                <SelectItem value="6">{t('dialogs.course.sunday')}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                         <FormMessage />
@@ -489,7 +491,7 @@ export function CourseDialog({
                                                 name="start_time"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Start Time</FormLabel>
+                                                        <FormLabel>{t('dialogs.course.startTime')}</FormLabel>
                                                         <FormControl>
                                                             <Input type="time" {...field} />
                                                         </FormControl>
@@ -503,7 +505,7 @@ export function CourseDialog({
                                                 name="end_time"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>End Time</FormLabel>
+                                                        <FormLabel>{t('dialogs.course.endTime')}</FormLabel>
                                                         <FormControl>
                                                             <Input type="time" {...field} />
                                                         </FormControl>
@@ -520,23 +522,23 @@ export function CourseDialog({
                         {/* FOOTER */}
                         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
                             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                                Cancel
+                                {t('common.cancel')}
                             </Button>
 
                             <div className="flex gap-2">
                                 {step === 2 && (
                                     <Button type="button" variant="ghost" onClick={prevStep}>
-                                        Back
+                                        {t('common.back')}
                                     </Button>
                                 )}
 
                                 {step === 1 && isCreatingNew ? (
                                     <Button type="button" onClick={nextStep}>
-                                        Next
+                                        {t('common.next')}
                                     </Button>
                                 ) : (
                                     <Button type="submit">
-                                        {course ? "Save Changes" : "Create Course"}
+                                        {course ? t('dialogs.course.saveChanges') : t('dialogs.course.createCourse')}
                                     </Button>
                                 )}
                             </div>

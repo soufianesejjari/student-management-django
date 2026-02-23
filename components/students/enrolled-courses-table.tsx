@@ -14,12 +14,14 @@ import { Button } from "@/components/ui/button"
 import { Loader2, PlusCircle, CreditCard } from "lucide-react"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
+import { useTranslations } from "next-intl"
 
 interface EnrolledCoursesTableProps {
     studentId: number
 }
 
 export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
+    const t = useTranslations()
     const [enrollments, setEnrollments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -60,19 +62,19 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Course</TableHead>
-                        <TableHead>Subject</TableHead>
-                        <TableHead>Enrolled Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t('enrolledCourses.course')}</TableHead>
+                        <TableHead>{t('enrolledCourses.subject')}</TableHead>
+                        <TableHead>{t('enrolledCourses.enrolledDate')}</TableHead>
+                        <TableHead>{t('enrolledCourses.status')}</TableHead>
+                        <TableHead>{t('enrolledCourses.price')}</TableHead>
+                        <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {enrollments.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
-                                Not enrolled in any courses.
+                                {t('enrolledCourses.notEnrolled')}
                             </TableCell>
                         </TableRow>
                     ) : (
@@ -94,7 +96,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                     {enrollment.custom_price} MAD
                                     {enrollment.is_promotional && (
                                         <Badge variant="outline" className="ml-2 text-xs border-green-500 text-green-600">
-                                            Promo
+                                            {t('enrolledCourses.promo')}
                                         </Badge>
                                     )}
                                 </TableCell>
@@ -103,7 +105,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                     {enrollment.status === 'ACTIVE' && (
                                         <Button variant="outline" size="sm">
                                             <CreditCard className="mr-2 h-3 w-3" />
-                                            Pay Subscription
+                                            {t('enrolledCourses.paySubscription')}
                                         </Button>
                                     )}
                                 </TableCell>

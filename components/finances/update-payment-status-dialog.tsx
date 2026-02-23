@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Edit, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations } from "next-intl"
 
 interface UpdatePaymentStatusDialogProps {
     paymentId: number
@@ -16,6 +17,7 @@ interface UpdatePaymentStatusDialogProps {
 }
 
 export function UpdatePaymentStatusDialog({ paymentId, currentStatus, onSuccess }: UpdatePaymentStatusDialogProps) {
+    const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [status, setStatus] = useState(currentStatus)
@@ -29,12 +31,12 @@ export function UpdatePaymentStatusDialog({ paymentId, currentStatus, onSuccess 
                 status: status
             })
 
-            toast.success("Payment status updated successfully")
+            toast.success(t('dialogs.updatePaymentStatus.success'))
             setOpen(false)
             onSuccess?.()
         } catch (error) {
             console.error(error)
-            toast.error("Failed to update payment status")
+            toast.error(t('dialogs.updatePaymentStatus.error'))
         } finally {
             setLoading(false)
         }
@@ -49,30 +51,30 @@ export function UpdatePaymentStatusDialog({ paymentId, currentStatus, onSuccess 
             </DialogTrigger>
             <DialogContent className="sm:max-w-[400px]">
                 <DialogHeader>
-                    <DialogTitle>Update Payment Status</DialogTitle>
+                    <DialogTitle>{t('dialogs.updatePaymentStatus.title')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="status">Status</Label>
+                        <Label htmlFor="status">{t('finances.status')}</Label>
                         <Select value={status} onValueChange={setStatus}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="PAID">Paid</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
-                                <SelectItem value="LATE">Late</SelectItem>
+                                <SelectItem value="PAID">{t('dialogs.updatePaymentStatus.paid')}</SelectItem>
+                                <SelectItem value="PENDING">{t('dialogs.updatePaymentStatus.pending')}</SelectItem>
+                                <SelectItem value="LATE">{t('dialogs.updatePaymentStatus.late')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Update
+                            {t('dialogs.updatePaymentStatus.update')}
                         </Button>
                     </div>
                 </form>

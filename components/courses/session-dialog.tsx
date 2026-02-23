@@ -34,6 +34,7 @@ import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslations } from "next-intl"
 
 const sessionSchema = z.object({
     day_of_week: z.string().min(1, "Day is required"),
@@ -61,6 +62,7 @@ export function SessionDialog({
     session,
     onSuccess,
 }: SessionDialogProps) {
+    const t = useTranslations()
     const [conflict, setConflict] = useState<any>(null)
     const [isChecking, setIsChecking] = useState(false)
     const [suggestedSlots, setSuggestedSlots] = useState<any[]>([])
@@ -205,9 +207,9 @@ export function SessionDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{session ? "Edit" : "Add"} Schedule</DialogTitle>
+                    <DialogTitle>{session ? t('dialogs.sessionDialog.editTitle') : t('dialogs.sessionDialog.addTitle')}</DialogTitle>
                     <DialogDescription>
-                        Configure the weekly class session
+                        {t('dialogs.sessionDialog.description')}
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -216,14 +218,14 @@ export function SessionDialog({
                         {isChecking && (
                             <div className="flex items-center text-xs text-muted-foreground">
                                 <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                Checking availability...
+                                {t('dialogs.course.checkingAvailability')}
                             </div>
                         )}
 
                         {conflict && (
                             <Alert variant="destructive">
                                 <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Schedule Conflict</AlertTitle>
+                                <AlertTitle>{t('dialogs.course.scheduleConflict')}</AlertTitle>
                                 <AlertDescription>
                                     {conflict.details || conflict.reason}
                                 </AlertDescription>
@@ -239,13 +241,13 @@ export function SessionDialog({
                             disabled={isSuggesting || !teacher || !form.getValues("day_of_week")}
                         >
                             {isSuggesting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-                            Suggest Available Slots
+                            {t('dialogs.course.suggestSlots')}
                         </Button>
 
                         {/* Display Suggested Slots */}
                         {suggestedSlots.length > 0 && (
                             <div className="border rounded-md p-3 space-y-2">
-                                <p className="text-xs font-medium text-muted-foreground">Recommended Slots:</p>
+                                <p className="text-xs font-medium text-muted-foreground">{t('dialogs.course.recommendedSlots')}</p>
                                 {suggestedSlots.map((slot, idx) => (
                                     <div
                                         key={idx}
@@ -256,7 +258,7 @@ export function SessionDialog({
                                             <div className="font-medium text-sm">{slot.start} - {slot.end}</div>
                                             <div className="text-xs text-muted-foreground">{slot.reason}</div>
                                         </div>
-                                        <Button type="button" size="sm" variant="ghost">Apply</Button>
+                                        <Button type="button" size="sm" variant="ghost">{t('dialogs.course.apply')}</Button>
                                     </div>
                                 ))}
                             </div>
@@ -268,7 +270,7 @@ export function SessionDialog({
                                 name="day_of_week"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Day</FormLabel>
+                                        <FormLabel>{t('dialogs.course.day')}</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
@@ -276,13 +278,13 @@ export function SessionDialog({
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="0">Monday</SelectItem>
-                                                <SelectItem value="1">Tuesday</SelectItem>
-                                                <SelectItem value="2">Wednesday</SelectItem>
-                                                <SelectItem value="3">Thursday</SelectItem>
-                                                <SelectItem value="4">Friday</SelectItem>
-                                                <SelectItem value="5">Saturday</SelectItem>
-                                                <SelectItem value="6">Sunday</SelectItem>
+                                                <SelectItem value="0">{t('dialogs.course.monday')}</SelectItem>
+                                                <SelectItem value="1">{t('dialogs.course.tuesday')}</SelectItem>
+                                                <SelectItem value="2">{t('dialogs.course.wednesday')}</SelectItem>
+                                                <SelectItem value="3">{t('dialogs.course.thursday')}</SelectItem>
+                                                <SelectItem value="4">{t('dialogs.course.friday')}</SelectItem>
+                                                <SelectItem value="5">{t('dialogs.course.saturday')}</SelectItem>
+                                                <SelectItem value="6">{t('dialogs.course.sunday')}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -295,7 +297,7 @@ export function SessionDialog({
                                 name="room"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
-                                        <FormLabel>Room</FormLabel>
+                                        <FormLabel>{t('dialogs.course.room')}</FormLabel>
                                         <AsyncSelect
                                             endpoint="/planning/rooms/"
                                             label="Room"
@@ -316,7 +318,7 @@ export function SessionDialog({
                                 name="start_time"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Start Time</FormLabel>
+                                        <FormLabel>{t('dialogs.course.startTime')}</FormLabel>
                                         <FormControl>
                                             <Input type="time" {...field} />
                                         </FormControl>
@@ -330,7 +332,7 @@ export function SessionDialog({
                                 name="end_time"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>End Time</FormLabel>
+                                        <FormLabel>{t('dialogs.course.endTime')}</FormLabel>
                                         <FormControl>
                                             <Input type="time" {...field} />
                                         </FormControl>
@@ -346,7 +348,7 @@ export function SessionDialog({
                                 name="start_date"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Start Date</FormLabel>
+                                        <FormLabel>{t('dialogs.sessionDialog.startDate')}</FormLabel>
                                         <FormControl>
                                             <Input type="date" {...field} />
                                         </FormControl>
@@ -360,7 +362,7 @@ export function SessionDialog({
                                 name="end_date"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>End Date (Optional)</FormLabel>
+                                        <FormLabel>{t('dialogs.sessionDialog.endDateOptional')}</FormLabel>
                                         <FormControl>
                                             <Input type="date" {...field} />
                                         </FormControl>
@@ -373,7 +375,7 @@ export function SessionDialog({
                         <DialogFooter>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {session ? "Update" : "Create"} Schedule
+                                {session ? t('dialogs.sessionDialog.updateSchedule') : t('dialogs.sessionDialog.createSchedule')}
                             </Button>
                         </DialogFooter>
                     </form>

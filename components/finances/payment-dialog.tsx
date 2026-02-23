@@ -11,6 +11,7 @@ import { AsyncSelect } from "@/components/ui/async-select"
 import { Plus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations } from "next-intl"
 
 interface PaymentDialogProps {
     onSuccess?: () => void
@@ -18,6 +19,7 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
+    const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
@@ -33,7 +35,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
         e.preventDefault()
         
         if (!formData.student) {
-            toast.error("Please select a student")
+            toast.error(t('dialogs.payment.selectStudentError'))
             return
         }
         
@@ -62,7 +64,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
             onSuccess?.()
         } catch (error) {
             console.error(error)
-            toast.error("Failed to record payment")
+            toast.error(t('dialogs.payment.error'))
         } finally {
             setLoading(false)
         }
@@ -70,12 +72,12 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
 
     const buttonContent = studentId ? (
         <Button variant="outline" size="sm">
-            Record Payment
+            {t('dialogs.payment.recordBtn')}
         </Button>
     ) : (
         <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Record Payment
+            {t('dialogs.payment.recordBtn')}
         </Button>
     )
 
@@ -86,32 +88,32 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Record Payment</DialogTitle>
+                    <DialogTitle>{t('dialogs.payment.title')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {!studentId && (
                         <div className="space-y-2">
-                            <Label htmlFor="student">Student *</Label>
+                            <Label htmlFor="student">{t('dialogs.payment.student')} *</Label>
                             <AsyncSelect
                                 endpoint="/users/students/"
-                                label="Student"
+                                label={t('dialogs.payment.student')}
                                 value={formData.student || ""}
                                 onChange={(value) => setFormData({ ...formData, student: Number(value) })}
                                 renderLabel={(item: any) => {
                                     const first = item.user?.first_name ?? item.first_name ?? ""
                                     const last = item.user?.last_name ?? item.last_name ?? ""
                                     const name = `${first} ${last}`.trim()
-                                    return name || item.user?.username || item.username || "Unknown Student"
+                                    return name || item.user?.username || item.username || t('dialogs.payment.student')
                                 }}
                                 renderValue={(item: any) => item.id}
-                                placeholder="Search student..."
+                                placeholder={t('dialogs.payment.searchStudent')}
                             />
                         </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="amount">Amount (MAD)</Label>
+                            <Label htmlFor="amount">{t('dialogs.payment.amount')}</Label>
                             <Input
                                 id="amount"
                                 type="number"
@@ -125,7 +127,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="date">Date</Label>
+                            <Label htmlFor="date">{t('finances.date')}</Label>
                             <Input
                                 id="date"
                                 type="date"
@@ -138,7 +140,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="method">Payment Method</Label>
+                            <Label htmlFor="method">{t('finances.method')}</Label>
                             <Select
                                 value={formData.method}
                                 onValueChange={(value) => setFormData({ ...formData, method: value })}
@@ -147,16 +149,16 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="CASH">Cash</SelectItem>
-                                    <SelectItem value="CARD">Credit Card</SelectItem>
-                                    <SelectItem value="TRANSFER">Bank Transfer</SelectItem>
-                                    <SelectItem value="CHECK">Check</SelectItem>
+                                    <SelectItem value="CASH">{t('dialogs.payment.cash')}</SelectItem>
+                                    <SelectItem value="CARD">{t('dialogs.payment.card')}</SelectItem>
+                                    <SelectItem value="TRANSFER">{t('dialogs.payment.transfer')}</SelectItem>
+                                    <SelectItem value="CHECK">{t('dialogs.payment.check')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="status">Status</Label>
+                            <Label htmlFor="status">{t('finances.status')}</Label>
                             <Select
                                 value={formData.status}
                                 onValueChange={(value) => setFormData({ ...formData, status: value })}
@@ -165,31 +167,31 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="PAID">Paid</SelectItem>
-                                    <SelectItem value="PENDING">Pending</SelectItem>
+                                    <SelectItem value="PAID">{t('dialogs.payment.paid')}</SelectItem>
+                                    <SelectItem value="PENDING">{t('dialogs.payment.pending')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="notes">Notes (optional)</Label>
+                        <Label htmlFor="notes">{t('dialogs.payment.notesOptional')}</Label>
                         <Textarea
                             id="notes"
                             value={formData.notes}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                            placeholder="Additional notes..."
+                            placeholder={t('dialogs.payment.notesPlaceholder')}
                             rows={3}
                         />
                     </div>
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save
+                            {t('common.save')}
                         </Button>
                     </div>
                 </form>
