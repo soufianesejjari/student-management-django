@@ -546,7 +546,7 @@
       "title": "Enroll in {course}",
       "description": "Fill in the details below to enroll a student.",
       "freeOfferActive": "Free offer active",
-      "freeOfferDescription": "Eligible students receive {course} for free with this enrollment.",
+      "freeOfferDescription": "Eligible students receive for free with this enrollment.",
       "upToTimes": "(up to {count}×)",
       "active": "Active",
       "student": "Student",
@@ -742,7 +742,11 @@
     "actions": "Actions",
     "notEnrolled": "Not enrolled in any courses.",
     "paySubscription": "Pay Subscription",
-    "promo": "Promo"
+    "promo": "Promo",
+    "copyId": "Copy Enrollment ID",
+    "viewStudent": "View Student Details",
+    "suspend": "Suspend Enrollment",
+    "cancel": "Cancel Enrollment"
   },
   "paymentsTable": {
     "ref": "Ref",

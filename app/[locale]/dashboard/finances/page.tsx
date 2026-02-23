@@ -151,7 +151,7 @@ function FinancesContent() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalIncome} €</div>
+            <div className="text-2xl font-bold">{totalIncome} MAD</div>
             <div className="flex items-center text-xs text-muted-foreground">
               <span className="text-muted-foreground">{t('finances.currentMonth')}</span>
             </div>
@@ -163,7 +163,7 @@ function FinancesContent() {
             <ArrowDownUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalExpenses} €</div>
+            <div className="text-2xl font-bold">{totalExpenses} MAD</div>
             <div className="flex items-center text-xs text-muted-foreground">
               <span className="text-muted-foreground">{t('finances.currentMonth')}</span>
             </div>
@@ -175,9 +175,9 @@ function FinancesContent() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{netProfit} €</div>
+            <div className="text-2xl font-bold">{netProfit} MAD</div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <span className={netProfit >= 0 ? "text-green-500" : "text-red-500"}>{netProfit >= 0 ? "+" : ""}{netProfit} €</span>
+              <span className={netProfit >= 0 ? "text-green-500" : "text-red-500"}>{netProfit >= 0 ? "+" : ""}{netProfit} MAD</span>
             </div>
           </CardContent>
         </Card>
@@ -187,7 +187,7 @@ function FinancesContent() {
             <PieChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingAmount} €</div>
+            <div className="text-2xl font-bold">{pendingAmount} MAD</div>
             <div className="flex items-center text-xs text-muted-foreground">
               <span>{pendingPaymentsCount} {t('finances.pendingPaymentsCount')}</span>
             </div>
@@ -258,7 +258,7 @@ function FinancesContent() {
                               || payment.student_username
                               || `#${payment.student}`}
                           </TableCell>
-                          <TableCell>{payment.amount} €</TableCell>
+                          <TableCell>{payment.amount} MAD</TableCell>
                           <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
                           <TableCell>{payment.method}</TableCell>
                           <TableCell>
@@ -345,10 +345,10 @@ function FinancesContent() {
                       paymentStatus.map((status) => (
                         <TableRow key={status.student_id}>
                           <TableCell className="font-medium">{status.student_name}</TableCell>
-                          <TableCell>{status.total_due.toFixed(2)} €</TableCell>
-                          <TableCell>{status.total_paid.toFixed(2)} €</TableCell>
+                          <TableCell>{status.total_due.toFixed(2)} MAD</TableCell>
+                          <TableCell>{status.total_paid.toFixed(2)} MAD</TableCell>
                           <TableCell className={status.balance > 0 ? 'text-red-600 dark:text-red-400 font-medium' : 'text-green-600 dark:text-green-400'}>
-                            {status.balance.toFixed(2)} €
+                            {status.balance.toFixed(2)} MAD
                           </TableCell>
                           <TableCell>
                             {status.last_payment_date 
@@ -440,7 +440,7 @@ function FinancesContent() {
                       expenses?.map((expense: any) => (
                         <TableRow key={expense.id}>
                           <TableCell className="font-medium">{expense.description}</TableCell>
-                          <TableCell>{expense.amount} €</TableCell>
+                          <TableCell>{expense.amount} MAD</TableCell>
                           <TableCell>{expense.date}</TableCell>
                           <TableCell>{expense.category}</TableCell>
                           <TableCell>

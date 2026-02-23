@@ -59,7 +59,7 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_revenue || 0} €`}</div>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_revenue || 0} MAD`}</div>
                 <p className="text-xs text-muted-foreground">{t('finances.currentMonth')}</p>
               </CardContent>
             </Card>
@@ -69,7 +69,7 @@ export default function DashboardPage() {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_expenses || 0} €`}</div>
+                <div className="text-2xl font-bold">{statsLoading ? "..." : `${stats?.monthly_expenses || 0} MAD`}</div>
                 <p className="text-xs text-muted-foreground">{t('finances.currentMonth')}</p>
               </CardContent>
             </Card>

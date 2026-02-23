@@ -546,7 +546,7 @@
       "title": "Inscrire dans {course}",
       "description": "Renseignez les informations pour inscrire un étudiant.",
       "freeOfferActive": "Offre gratuite active",
-      "freeOfferDescription": "Les étudiants éligibles reçoivent {course} gratuitement avec cette inscription.",
+      "freeOfferDescription": "Les étudiants éligibles reçoivent gratuitement avec cette inscription.",
       "upToTimes": "(jusqu'à {count}×)",
       "active": "Active",
       "student": "Étudiant",
@@ -742,7 +742,11 @@
     "actions": "Actions",
     "notEnrolled": "Aucune inscription à un cours.",
     "paySubscription": "Payer l'abonnement",
-    "promo": "Promo"
+    "promo": "Promo",
+    "copyId": "Copier l'ID d'inscription",
+    "viewStudent": "Voir la fiche étudiant",
+    "suspend": "Suspendre l'inscription",
+    "cancel": "Annuler l'inscription"
   },
   "paymentsTable": {
     "ref": "Réf.",

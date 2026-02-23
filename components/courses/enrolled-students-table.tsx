@@ -22,12 +22,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
+import { useTranslations } from "next-intl"
 
 interface EnrolledStudentsTableProps {
     courseId: number
 }
 
 export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) {
+    const t = useTranslations()
     const [enrollments, setEnrollments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -66,18 +68,18 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Student Name</TableHead>
-                        <TableHead>Enrollment Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{t('students.name')}</TableHead>
+                        <TableHead>{t('enrolledCourses.enrolledDate')}</TableHead>
+                        <TableHead>{t('enrolledCourses.status')}</TableHead>
+                        <TableHead>{t('enrolledCourses.price')}</TableHead>
+                        <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {enrollments.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                No students enrolled yet.
+                                {t('enrolledCourses.notEnrolled')}
                             </TableCell>
                         </TableRow>
                     ) : (
@@ -103,7 +105,7 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                     {enrollment.custom_price} MAD
                                     {enrollment.custom_price !== enrollment.default_price && (
                                         <span className="ml-2 text-xs text-muted-foreground line-through">
-                                            {enrollment.default_price}
+                                            {enrollment.default_price} MAD
                                         </span>
                                     )}
                                 </TableCell>
@@ -116,14 +118,14 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
                                             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(enrollment.id.toString())}>
-                                                Copy Enrollment ID
+                                                {t('enrolledCourses.copyId')}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem>View Student Details</DropdownMenuItem>
-                                            <DropdownMenuItem>Suspend Enrollment</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600">Cancel Enrollment</DropdownMenuItem>
+                                            <DropdownMenuItem>{t('enrolledCourses.viewStudent')}</DropdownMenuItem>
+                                            <DropdownMenuItem>{t('enrolledCourses.suspend')}</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-600">{t('enrolledCourses.cancel')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
