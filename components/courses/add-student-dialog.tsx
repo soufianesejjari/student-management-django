@@ -211,7 +211,7 @@ export function AddStudentToCourseDialog({
                         is_free_offer: true,
                         notes: `Auto-added free offer with ${course?.name || "course"} enrollment`
                     })
-                    toast.success(t('dialogs.enrollStudent.enrollSuccess', { course: offerSettings?.free_course?.name }))
+                    toast.success(`${t('dialogs.enrollStudent.enrollSuccess')} ${offerSettings?.free_course?.name || ''}`)
                 } catch (freeCourseError: any) {
                     const detail =
                         freeCourseError?.response?.data?.non_field_errors?.[0] ||
@@ -242,7 +242,7 @@ export function AddStudentToCourseDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{t('dialogs.enrollStudent.title', { course: course?.name })}</DialogTitle>
+                    <DialogTitle>{t('dialogs.enrollStudent.title')} {course?.name}</DialogTitle>
                     <DialogDescription>
                         {t('dialogs.enrollStudent.description')}
                     </DialogDescription>
@@ -257,8 +257,8 @@ export function AddStudentToCourseDialog({
                                 {t('dialogs.enrollStudent.freeOfferActive')}
                             </p>
                             <p className="text-xs text-green-700 mt-0.5">
-                                {t('dialogs.enrollStudent.freeOfferDescription', { course: globalOffer.free_course.name })}
-                                {globalOffer.max_times > 1 && ` ${t('dialogs.enrollStudent.upToTimes', { count: globalOffer.max_times })}`}
+                                {`${t('dialogs.enrollStudent.freeOfferDescription')} ${globalOffer.free_course.name}`}
+                                {globalOffer.max_times > 1 && ` ${t('dialogs.enrollStudent.upToTimes')} (${globalOffer.max_times}×)`}
                             </p>
                         </div>
                         <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs shrink-0">
@@ -301,7 +301,7 @@ export function AddStudentToCourseDialog({
                                 <AlertTitle className="text-green-800">{t('dialogs.enrollStudent.promotionAvailable')}</AlertTitle>
                                 <AlertDescription className="text-green-700 text-xs mt-1">
                                     {pricingSuggestion.reason}
-                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.suggestedPrice', { price: pricingSuggestion.suggested_price })}</div>
+                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.suggestedPrice')} {pricingSuggestion.suggested_price} MAD</div>
                                 </AlertDescription>
                             </Alert>
                         ) : pricingSuggestion ? (
@@ -309,7 +309,7 @@ export function AddStudentToCourseDialog({
                                 <AlertTitle className="text-blue-800">{t('dialogs.enrollStudent.standardPricing')}</AlertTitle>
                                 <AlertDescription className="text-blue-700 text-xs">
                                     {t('dialogs.enrollStudent.standardPricingDesc')}
-                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.defaultPrice', { price: pricingSuggestion.default_price })}</div>
+                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.defaultPrice')} {pricingSuggestion.default_price} MAD</div>
                                 </AlertDescription>
                             </Alert>
                         ) : null}
@@ -342,12 +342,12 @@ export function AddStudentToCourseDialog({
                                             <div className="flex items-center gap-2">
                                                 <Gift className="h-4 w-4 text-green-600" />
                                                 <span className="font-semibold text-sm text-green-800">
-                                                    {t('dialogs.enrollStudent.addFree', { course: offerSettings.free_course?.name })}
+                                                    {t('dialogs.enrollStudent.addFreePrefix')} {offerSettings.free_course?.name}
                                                 </span>
                                                 <Badge className="bg-green-100 text-green-700 text-xs border-0">{t('dialogs.enrollStudent.free')}</Badge>
                                             </div>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                {t('dialogs.enrollStudent.eligibleDescription', { course: offerSettings.free_course?.name })}
+                                                {`${t('dialogs.enrollStudent.eligibleDescriptionPrefix')} ${offerSettings.free_course?.name}`}
                                             </p>
                                         </div>
                                         {includeFreeCourse && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
@@ -358,8 +358,8 @@ export function AddStudentToCourseDialog({
                                         <XCircle className="h-3.5 w-3.5 shrink-0" />
                                         <span>
                                             {offerSettings.existing_free_course_count! >= offerSettings.max_times!
-                                                ? t('dialogs.enrollStudent.alreadyReceived', { course: globalOffer?.free_course?.name })
-                                                : t('dialogs.enrollStudent.alreadyEnrolled', { course: globalOffer?.free_course?.name })}
+                                                ? `${t('dialogs.enrollStudent.alreadyReceivedPrefix')} ${globalOffer?.free_course?.name || 'course'}`
+                                                : `${t('dialogs.enrollStudent.alreadyEnrolledPrefix')} ${globalOffer?.free_course?.name || 'course'}`}
                                         </span>
                                     </div>
                                 ) : null}
@@ -438,7 +438,7 @@ export function AddStudentToCourseDialog({
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {includeFreeCourse
-                                    ? t('dialogs.enrollStudent.enrollWithFree', { course: offerSettings?.free_course?.name || "..." })
+                                    ? `${t('dialogs.enrollStudent.enrollWithFreePrefix')} ${offerSettings?.free_course?.name || '...'}`
                                     : t('dialogs.enrollStudent.enrollStudent')}
                             </Button>
                         </DialogFooter>
