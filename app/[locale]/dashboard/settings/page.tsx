@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,9 +10,49 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { SubjectsManagement } from "@/components/academics/subjects-management"
 import { useTranslations } from "next-intl"
+import { api } from "@/lib/api"
+import { toast } from "sonner"
+import { Loader2, Gift, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
+import { AsyncSelect } from "@/components/ui/async-select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 
 export default function SettingsPage() {
   const t = useTranslations()
+
+  // ── Offer settings state ────────────────────────────────────────────────
+  const [offerEnabled, setOfferEnabled] = useState(false)
+  const [freeCourseId, setFreeCourseId] = useState<number | null>(null)
+  const [offerMaxTimes, setOfferMaxTimes] = useState(1)
+  const [loadingOffer, setLoadingOffer] = useState(true)
+  const [savingOffer, setSavingOffer] = useState(false)
+
+  useEffect(() => {
+    api.enrollments.offerSettings()
+      .then((data) => {
+        setOfferEnabled(Boolean(data.enabled))
+        setFreeCourseId(data.free_course_id ?? null)
+        setOfferMaxTimes(data.max_times ?? 1)
+      })
+      .catch(() => { /* silent – defaults remain */ })
+      .finally(() => setLoadingOffer(false))
+  }, [])
+
+  const handleSaveOffer = async () => {
+    setSavingOffer(true)
+    try {
+      await api.enrollments.updateOfferSettings({
+        enabled: offerEnabled,
+        free_course_id: freeCourseId,
+        max_times: offerMaxTimes,
+      })
+      toast.success(t('settings.offerSavedSuccess'))
+    } catch {
+      toast.error(t('settings.offerSavedError'))
+    } finally {
+      setSavingOffer(false)
+    }
+  }
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -21,6 +62,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
           <TabsTrigger value="subjects">{t('settings.subjects')}</TabsTrigger>
+          <TabsTrigger value="offer">{t('settings.offer')}</TabsTrigger>
           <TabsTrigger value="notifications">{t('settings.notifications')}</TabsTrigger>
           <TabsTrigger value="security">{t('settings.security')}</TabsTrigger>
           <TabsTrigger value="billing">{t('settings.billing')}</TabsTrigger>
@@ -92,6 +134,107 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="subjects" className="space-y-4">
           <SubjectsManagement />
+        </TabsContent>
+
+        {/* ── Enrollment Offer ─────────────────────────────────────────── */}
+        <TabsContent value="offer" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-primary" />
+                <CardTitle>{t('settings.offerSettings')}</CardTitle>
+                {!loadingOffer && (
+                  offerEnabled && freeCourseId
+                    ? <Badge className="bg-green-100 text-green-700 border-0 text-xs flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Active
+                      </Badge>
+                    : <Badge variant="outline" className="text-muted-foreground text-xs flex items-center gap-1">
+                        <XCircle className="h-3 w-3" /> Inactive
+                      </Badge>
+                )}
+              </div>
+              <CardDescription>{t('settings.offerSettingsDescription')}</CardDescription>
+            </CardHeader>
+
+            {loadingOffer ? (
+              <CardContent className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{t('common.loading')}</span>
+              </CardContent>
+            ) : (
+              <CardContent className="space-y-6">
+
+                {/* Enable / disable toggle */}
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="offer-enabled" className="text-base">
+                      {t('settings.offerEnabled')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('settings.offerEnabledDescription')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="offer-enabled"
+                    checked={offerEnabled}
+                    onCheckedChange={setOfferEnabled}
+                  />
+                </div>
+
+                {/* Free course selector */}
+                <div className="space-y-2">
+                  <Label>{t('settings.offerFreeCourse')}</Label>
+                  <AsyncSelect
+                    endpoint="/academics/courses/"
+                    label="Course"
+                    value={freeCourseId}
+                    onChange={(val) => setFreeCourseId(val ? Number(val) : null)}
+                    renderLabel={(item: any) => `${item.name} (${item.subject_name || item.subject})`}
+                    renderValue={(item: any) => item.id}
+                    placeholder={t('settings.offerFreeCoursePlaceholder')}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Typically the Solfège course. Leave empty to disable the offer even if the toggle is on.
+                  </p>
+                </div>
+
+                {/* Max times */}
+                <div className="space-y-2">
+                  <Label htmlFor="offer-max-times">{t('settings.offerMaxTimes')}</Label>
+                  <Input
+                    id="offer-max-times"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={offerMaxTimes}
+                    onChange={(e) => setOfferMaxTimes(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-32"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.offerMaxTimesDescription')}
+                  </p>
+                </div>
+
+                {/* Warning if enabled but no course selected */}
+                {offerEnabled && !freeCourseId && (
+                  <Alert className="border-yellow-200 bg-yellow-50">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-700 text-sm">
+                      {t('settings.offerWarningNoFreeCourse')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+              </CardContent>
+            )}
+
+            <CardFooter>
+              <Button onClick={handleSaveOffer} disabled={loadingOffer || savingOffer}>
+                {savingOffer && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('settings.saveChanges')}
+              </Button>
+            </CardFooter>
+          </Card>
         </TabsContent>
         <TabsContent value="notifications" className="space-y-4">
           <Card>

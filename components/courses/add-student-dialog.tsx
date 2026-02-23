@@ -33,10 +33,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import { Loader2, Wand2 } from "lucide-react"
+import { Loader2, Wand2, Gift, CheckCircle2, XCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslations } from "next-intl"
 
 const formSchema = z.object({
     studentId: z.union([z.string(), z.number()]),
@@ -77,9 +79,14 @@ export function AddStudentToCourseDialog({
     onSuccess,
 }: AddStudentToCourseDialogProps) {
 
-
     const [suggestingPrice, setSuggestingPrice] = useState(false)
     const [pricingSuggestion, setPricingSuggestion] = useState<any>(null)
+
+    const t = useTranslations()
+
+    // Global offer config (loaded once when dialog opens, no student needed)
+    const [globalOffer, setGlobalOffer] = useState<OfferSettings | null>(null)
+    // Per-student eligibility (loaded after student is selected)
     const [offerSettings, setOfferSettings] = useState<OfferSettings | null>(null)
     const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
     const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
@@ -94,9 +101,15 @@ export function AddStudentToCourseDialog({
         },
     })
 
-    // Fetch students removed - handled by AsyncSelect
+    // Load global offer settings as soon as dialog opens
+    useEffect(() => {
+        if (!open) return
+        api.enrollments.offerSettings()
+            .then((data) => setGlobalOffer(data))
+            .catch(() => setGlobalOffer(null))
+    }, [open])
 
-    // Reset price to course default
+    // Reset price to course default when dialog opens
     useEffect(() => {
         if (open && course) {
             form.setValue("customPrice", course.price.toString())
@@ -115,8 +128,6 @@ export function AddStudentToCourseDialog({
                         course_id: course.id
                     })
                     setPricingSuggestion(suggestion)
-
-                    // Auto-fill suggested price
                     if (suggestion.suggested_price !== undefined) {
                         form.setValue("customPrice", suggestion.suggested_price.toString())
                     }
@@ -132,6 +143,7 @@ export function AddStudentToCourseDialog({
         }
     }, [selectedStudentId, course, form])
 
+    // Load per-student offer eligibility once a student is selected
     useEffect(() => {
         if (!open || !selectedStudentId || !course) {
             setOfferSettings(null)
@@ -162,7 +174,6 @@ export function AddStudentToCourseDialog({
     const subscriptionType = form.watch("subscriptionType")
     useEffect(() => {
         const basePrice = pricingSuggestion?.suggested_price ?? course?.price ?? 0
-
         if (subscriptionType === "QUARTERLY") {
             form.setValue("customPrice", (basePrice * 3).toString())
         } else {
@@ -200,37 +211,62 @@ export function AddStudentToCourseDialog({
                         is_free_offer: true,
                         notes: `Auto-added free offer with ${course?.name || "course"} enrollment`
                     })
-                    toast.success("Student enrolled and free Solfege added")
+                    toast.success(t('dialogs.enrollStudent.enrollSuccess', { course: offerSettings?.free_course?.name }))
                 } catch (freeCourseError: any) {
                     const detail =
                         freeCourseError?.response?.data?.non_field_errors?.[0] ||
                         freeCourseError?.response?.data?.detail ||
-                        "Could not add free Solfege course automatically"
-                    toast.warning(`Main enrollment created. ${detail}`)
+                        t('dialogs.enrollStudent.enrollError')
+                    toast.warning(`${t('courses.name')}: ${course.name}. ${detail}`)
                 }
             } else {
-                toast.success("Student enrolled successfully")
+                toast.success(t('dialogs.enrollStudent.enrollSimpleSuccess'))
             }
 
             onSuccess()
             onOpenChange(false)
             form.reset()
             setOfferSettings(null)
+            setGlobalOffer(null)
             setIncludeFreeCourse(false)
         } catch (error: any) {
-            toast.error(error.response?.data?.non_field_errors?.[0] || "Failed to enroll student")
+            toast.error(error.response?.data?.non_field_errors?.[0] || t('dialogs.enrollStudent.enrollError'))
         }
     }
 
+    // Derived: is the free course the same as the course being enrolled in?
+    const isEnrollingInFreeCourse = globalOffer?.free_course_id != null &&
+        Number(globalOffer.free_course_id) === Number(course?.id)
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Enroll Student</DialogTitle>
+                    <DialogTitle>{t('dialogs.enrollStudent.title', { course: course?.name })}</DialogTitle>
                     <DialogDescription>
-                        Add a student to {course?.name}. Check suggested pricing below.
+                        {t('dialogs.enrollStudent.description')}
                     </DialogDescription>
                 </DialogHeader>
+
+                {/* ── Global offer banner (always visible when offer is active) ── */}
+                {globalOffer?.enabled && globalOffer?.free_course && !isEnrollingInFreeCourse && (
+                    <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                        <Gift className="h-5 w-5 shrink-0 text-green-600" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-green-800">
+                                {t('dialogs.enrollStudent.freeOfferActive')}
+                            </p>
+                            <p className="text-xs text-green-700 mt-0.5">
+                                {t('dialogs.enrollStudent.freeOfferDescription', { course: globalOffer.free_course.name })}
+                                {globalOffer.max_times > 1 && ` ${t('dialogs.enrollStudent.upToTimes', { count: globalOffer.max_times })}`}
+                            </p>
+                        </div>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs shrink-0">
+                            {t('dialogs.enrollStudent.active')}
+                        </Badge>
+                    </div>
+                )}
+
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
@@ -238,7 +274,7 @@ export function AddStudentToCourseDialog({
                             name="studentId"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Student</FormLabel>
+                                    <FormLabel>{t('dialogs.enrollStudent.student')}</FormLabel>
                                     <AsyncSelect
                                         endpoint="/users/students/"
                                         label="Student"
@@ -246,7 +282,7 @@ export function AddStudentToCourseDialog({
                                         onChange={field.onChange}
                                         renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
                                         renderValue={(item: any) => item.id}
-                                        placeholder="Select a student"
+                                        placeholder={t('dialogs.enrollStudent.selectStudent')}
                                     />
                                     <FormMessage />
                                 </FormItem>
@@ -257,55 +293,78 @@ export function AddStudentToCourseDialog({
                         {suggestingPrice ? (
                             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Calculating price...</span>
+                                <span>{t('dialogs.enrollStudent.calculatingPrice')}</span>
                             </div>
                         ) : pricingSuggestion && pricingSuggestion.is_promotional ? (
                             <Alert className="bg-green-50 border-green-200">
                                 <Wand2 className="h-4 w-4 text-green-600" />
-                                <AlertTitle className="text-green-800">Promotion Available!</AlertTitle>
+                                <AlertTitle className="text-green-800">{t('dialogs.enrollStudent.promotionAvailable')}</AlertTitle>
                                 <AlertDescription className="text-green-700 text-xs mt-1">
                                     {pricingSuggestion.reason}
-                                    <div className="font-bold mt-1">Suggested Price: {pricingSuggestion.suggested_price} MAD</div>
+                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.suggestedPrice', { price: pricingSuggestion.suggested_price })}</div>
                                 </AlertDescription>
                             </Alert>
                         ) : pricingSuggestion ? (
                             <Alert className="bg-blue-50 border-blue-200">
-                                <AlertTitle className="text-blue-800">Standard Pricing</AlertTitle>
+                                <AlertTitle className="text-blue-800">{t('dialogs.enrollStudent.standardPricing')}</AlertTitle>
                                 <AlertDescription className="text-blue-700 text-xs">
-                                    Standard course price applies.
-                                    <div className="font-bold mt-1">Default Price: {pricingSuggestion.default_price} MAD</div>
+                                    {t('dialogs.enrollStudent.standardPricingDesc')}
+                                    <div className="font-bold mt-1">{t('dialogs.enrollStudent.defaultPrice', { price: pricingSuggestion.default_price })}</div>
                                 </AlertDescription>
                             </Alert>
                         ) : null}
 
-                        {loadingOfferSettings && (
-                            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Checking free Solfege eligibility...</span>
-                            </div>
-                        )}
-
-                        {!loadingOfferSettings &&
-                            offerSettings?.enabled &&
-                            offerSettings?.free_course &&
-                            Number(offerSettings.free_course_id) !== Number(course?.id) &&
-                            offerSettings?.can_add_free_course && (
-                                <div className="flex items-start space-x-3 rounded-md border p-3">
-                                    <Checkbox
-                                        id="include-free-course"
-                                        checked={includeFreeCourse}
-                                        onCheckedChange={(checked) => setIncludeFreeCourse(Boolean(checked))}
-                                    />
-                                    <div className="space-y-1">
-                                        <FormLabel htmlFor="include-free-course" className="cursor-pointer">
-                                            Add free {offerSettings.free_course.name} course
-                                        </FormLabel>
-                                        <p className="text-xs text-muted-foreground">
-                                            Suggested for first enrollment. You can uncheck it.
-                                        </p>
+                        {/* ── Per-student free offer eligibility ── */}
+                        {selectedStudentId && !isEnrollingInFreeCourse && globalOffer?.enabled && globalOffer?.free_course && (
+                            <>
+                                {loadingOfferSettings ? (
+                                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>{t('dialogs.enrollStudent.checkingEligibility')}</span>
                                     </div>
-                                </div>
-                            )}
+                                ) : offerSettings?.can_add_free_course ? (
+                                    /* ELIGIBLE — big checkbox card */
+                                    <div
+                                        className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-colors ${
+                                            includeFreeCourse
+                                                ? "border-green-400 bg-green-50"
+                                                : "border-dashed border-muted-foreground/30 hover:border-green-300"
+                                        }`}
+                                        onClick={() => setIncludeFreeCourse(!includeFreeCourse)}
+                                    >
+                                        <Checkbox
+                                            id="include-free-course"
+                                            checked={includeFreeCourse}
+                                            onCheckedChange={(checked) => setIncludeFreeCourse(Boolean(checked))}
+                                            className="mt-0.5"
+                                        />
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <Gift className="h-4 w-4 text-green-600" />
+                                                <span className="font-semibold text-sm text-green-800">
+                                                    {t('dialogs.enrollStudent.addFree', { course: offerSettings.free_course?.name })}
+                                                </span>
+                                                <Badge className="bg-green-100 text-green-700 text-xs border-0">{t('dialogs.enrollStudent.free')}</Badge>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {t('dialogs.enrollStudent.eligibleDescription', { course: offerSettings.free_course?.name })}
+                                            </p>
+                                        </div>
+                                        {includeFreeCourse && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                                    </div>
+                                ) : offerSettings && !offerSettings.can_add_free_course ? (
+                                    /* NOT ELIGIBLE — small info note */
+                                    <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                                        <XCircle className="h-3.5 w-3.5 shrink-0" />
+                                        <span>
+                                            {offerSettings.existing_free_course_count! >= offerSettings.max_times!
+                                                ? t('dialogs.enrollStudent.alreadyReceived', { course: globalOffer?.free_course?.name })
+                                                : t('dialogs.enrollStudent.alreadyEnrolled', { course: globalOffer?.free_course?.name })}
+                                        </span>
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <FormField
@@ -313,16 +372,16 @@ export function AddStudentToCourseDialog({
                                 name="subscriptionType"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Plan</FormLabel>
+                                        <FormLabel>{t('dialogs.enrollStudent.plan')}</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select plan" />
+                                                    <SelectValue placeholder={t('dialogs.enrollStudent.plan')} />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="MONTHLY">Monthly</SelectItem>
-                                                <SelectItem value="QUARTERLY">Quarterly</SelectItem>
+                                                <SelectItem value="MONTHLY">{t('dialogs.enrollStudent.monthly')}</SelectItem>
+                                                <SelectItem value="QUARTERLY">{t('dialogs.enrollStudent.quarterly')}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -334,7 +393,7 @@ export function AddStudentToCourseDialog({
                                 name="startDate"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Start Date</FormLabel>
+                                    <FormLabel>{t('dialogs.enrollStudent.startDate')}</FormLabel>
                                         <FormControl>
                                             <Input type="date" {...field} />
                                         </FormControl>
@@ -378,7 +437,9 @@ export function AddStudentToCourseDialog({
                         <DialogFooter>
                             <Button type="submit" disabled={form.formState.isSubmitting}>
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Enroll Student
+                                {includeFreeCourse
+                                    ? t('dialogs.enrollStudent.enrollWithFree', { course: offerSettings?.free_course?.name || "..." })
+                                    : t('dialogs.enrollStudent.enrollStudent')}
                             </Button>
                         </DialogFooter>
                     </form>

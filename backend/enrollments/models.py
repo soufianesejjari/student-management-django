@@ -52,7 +52,11 @@ class Enrollment(models.Model):
         blank=True,
         help_text="Reason for promotional pricing"
     )
-    
+    is_free_offer = models.BooleanField(
+        default=False,
+        help_text="Whether this enrollment was auto-created as a free offer (e.g. free Solfège with any course)"
+    )
+
     notes = models.TextField(blank=True)
     
     class Meta:

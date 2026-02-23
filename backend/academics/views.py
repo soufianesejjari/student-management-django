@@ -1,12 +1,11 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.conf import settings as django_settings
-from .models import Subject, Course, Enrollment, Subscription
+from .models import Subject, Course, Enrollment, Subscription, AcademySettings
 from .serializers import (
-    SubjectSerializer, 
-    CourseSerializer, 
-    EnrollmentSerializer, 
+    SubjectSerializer,
+    CourseSerializer,
+    EnrollmentSerializer,
     EnrollmentCreateSerializer,
     SubscriptionSerializer
 )
@@ -114,34 +113,40 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 class CourseOfferSettingsViewSet(viewsets.ViewSet):
     """
-    Read-only endpoint to expose free-course offer configuration and student eligibility.
+    GET  /api/academics/offer-settings/          – full settings + optional student eligibility
+    PATCH /api/academics/offer-settings/update/  – save settings to DB
     """
     permission_classes = [permissions.IsAuthenticated]
 
-    def list(self, request):
-        offer_settings = getattr(django_settings, 'COURSE_OFFER_SETTINGS', {})
-        enabled = bool(offer_settings.get('enabled', False))
-        free_course_id = offer_settings.get('free_course_id')
-        max_times = int(offer_settings.get('max_times', 1))
+    # ── helpers ──────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _build_payload(s: AcademySettings):
+        """Serialize an AcademySettings instance to a response dict."""
         free_course = None
-        if free_course_id:
-            free_course_obj = Course.objects.filter(id=free_course_id).select_related('subject').first()
-            if free_course_obj:
+        if s.free_course_id:
+            fc = Course.objects.filter(pk=s.free_course_id).select_related('subject').first()
+            if fc:
                 free_course = {
-                    'id': free_course_obj.id,
-                    'name': free_course_obj.name,
-                    'status': free_course_obj.status,
-                    'subject_type': free_course_obj.subject.subject_type if free_course_obj.subject else None,
+                    'id': fc.id,
+                    'name': fc.name,
+                    'status': fc.status,
+                    'subject_type': fc.subject.subject_type if fc.subject else None,
                 }
-
-        payload = {
-            'enabled': enabled,
-            'free_course_id': free_course_id,
-            'max_times': max_times,
+        return {
+            'enabled': s.offer_enabled,
+            'free_course_id': s.free_course_id,
+            'max_times': s.offer_max_times,
             'free_course': free_course,
         }
 
+    # ── GET /api/academics/offer-settings/ ──────────────────────────────────
+
+    def list(self, request):
+        s = AcademySettings.get()
+        payload = self._build_payload(s)
+
+        # Optional per-student eligibility check
         student_id = request.query_params.get('student_id')
         if not student_id:
             return Response(payload)
@@ -149,32 +154,84 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
         try:
             student_id_int = int(student_id)
         except (TypeError, ValueError):
-            return Response({'error': 'student_id must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'student_id must be an integer'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        active_enrollments = Enrollment.objects.filter(
-            student_id=student_id_int,
-            status='ACTIVE'
-        )
-        active_count = active_enrollments.count()
-        existing_free_course_count = 0
-        if free_course_id:
-            existing_free_course_count = active_enrollments.filter(course_id=free_course_id).count()
+        free_course_id = s.free_course_id
+        max_times = s.offer_max_times
 
-        eligible_by_count = existing_free_course_count < max_times
-        can_add_free_course = (
-            enabled and
-            bool(free_course) and
-            free_course['status'] == 'ACTIVE' and
-            eligible_by_count
+        active_qs = Enrollment.objects.filter(student_id=student_id_int, status='ACTIVE')
+        active_count = active_qs.count()
+
+        # How many times has the student already received the free offer (ever)
+        existing_free = (
+            Enrollment.objects.filter(
+                student_id=student_id_int,
+                course_id=free_course_id,
+                is_free_offer=True,
+            ).count()
+            if free_course_id else 0
         )
-        should_auto_add = can_add_free_course and active_count == 0
+
+        already_enrolled = bool(free_course_id) and active_qs.filter(course_id=free_course_id).exists()
+
+        can_add = (
+            s.offer_enabled
+            and bool(payload['free_course'])
+            and payload['free_course']['status'] == 'ACTIVE'
+            and existing_free < max_times
+            and not already_enrolled
+        )
 
         payload.update({
             'student_id': student_id_int,
             'active_enrollments_count': active_count,
-            'existing_free_course_count': existing_free_course_count,
-            'can_add_free_course': can_add_free_course,
-            'should_auto_add': should_auto_add,
+            'existing_free_course_count': existing_free,
+            'can_add_free_course': can_add,
+            'should_auto_add': can_add,
         })
-
         return Response(payload)
+
+    # ── PATCH /api/academics/offer-settings/update/ ──────────────────────────
+
+    @action(detail=False, methods=['patch'], url_path='update')
+    def update_settings(self, request):
+        """
+        Accepts: { enabled, free_course_id, max_times }
+        All fields are optional (partial update).
+        """
+        s = AcademySettings.get()
+        data = request.data
+
+        if 'enabled' in data:
+            s.offer_enabled = bool(data['enabled'])
+
+        if 'free_course_id' in data:
+            fc_id = data['free_course_id']
+            if fc_id is None or fc_id == '':
+                s.free_course = None
+            else:
+                try:
+                    s.free_course = Course.objects.get(pk=int(fc_id))
+                except Course.DoesNotExist:
+                    return Response(
+                        {'error': f'Course {fc_id} not found'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        if 'max_times' in data:
+            try:
+                v = int(data['max_times'])
+                if v < 1:
+                    raise ValueError
+                s.offer_max_times = v
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'max_times must be a positive integer'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        s.save()
+        return Response(self._build_payload(s))

@@ -50,7 +50,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'course', 'course_name', 'course_subject',
             'enrolled_at', 'status', 'default_price', 'custom_price',
-            'is_promotional', 'promotional_reason', 'notes', 'final_price',
+            'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price',
             'is_active'
         ]
         read_only_fields = ['enrolled_at', 'final_price', 'is_active']

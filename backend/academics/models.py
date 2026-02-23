@@ -167,3 +167,47 @@ class Subscription(models.Model):
     
     def __str__(self):
         return f"{self.enrollment} - {self.get_subscription_type_display()} ({self.start_date} to {self.end_date})"
+
+
+class AcademySettings(models.Model):
+    """
+    Singleton model – only one row ever exists (pk=1).
+    Stores school-wide configurable settings that admins can change at runtime
+    without touching code or environment variables.
+    """
+
+    # ── Course Offer ──────────────────────────────────────────────────────────
+    offer_enabled = models.BooleanField(
+        default=False,
+        help_text="When enabled, students automatically receive the free course on their first enrollment.",
+    )
+    free_course = models.ForeignKey(
+        'Course',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        help_text="The course offered for free (e.g. Solfège). Leave blank to disable the offer.",
+    )
+    offer_max_times = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="How many times a student can receive the free course offer.",
+    )
+
+    class Meta:
+        verbose_name = "Academy Settings"
+        verbose_name_plural = "Academy Settings"
+
+    def __str__(self):
+        return "Academy Settings"
+
+    def save(self, *args, **kwargs):
+        # Force singleton: always use pk=1
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls):
+        """Return the singleton instance, creating it with defaults if it doesn't exist."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

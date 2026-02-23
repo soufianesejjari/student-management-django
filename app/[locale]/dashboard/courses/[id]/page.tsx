@@ -11,9 +11,11 @@ import { AddStudentToCourseDialog } from "@/components/courses/add-student-dialo
 import { CourseSchedule } from "@/components/courses/course-schedule"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
+import { useTranslations } from "next-intl"
 
 export default function CourseDetailPage() {
     const params = useParams()
+    const t = useTranslations()
 
     const [course, setCourse] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -26,7 +28,7 @@ export default function CourseDetailPage() {
             setCourse(data)
         } catch (error) {
             console.error("Failed to fetch course:", error)
-            toast.error("Failed to load course details")
+            toast.error(t('courses.failedLoad'))
         } finally {
             setLoading(false)
         }
@@ -49,7 +51,7 @@ export default function CourseDetailPage() {
     if (!course) {
         return (
             <div className="flex h-full items-center justify-center">
-                <p className="text-muted-foreground">Course not found</p>
+                <p className="text-muted-foreground">{t('courses.notFound')}</p>
             </div>
         )
     }
@@ -60,12 +62,12 @@ export default function CourseDetailPage() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">{course.name}</h2>
                     <p className="text-muted-foreground">
-                        {course.subject_name} • {course.level} • {course.teacher_name || "No Teacher"}
+                        {course.subject_name} • {course.level} • {course.teacher_name || t('courses.noTeacher')}
                     </p>
                 </div>
                 <div className="flex items-center space-x-2">
                     <Button onClick={() => setOpenEnrollDialog(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> Enroll Student
+                        <Plus className="mr-2 h-4 w-4" /> {t('courses.addStudent')}
                     </Button>
                 </div>
             </div>
@@ -73,22 +75,22 @@ export default function CourseDetailPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Price</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('courses.price')}</CardTitle>
                         <Banknote className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{course.price} MAD</div>
-                        <p className="text-xs text-muted-foreground">Per month (default)</p>
+                        <p className="text-xs text-muted-foreground">{t('courses.perMonthDefault')}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Enrollments</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('courses.enrollments')}</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{course.enrollment_count}</div>
-                        <p className="text-xs text-muted-foreground">Active students</p>
+                        <p className="text-xs text-muted-foreground">{t('courses.activeStudents')}</p>
                     </CardContent>
                 </Card>
                 {/* We can add more stats here */}
@@ -96,8 +98,8 @@ export default function CourseDetailPage() {
 
             <Tabs defaultValue="students" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="students">Enrolled Students</TabsTrigger>
-                    <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                    <TabsTrigger value="students">{t('courses.enrolledStudents')}</TabsTrigger>
+                    <TabsTrigger value="schedule">{t('courses.courseSchedule')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="students" className="space-y-4">
                     <EnrolledStudentsTable courseId={course.id} />

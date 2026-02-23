@@ -57,11 +57,21 @@ export function AsyncSelect({
     const selectedItem = items.find((item: any) => renderValue(item) === value)
     const [displayLabel, setDisplayLabel] = React.useState<string>("")
 
+    // Fetch the single item by ID to resolve its label on initial load
+    const { data: singleItem } = useSWR(
+        value != null && !displayLabel ? `${endpoint}${value}/` : null,
+        fetcher
+    )
+
     React.useEffect(() => {
         if (selectedItem) {
             setDisplayLabel(renderLabel(selectedItem))
+        } else if (singleItem) {
+            setDisplayLabel(renderLabel(singleItem))
+        } else if (!value) {
+            setDisplayLabel("")
         }
-    }, [selectedItem, renderLabel])
+    }, [selectedItem, singleItem, renderLabel, value])
 
     return (
         <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>

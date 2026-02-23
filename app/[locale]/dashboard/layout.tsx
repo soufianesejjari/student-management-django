@@ -57,9 +57,9 @@ export default function DashboardLayout({
   )
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col" suppressHydrationWarning>
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
-        <div className="flex items-center gap-2 font-semibold">
+        <div className="flex items-center gap-2 font-semibold" suppressHydrationWarning>
           {isMobile && (
             <Sheet>
               <SheetTrigger asChild>
@@ -82,20 +82,20 @@ export default function DashboardLayout({
           <Music2 className="h-6 w-6" />
           <span className="hidden md:inline-block">The Musical Academy</span>
         </div>
-        <div className="flex-1" />
+        <div className="flex-1" suppressHydrationWarning />
         <ModeToggle />
         <Avatar>
           <AvatarImage src="/placeholder.svg" alt="Admin" />
           <AvatarFallback>AD</AvatarFallback>
         </Avatar>
       </header>
-      <div className="flex flex-1">
+      <div className="flex flex-1" suppressHydrationWarning>
         <aside className="hidden w-64 shrink-0 border-r md:block">
-          <div className="flex h-full max-h-screen flex-col gap-2 p-4">
+          <div className="flex h-full max-h-screen flex-col gap-2 p-4" suppressHydrationWarning>
             <nav className="grid gap-2 text-sm">
               <NavItems />
             </nav>
-            <div className="mt-auto">
+            <div className="mt-auto" suppressHydrationWarning>
               <Button variant="outline" size="sm" className="w-full justify-start gap-2">
                 <LogOut className="h-4 w-4" />
                 {t('navigation.logout')}

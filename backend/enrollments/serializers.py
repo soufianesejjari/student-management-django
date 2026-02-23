@@ -17,9 +17,9 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'course', 'course_name', 'course_subject',
             'enrolled_at', 'status', 'default_price', 'custom_price',
-            'is_promotional', 'promotional_reason', 'notes', 'final_price'
+            'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price'
         ]
-        read_only_fields = ['enrolled_at',  'final_price']
+        read_only_fields = ['enrolled_at', 'final_price']
     
     def get_student_name(self, obj):
         return f"{obj.student.user.first_name} {obj.student.user.last_name}"
@@ -34,6 +34,8 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     """
     Specialized serializer for creating enrollments with pricing calculation.
+    Automatically adds the configured free course (e.g. Solfège) if the student
+    does not already have it and has never received the offer before.
     """
     subscription_type = serializers.ChoiceField(
         choices=Subscription.SUBSCRIPTION_TYPE_CHOICES,
@@ -41,17 +43,15 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         required=True
     )
     subscription_start_date = serializers.DateField(write_only=True, required=True)
-    is_free_offer = serializers.BooleanField(write_only=True, required=False, default=False)
-    
+
     class Meta:
         model = Enrollment
         fields = [
             'id', 'student', 'course', 'custom_price', 'notes',
-            'subscription_type', 'subscription_start_date', 'is_free_offer'
+            'subscription_type', 'subscription_start_date',
         ]
-    
+
     def validate(self, attrs):
-        # Check for duplicate enrollment
         student = attrs['student']
         course = attrs['course']
 
@@ -60,64 +60,97 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             course=course,
             status='ACTIVE'
         ).exists()
-        
+
         if existing:
             raise serializers.ValidationError(
                 "Student is already enrolled in this course."
             )
-        
+
         return attrs
-    
-    def create(self, validated_data):
+
+    def _create_single_enrollment(self, student, course, custom_price, subscription_type,
+                                   subscription_start_date, notes='', is_free_offer=False):
+        """Helper: create one Enrollment + its first Subscription."""
         from enrollments.services import EnrollmentService
         from datetime import timedelta
         from dateutil.relativedelta import relativedelta
-        
-        subscription_type = validated_data.pop('subscription_type')
-        subscription_start_date = validated_data.pop('subscription_start_date')
-        is_free_offer = validated_data.pop('is_free_offer', False)
-        
-        student = validated_data['student']
-        course = validated_data['course']
-        custom_price = validated_data.get('custom_price')
-        
-        # Get suggested pricing
+
         pricing = EnrollmentService.suggest_enrollment_price(student.id, course.id)
-        
-        # Create enrollment
-        effective_custom_price = 0 if is_free_offer else (
-            custom_price if custom_price is not None else pricing['suggested_price']
-        )
-        effective_is_promotional = pricing['is_promotional'] or is_free_offer
-        effective_reason = pricing['reason'] if pricing['reason'] else (
-            "Free course offer" if is_free_offer else ""
-        )
+
+        if is_free_offer:
+            effective_price = 0
+            is_promotional = True
+            promotional_reason = pricing.get('offer_reason') or 'Free course offer'
+        else:
+            effective_price = custom_price if custom_price is not None else pricing['suggested_price']
+            is_promotional = pricing['is_promotional']
+            promotional_reason = pricing['reason']
 
         enrollment = Enrollment.objects.create(
             student=student,
             course=course,
             default_price=pricing['default_price'],
-            custom_price=effective_custom_price,
-            is_promotional=effective_is_promotional,
-            promotional_reason=effective_reason,
-            notes=validated_data.get('notes', '')
+            custom_price=effective_price,
+            is_promotional=is_promotional,
+            promotional_reason=promotional_reason,
+            is_free_offer=is_free_offer,
+            notes=notes,
         )
-        
-        # Calculate subscription end date
+
         if subscription_type == 'MONTHLY':
             end_date = subscription_start_date + relativedelta(months=1) - timedelta(days=1)
-        else:  # QUARTERLY
+        else:
             end_date = subscription_start_date + relativedelta(months=3) - timedelta(days=1)
-        
-        # Create initial subscription
+
         Subscription.objects.create(
             enrollment=enrollment,
             subscription_type=subscription_type,
             start_date=subscription_start_date,
             end_date=end_date,
-            amount=enrollment.custom_price
+            amount=enrollment.custom_price,
         )
-        
+
+        return enrollment
+
+    def create(self, validated_data):
+        from enrollments.services import EnrollmentService
+
+        subscription_type = validated_data.pop('subscription_type')
+        subscription_start_date = validated_data.pop('subscription_start_date')
+
+        student = validated_data['student']
+        course = validated_data['course']
+        custom_price = validated_data.get('custom_price')
+        notes = validated_data.get('notes', '')
+
+        # Create the main enrollment
+        enrollment = self._create_single_enrollment(
+            student=student,
+            course=course,
+            custom_price=custom_price,
+            subscription_type=subscription_type,
+            subscription_start_date=subscription_start_date,
+            notes=notes,
+            is_free_offer=False,
+        )
+
+        # Auto-add the free offer course if the student qualifies
+        # (only after the main enrollment is saved, so the check is up to date)
+        qualifies, free_course, _ = EnrollmentService.student_qualifies_for_free_offer(student)
+
+        # Do not offer the free course if the student just enrolled in it
+        offer = EnrollmentService.get_offer_settings()
+        if qualifies and free_course and course.id != offer.get('free_course_id'):
+            self._create_single_enrollment(
+                student=student,
+                course=free_course,
+                custom_price=0,
+                subscription_type=subscription_type,
+                subscription_start_date=subscription_start_date,
+                notes='Auto-added free offer course',
+                is_free_offer=True,
+            )
+
         return enrollment
 
 

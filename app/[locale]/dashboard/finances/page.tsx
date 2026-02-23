@@ -99,11 +99,11 @@ function FinancesContent() {
     try {
       setDeletingExpenseId(id)
       await api.delete(`/finances/expenses/${id}/`)
-      toast.success("Expense deleted successfully")
+      toast.success(t('finances.expenseDeleted'))
       mutateExpenses()
     } catch (error) {
       console.error(error)
-      toast.error("Failed to delete expense")
+      toast.error(t('finances.expenseDeleteFailed'))
     } finally {
       setDeletingExpenseId(null)
     }
@@ -232,22 +232,22 @@ function FinancesContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Étudiant</TableHead>
-                      <TableHead>Montant</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Méthode</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="w-[60px]">Actions</TableHead>
+                      <TableHead>{t('finances.student')}</TableHead>
+                      <TableHead>{t('finances.amount')}</TableHead>
+                      <TableHead>{t('finances.date')}</TableHead>
+                      <TableHead>{t('finances.method')}</TableHead>
+                      <TableHead>{t('finances.status')}</TableHead>
+                      <TableHead className="w-[60px]">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paymentsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
                       </TableRow>
                     ) : payments?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">Aucun paiement trouvé.</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">{t('finances.noPayments')}</TableCell>
                       </TableRow>
                     ) : (
                       payments?.map((payment: any) => (
@@ -256,7 +256,7 @@ function FinancesContent() {
                             {payment.student_name
                               || payment.subscription_details?.student_name
                               || payment.student_username
-                              || `Étudiant #${payment.student}`}
+                              || `#${payment.student}`}
                           </TableCell>
                           <TableCell>{payment.amount} €</TableCell>
                           <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
@@ -288,11 +288,7 @@ function FinancesContent() {
               </div>
               <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                  {paymentsTotal > 0 ? (
-                    <>
-                      Page {paymentsPage} of {Math.ceil(paymentsTotal / 10)} ({paymentsTotal} items)
-                    </>
-                  ) : null}
+                  {paymentsTotal > 0 ? t('common.page', { current: paymentsPage, total: Math.ceil(paymentsTotal / 10) }) : null}
                 </div>
                 <Button
                   variant="outline"
@@ -301,7 +297,7 @@ function FinancesContent() {
                   disabled={!paymentsPrevious || paymentsLoading}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Précédent
+                  {t('common.previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -309,7 +305,7 @@ function FinancesContent() {
                   onClick={() => handlePaymentsPageChange(paymentsPage + 1)}
                   disabled={!paymentsNext || paymentsLoading}
                 >
-                  Suivant
+                  {t('common.next')}
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
@@ -319,31 +315,31 @@ function FinancesContent() {
         <TabsContent value="status" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Statut des paiements étudiants</CardTitle>
-              <CardDescription>Vue d'ensemble des statuts de paiement de tous les étudiants actifs.</CardDescription>
+              <CardTitle>{t('finances.paymentStatusTitle')}</CardTitle>
+              <CardDescription>{t('finances.paymentStatusDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Étudiant</TableHead>
-                      <TableHead>Total dû</TableHead>
-                      <TableHead>Payé</TableHead>
-                      <TableHead>Solde</TableHead>
-                      <TableHead>Dernier paiement</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
+                      <TableHead>{t('finances.student')}</TableHead>
+                      <TableHead>{t('finances.totalDue')}</TableHead>
+                      <TableHead>{t('finances.paid')}</TableHead>
+                      <TableHead>{t('finances.balance')}</TableHead>
+                      <TableHead>{t('finances.lastPayment')}</TableHead>
+                      <TableHead>{t('finances.status')}</TableHead>
+                      <TableHead className="w-[100px]">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {statusLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">Chargement...</TableCell>
+                        <TableCell colSpan={7} className="text-center h-24">{t('common.loading')}</TableCell>
                       </TableRow>
                     ) : paymentStatus.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center h-24">Aucun étudiant trouvé.</TableCell>
+                        <TableCell colSpan={7} className="text-center h-24">{t('students.noStudents')}</TableCell>
                       </TableRow>
                     ) : (
                       paymentStatus.map((status) => (
@@ -356,8 +352,8 @@ function FinancesContent() {
                           </TableCell>
                           <TableCell>
                             {status.last_payment_date 
-                              ? new Date(status.last_payment_date).toLocaleDateString('fr-FR')
-                              : 'Jamais'}
+                              ? new Date(status.last_payment_date).toLocaleDateString()
+                              : t('finances.never')}
                           </TableCell>
                           <TableCell>
                             <span
@@ -371,7 +367,7 @@ function FinancesContent() {
                             >
                               {status.status}
                               {status.days_overdue !== null && status.days_overdue > 0 && (
-                                <span className="ml-1">({status.days_overdue}j)</span>
+                                <span className="ml-1">({status.days_overdue}{t('finances.daysOverdue')})</span>
                               )}
                             </span>
                           </TableCell>
@@ -395,14 +391,14 @@ function FinancesContent() {
         <TabsContent value="expenses" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Dépenses</CardTitle>
-              <CardDescription>Suivez les dépenses de l'école.</CardDescription>
+              <CardTitle>{t('finances.expenses')}</CardTitle>
+              <CardDescription>{t('finances.expensesDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2 w-full max-w-sm">
                   <Input
-                    placeholder="Rechercher une dépense..."
+                    placeholder={t('finances.searchExpenses')}
                     className="h-9"
                     defaultValue={expensesSearch}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleExpensesSearch(e.target.value)}
@@ -411,11 +407,11 @@ function FinancesContent() {
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm">
                     <Filter className="mr-2 h-4 w-4" />
-                    Filtrer
+                    {t('common.filter')}
                   </Button>
                   <Button variant="outline" size="sm">
                     <Download className="mr-2 h-4 w-4" />
-                    Exporter
+                    {t('common.export')}
                   </Button>
                 </div>
               </div>
@@ -423,22 +419,22 @@ function FinancesContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Montant</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Catégorie</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('finances.description')}</TableHead>
+                      <TableHead>{t('finances.amount')}</TableHead>
+                      <TableHead>{t('finances.date')}</TableHead>
+                      <TableHead>{t('finances.category')}</TableHead>
+                      <TableHead>{t('finances.status')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expensesLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">Chargement...</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
                       </TableRow>
                     ) : expenses?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">Aucune dépense trouvée.</TableCell>
+                        <TableCell colSpan={6} className="text-center h-24">{t('finances.noExpenses')}</TableCell>
                       </TableRow>
                     ) : (
                       expenses?.map((expense: any) => (
@@ -476,18 +472,18 @@ function FinancesContent() {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete expense</AlertDialogTitle>
+                                    <AlertDialogTitle>{t('finances.deleteExpenseTitle')}</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the expense.
+                                      {t('finances.deleteExpenseDescription')}
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={() => handleDeleteExpense(expense.id)}
                                       disabled={deletingExpenseId === expense.id}
                                     >
-                                      {deletingExpenseId === expense.id ? "Deleting..." : "Delete"}
+                                      {deletingExpenseId === expense.id ? t('finances.deleting') : t('common.delete')}
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
@@ -502,11 +498,7 @@ function FinancesContent() {
               </div>
               <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                  {expensesTotal > 0 ? (
-                    <>
-                      Page {expensesPage} of {Math.ceil(expensesTotal / 10)} ({expensesTotal} items)
-                    </>
-                  ) : null}
+                  {expensesTotal > 0 ? t('common.page', { current: expensesPage, total: Math.ceil(expensesTotal / 10) }) : null}
                 </div>
                 <Button
                   variant="outline"
@@ -515,7 +507,7 @@ function FinancesContent() {
                   disabled={!expensesPrevious || expensesLoading}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Précédent
+                  {t('common.previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -523,7 +515,7 @@ function FinancesContent() {
                   onClick={() => handleExpensesPageChange(expensesPage + 1)}
                   disabled={!expensesNext || expensesLoading}
                 >
-                  Suivant
+                  {t('common.next')}
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </div>
@@ -533,28 +525,25 @@ function FinancesContent() {
         <TabsContent value="reports" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Rapports financiers</CardTitle>
-              <CardDescription>Consultez les rapports financiers détaillés.</CardDescription>
+              <CardTitle>{t('finances.financialReports')}</CardTitle>
+              <CardDescription>{t('finances.financialReportsDescription')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px] w-full bg-muted/20 rounded-md flex items-center justify-center text-muted-foreground">
-                Graphique des revenus et dépenses
+                {t('finances.revenueExpensesChart')}
               </div>
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
                   <Download className="h-6 w-6 mb-2" />
-                  <span>Rapport mensuel</span>
-                  <span className="text-xs text-muted-foreground mt-1">Avril 2025</span>
+                  <span>{t('finances.monthlyReport')}</span>
                 </Button>
                 <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
                   <Download className="h-6 w-6 mb-2" />
-                  <span>Rapport trimestriel</span>
-                  <span className="text-xs text-muted-foreground mt-1">T1 2025</span>
+                  <span>{t('finances.quarterlyReport')}</span>
                 </Button>
                 <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
                   <Download className="h-6 w-6 mb-2" />
-                  <span>Rapport annuel</span>
-                  <span className="text-xs text-muted-foreground mt-1">2024</span>
+                  <span>{t('finances.annualReport')}</span>
                 </Button>
               </div>
             </CardContent>

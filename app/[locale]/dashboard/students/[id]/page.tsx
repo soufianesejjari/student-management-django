@@ -11,9 +11,11 @@ import { api } from "@/lib/api"
 import { EnrolledCoursesTable } from "@/components/students/enrolled-courses-table"
 import { PaymentsTable } from "@/components/students/payments-table"
 import { format } from "date-fns"
+import { useTranslations } from "next-intl"
 
 export default function StudentDetailPage() {
     const params = useParams()
+    const t = useTranslations()
 
     const [student, setStudent] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -27,7 +29,7 @@ export default function StudentDetailPage() {
             setStudent(data)
         } catch (error) {
             console.error("Failed to fetch student:", error)
-            toast.error("Failed to load student details")
+            toast.error(t('students.failedLoad'))
         } finally {
             setLoading(false)
         }
@@ -46,10 +48,10 @@ export default function StudentDetailPage() {
             document.body.appendChild(link)
             link.click()
             link.remove()
-            toast.success("Schedule downloaded")
+            toast.success(t('students.scheduleDownloaded'))
         } catch (error) {
             console.error(error)
-            toast.error("Failed to download schedule")
+            toast.error(t('students.scheduleFailed'))
         }
     }
 
@@ -70,7 +72,7 @@ export default function StudentDetailPage() {
     if (!student) {
         return (
             <div className="flex h-full items-center justify-center">
-                <p className="text-muted-foreground">Student not found</p>
+                <p className="text-muted-foreground">{t('students.notFound')}</p>
             </div>
         )
     }
@@ -88,7 +90,7 @@ export default function StudentDetailPage() {
                 <div className="flex items-center space-x-2">
                     <Button variant="outline" onClick={handleDownloadSchedule}>
                         <FileDown className="mr-2 h-4 w-4" />
-                        Download Schedule
+                        {t('students.downloadSchedule')}
                     </Button>
                 </div>
             </div>
@@ -96,25 +98,25 @@ export default function StudentDetailPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Joined</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t('students.joined')}</CardTitle>
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{student.date_joined ? format(new Date(student.date_joined), "MMM yyyy") : "N/A"}</div>
-                        <p className="text-xs text-muted-foreground">Registration Date</p>
+                        <p className="text-xs text-muted-foreground">{t('students.registrationDate')}</p>
                     </CardContent>
                 </Card>
             </div>
 
             <Tabs defaultValue="courses" className="space-y-4">
                 <TabsList>
-                    <TabsTrigger value="courses">Courses & Subscriptions</TabsTrigger>
-                    <TabsTrigger value="payments">Payments History</TabsTrigger>
+                    <TabsTrigger value="courses">{t('students.coursesSubscriptions')}</TabsTrigger>
+                    <TabsTrigger value="payments">{t('students.paymentsHistory')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="courses" className="space-y-4">
                     <div className="flex justify-end">
                         <Button onClick={() => setOpenAddCourseDialog(true)}>
-                            <Plus className="mr-2 h-4 w-4" /> Enroll in Course
+                            <Plus className="mr-2 h-4 w-4" /> {t('students.enrollInCourse')}
                         </Button>
                     </div>
                     <EnrolledCoursesTable studentId={student.id} />

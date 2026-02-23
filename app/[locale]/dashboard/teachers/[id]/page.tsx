@@ -10,9 +10,12 @@ import { ChevronLeft, ChevronRight, Loader2, FileDown, Calendar } from "lucide-r
 import { useTeacherSessions, updateSessionAttendance } from "@/hooks/useTeacherSessions"
 import { toast } from "sonner"
 import api from "@/lib/api"
+import { useTranslations, useLocale } from "next-intl"
 
 export default function TeacherProfile() {
     const params = useParams()
+    const t = useTranslations()
+    const locale = useLocale()
     const teacherId = parseInt(params.id as string)
     
     const [currentDate, setCurrentDate] = useState(new Date())
@@ -38,17 +41,19 @@ export default function TeacherProfile() {
         try {
             await updateSessionAttendance(teacherId, sessionId, date, isAbsent)
             await mutate()
-            toast.success("Attendance updated successfully")
+            toast.success(t('teachers.attendanceUpdated'))
         } catch (error: any) {
             console.error(error)
-            toast.error("Failed to update attendance")
+            toast.error(t('teachers.attendanceFailed'))
         } finally {
             setSavingStates(prev => ({ ...prev, [key]: false }))
         }
     }
 
-    const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    const monthName = new Date(year, month - 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+    const daysOfWeek = Array.from({ length: 7 }, (_, i) =>
+        new Date(2021, 0, i + 3).toLocaleDateString(locale, { weekday: 'short' })
+    )
 
     const handleDownloadPaymentReport = async () => {
         try {
@@ -64,10 +69,10 @@ export default function TeacherProfile() {
             document.body.appendChild(link)
             link.click()
             link.remove()
-            toast.success("Payment report downloaded")
+            toast.success(t('teachers.paymentReportDownloaded'))
         } catch (error) {
             console.error(error)
-            toast.error("Failed to download payment report")
+            toast.error(t('teachers.paymentReportFailed'))
         }
     }
 
@@ -84,10 +89,10 @@ export default function TeacherProfile() {
             document.body.appendChild(link)
             link.click()
             link.remove()
-            toast.success("Schedule downloaded")
+            toast.success(t('teachers.scheduleDownloaded'))
         } catch (error) {
             console.error(error)
-            toast.error("Failed to download schedule")
+            toast.error(t('teachers.scheduleFailed'))
         }
     }
 
@@ -102,7 +107,7 @@ export default function TeacherProfile() {
     if (!sessionData) {
         return (
             <div className="p-8">
-                <p className="text-muted-foreground">No data available</p>
+                <p className="text-muted-foreground">{t('teachers.noData')}</p>
             </div>
         )
     }
@@ -131,16 +136,16 @@ export default function TeacherProfile() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold">{teacher.name}</h1>
-                    <p className="text-muted-foreground">Teacher Profile & Attendance</p>
+                    <p className="text-muted-foreground">{t('teachers.profileAttendance')}</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={handleDownloadPaymentReport}>
                         <FileDown className="mr-2 h-4 w-4" />
-                        Payment Report
+                        {t('teachers.paymentReport')}
                     </Button>
                     <Button variant="outline" onClick={handleDownloadSchedule}>
                         <Calendar className="mr-2 h-4 w-4" />
-                        Schedule PDF
+                        {t('teachers.schedulePdf')}
                     </Button>
                 </div>
             </div>
@@ -149,16 +154,16 @@ export default function TeacherProfile() {
             <div className="w-full grid gap-4 grid-cols-4">
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Hourly Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{t('teachers.hourlyRate')}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">${teacher.hourly_rate.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">{teacher.hourly_rate.toFixed(2)} MAD</div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Hours</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{t('teachers.totalHours')}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{summary.total_hours.toFixed(1)}h</div>
@@ -167,7 +172,7 @@ export default function TeacherProfile() {
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Worked Hours</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{t('teachers.workedHours')}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{summary.worked_hours.toFixed(1)}h</div>
@@ -176,10 +181,10 @@ export default function TeacherProfile() {
 
                 <Card>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Expense</CardTitle>
+                        <CardTitle className="text-sm font-medium text-muted-foreground">{t('teachers.totalExpense')}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">${summary.total_expense.toFixed(2)}</div>
+                        <div className="text-2xl font-bold text-green-600">{summary.total_expense.toFixed(2)} MAD</div>
                     </CardContent>
                 </Card>
             </div>
@@ -199,7 +204,7 @@ export default function TeacherProfile() {
             <div className="space-y-4">
                 {weeks.length === 0 ? (
                     <Card className="p-8">
-                        <p className="text-center text-muted-foreground">No sessions scheduled for this month</p>
+                        <p className="text-center text-muted-foreground">{t('teachers.noSessionsThisMonth')}</p>
                     </Card>
                 ) : (
                     weeks.map(([weekStart, weekSessions]) => (
@@ -233,7 +238,7 @@ export default function TeacherProfile() {
                                                             {daysOfWeek[new Date(session.date).getDay()]}
                                                         </span>
                                                         {session.is_cancelled && (
-                                                            <Badge variant="destructive" className="text-xs">Cancelled</Badge>
+                                                            <Badge variant="destructive" className="text-xs">{t('schedule.cancelled')}</Badge>
                                                         )}
                                                     </div>
                                                     <div className="text-sm text-muted-foreground mt-1">
@@ -274,25 +279,25 @@ export default function TeacherProfile() {
             {/* Summary Stats */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Monthly Summary</CardTitle>
+                    <CardTitle>{t('teachers.monthlySummary')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Sessions</p>
+                            <p className="text-sm text-muted-foreground">{t('teachers.totalSessions')}</p>
                             <p className="text-2xl font-bold">{summary.total_sessions}</p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Cancelled</p>
+                            <p className="text-sm text-muted-foreground">{t('schedule.cancelled')}</p>
                             <p className="text-2xl font-bold text-red-600">{summary.cancelled_sessions}</p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Absences</p>
+                            <p className="text-sm text-muted-foreground">{t('teachers.absences')}</p>
                             <p className="text-2xl font-bold text-yellow-600">{summary.absent_sessions}</p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Salary</p>
-                            <p className="text-2xl font-bold text-green-600">${summary.total_expense.toFixed(2)}</p>
+                            <p className="text-sm text-muted-foreground">{t('teachers.totalSalary')}</p>
+                            <p className="text-2xl font-bold text-green-600">{summary.total_expense.toFixed(2)} MAD</p>
                         </div>
                     </div>
                 </CardContent>

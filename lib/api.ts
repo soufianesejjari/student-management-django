@@ -108,7 +108,9 @@ export const api = {
         get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
         offerSettings: (student_id?: number) =>
             axiosInstance.get('/academics/offer-settings/', { params: student_id ? { student_id } : {} }).then(res => res.data),
-        suggestPrice: (data: { student_id: number, course_id: number }) => 
+        updateOfferSettings: (data: { enabled?: boolean; free_course_id?: number | null; max_times?: number }) =>
+            axiosInstance.patch('/academics/offer-settings/update/', data).then(res => res.data),
+        suggestPrice: (data: { student_id: number, course_id: number }) =>
             axiosInstance.post('/academics/enrollments/suggest-price/', data).then(res => res.data),
     },
     subscriptions: {

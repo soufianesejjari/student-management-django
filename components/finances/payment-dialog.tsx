@@ -49,7 +49,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
                 notes: formData.notes
             })
 
-            toast.success("Payment recorded successfully")
+            toast.success(t('dialogs.payment.success'))
             setOpen(false)
             setFormData({
                 student: studentId || 0,
