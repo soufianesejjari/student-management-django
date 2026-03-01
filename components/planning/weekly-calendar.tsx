@@ -8,8 +8,11 @@ import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { SessionDetailsDialog } from "@/components/planning/session-details-dialog"
 import { CalendarColumn } from "./CalendarColumn"
+import { useTranslations, useLocale } from "next-intl"
 
 export function WeeklyCalendar() {
+    const t = useTranslations('schedule')
+    const locale = useLocale()
     const [currentDate, setCurrentDate] = useState(new Date())
     const [sessions, setSessions] = useState<any[]>([])
     const [instances, setInstances] = useState<any[]>([])
@@ -106,13 +109,13 @@ export function WeeklyCalendar() {
         <Card className="h-full flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xl font-bold">
-                    {startOfWeek.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    {startOfWeek.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
                 </CardTitle>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => navigateWeek('prev')}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" onClick={() => setCurrentDate(new Date())}>Today</Button>
+                    <Button variant="outline" onClick={() => setCurrentDate(new Date())}>{t('today')}</Button>
                     <Button variant="outline" size="icon" onClick={() => navigateWeek('next')}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -129,14 +132,14 @@ export function WeeklyCalendar() {
                     {/* Header Row - using flex to match body layout */}
                     <div className="flex border-b sticky top-0 bg-background z-20" style={{ minWidth: '900px' }}>
                         <div className="w-[100px] flex-shrink-0 p-1all border-r bg-muted/30 text-xs font-semibold text-muted-foreground text-center flex items-center justify-center">
-                            Time
+                            {t('time')}
                         </div>
                         {weekDays.map((date, i) => (
                             <div key={i} className={cn(
                                 "flex-1 p-2 border-r text-center py-3",
                                 date.toDateString() === new Date().toDateString() ? "bg-accent/50" : ""
                             )}>
-                                <div className="text-sm font-medium">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                                <div className="text-sm font-medium">{date.toLocaleDateString(locale, { weekday: 'short' })}</div>
                                 <div className={cn(
                                     "text-xl font-bold rounded-full w-8 h-8 flex items-center justify-center mx-auto mt-1",
                                     date.toDateString() === new Date().toDateString() ? "bg-primary text-primary-foreground" : ""

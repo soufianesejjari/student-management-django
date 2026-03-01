@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { format } from "date-fns"
 import { Calendar, Clock, MapPin, User, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useTranslations, useLocale } from "next-intl"
 
 interface SessionDetailsDialogProps {
     open: boolean
@@ -21,6 +22,8 @@ interface SessionDetailsDialogProps {
 }
 
 export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpdate }: SessionDetailsDialogProps) {
+    const t = useTranslations('schedule')
+    const locale = useLocale()
     const [mode, setMode] = useState<'view' | 'reschedule' | 'cancel'>('view')
     const [newDate, setNewDate] = useState('')
     const [newStartTime, setNewStartTime] = useState('')
@@ -35,12 +38,12 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                 original_date: format(date, 'yyyy-MM-dd'),
                 notes
             })
-            toast.success("Session cancelled for this date")
+            toast.success(t('cancelSessionSuccess'))
             onUpdate?.()
             onOpenChange(false)
         } catch (error) {
             console.error(error)
-            toast.error("Failed to cancel session")
+            toast.error(t('cancelSessionError'))
         } finally {
             setLoading(false)
         }
@@ -48,7 +51,7 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
 
     const handleReschedule = async () => {
         if (!newDate || !newStartTime || !newEndTime) {
-            toast.error("Please fill all fields")
+            toast.error(t('fillAllFields'))
             return
         }
 
@@ -61,12 +64,12 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                 new_end_time: newEndTime,
                 notes
             })
-            toast.success("Session rescheduled successfully")
+            toast.success(t('rescheduleSuccess'))
             onUpdate?.()
             onOpenChange(false)
         } catch (error) {
             console.error(error)
-            toast.error("Failed to reschedule session")
+            toast.error(t('rescheduleError'))
         } finally {
             setLoading(false)
         }
@@ -92,12 +95,12 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>
-                        {mode === 'view' && 'Session Details'}
-                        {mode === 'reschedule' && 'Reschedule Session'}
-                        {mode === 'cancel' && 'Cancel Session'}
+                        {mode === 'view' && t('sessionDetails')}
+                        {mode === 'reschedule' && t('rescheduleTitle')}
+                        {mode === 'cancel' && t('cancelTitle')}
                     </DialogTitle>
                     <DialogDescription>
-                        {format(date, 'EEEE, MMMM d, yyyy')}
+                        {date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -135,12 +138,12 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                         <Alert>
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                This will reschedule only the occurrence on {format(date, 'MMM d, yyyy')}. Other sessions remain unchanged.
+                                {t('rescheduleAlert', { date: date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                             </AlertDescription>
                         </Alert>
 
                         <div className="space-y-2">
-                            <Label htmlFor="newDate">New Date</Label>
+                            <Label htmlFor="newDate">{t('newDate')}</Label>
                             <Input
                                 id="newDate"
                                 type="date"
@@ -151,7 +154,7 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="newStartTime">Start Time</Label>
+                                <Label htmlFor="newStartTime">{t('startTime')}</Label>
                                 <Input
                                     id="newStartTime"
                                     type="time"
@@ -160,7 +163,7 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="newEndTime">End Time</Label>
+                                <Label htmlFor="newEndTime">{t('endTime')}</Label>
                                 <Input
                                     id="newEndTime"
                                     type="time"
@@ -171,10 +174,10 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="notes">Notes (optional)</Label>
+                            <Label htmlFor="notes">{t('notesOptional')}</Label>
                             <Textarea
                                 id="notes"
-                                placeholder="Reason for rescheduling..."
+                                placeholder={t('rescheduleReason')}
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                             />
@@ -187,15 +190,15 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
-                                This will cancel only the session on {format(date, 'MMM d, yyyy')}. This action cannot be undone.
+                                {t('cancelAlert', { date: date.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) })}
                             </AlertDescription>
                         </Alert>
 
                         <div className="space-y-2">
-                            <Label htmlFor="cancelNotes">Reason for Cancellation</Label>
+                            <Label htmlFor="cancelNotes">{t('cancelReason')}</Label>
                             <Textarea
                                 id="cancelNotes"
-                                placeholder="e.g., Teacher sick, Holiday..."
+                                placeholder={t('cancelReasonPlaceholder')}
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                             />
@@ -207,7 +210,7 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                     {mode === 'view' ? (
                         <>
                             <Button type="button" variant="outline" onClick={handleClose}>
-                                Close
+                                {t('close')}
                             </Button>
                             <div className="flex gap-2">
                                 <Button
@@ -215,21 +218,21 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                                     variant="outline"
                                     onClick={() => setMode('reschedule')}
                                 >
-                                    Reschedule
+                                    {t('reschedule')}
                                 </Button>
                                 <Button
                                     type="button"
                                     variant="destructive"
                                     onClick={() => setMode('cancel')}
                                 >
-                                    Cancel Session
+                                    {t('cancelTitle')}
                                 </Button>
                             </div>
                         </>
                     ) : (
                         <>
                             <Button type="button" variant="outline" onClick={resetMode} disabled={loading}>
-                                Back
+                                {t('back')}
                             </Button>
                             <Button
                                 type="button"
@@ -237,7 +240,7 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
                                 onClick={mode === 'reschedule' ? handleReschedule : handleCancel}
                                 disabled={loading}
                             >
-                                {loading ? 'Processing...' : mode === 'reschedule' ? 'Confirm Reschedule' : 'Confirm Cancellation'}
+                                {loading ? t('processing') : mode === 'reschedule' ? t('confirmReschedule') : t('confirmCancellation')}
                             </Button>
                         </>
                     )}

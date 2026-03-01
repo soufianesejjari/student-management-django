@@ -1,15 +1,4 @@
-/**
- * usePageSearch – shared hook for URL-synced search + pagination.
- *
- * Standardises the search/pagination pattern across all list pages.
- *
- * Usage:
- *   const { page, search, setSearch, setPage } = usePageSearch()
- *
- * Supports custom param names for pages that have multiple lists (e.g. finances):
- *   const payments = usePageSearch("payments_page", "payments_search")
- *   const expenses = usePageSearch("expenses_page", "expenses_search")
- */
+
 
 "use client"
 

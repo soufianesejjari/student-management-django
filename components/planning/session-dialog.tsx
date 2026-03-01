@@ -32,6 +32,7 @@ import api from "@/lib/api"
 import { toast } from "sonner"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@radix-ui/react-alert-dialog"
 import { AlertDialogFooter, AlertDialogHeader } from "../ui/alert-dialog"
+import { useTranslations } from "next-intl"
 
 
 const sessionSchema = z.object({
@@ -53,6 +54,7 @@ interface SessionDialogProps {
 }
 
 export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogProps) {
+    const t = useTranslations('schedule')
     const [conflictData, setConflictData] = useState<any>(null)
     const [isForceDialogOpen, setIsForceDialogOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -84,7 +86,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
 
             await api.post("/planning/sessions/", payload)
 
-            toast.success("Session created successfully")
+            toast.success(t('createSuccess'))
             onOpenChange(false)
             onSuccess()
             setConflictData(null)
@@ -96,7 +98,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                 setIsForceDialogOpen(true)
             } else {
                 console.error(error)
-                toast.error(error.response?.data?.detail || "Failed to create session")
+                toast.error(error.response?.data?.detail || t('createSessionError'))
             }
         } finally {
             setIsSubmitting(false)
@@ -112,9 +114,9 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Schedule Class Session</DialogTitle>
+                        <DialogTitle>{t('createTitle')}</DialogTitle>
                         <DialogDescription>
-                            Create a single class session.
+                            {t('createDescription')}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -126,15 +128,15 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="course"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Course</FormLabel>
+                                            <FormLabel>{t('course')}</FormLabel>
                                             <AsyncSelect
                                                 endpoint="/academics/courses/"
-                                                label="Course"
+                                                label={t('course')}
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 renderLabel={(item: any) => item.name}
                                                 renderValue={(item: any) => item.id}
-                                                placeholder="Select course"
+                                                placeholder={t('selectCourse')}
                                             />
                                             <FormMessage />
                                         </FormItem>
@@ -146,15 +148,15 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="teacher"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Teacher</FormLabel>
+                                            <FormLabel>{t('teacher')}</FormLabel>
                                             <AsyncSelect
                                                 endpoint="/users/teachers/"
-                                                label="Teacher"
+                                                label={t('teacher')}
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
                                                 renderValue={(item: any) => item.id}
-                                                placeholder="Select teacher"
+                                                placeholder={t('selectTeacher')}
                                             />
                                             <FormMessage />
                                         </FormItem>
@@ -166,15 +168,15 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="room"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel>Room</FormLabel>
+                                            <FormLabel>{t('room')}</FormLabel>
                                             <AsyncSelect
                                                 endpoint="/planning/rooms/"
-                                                label="Room"
+                                                label={t('room')}
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 renderLabel={(item: any) => `${item.name} (${item.capacity})`}
                                                 renderValue={(item: any) => item.id}
-                                                placeholder="Select room"
+                                                placeholder={t('selectRoom')}
                                             />
                                             <FormMessage />
                                         </FormItem>
@@ -188,7 +190,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="start_time"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Start Time</FormLabel>
+                                            <FormLabel>{t('startTime')}</FormLabel>
                                             <FormControl>
                                                 <Input type="time" {...field} />
                                             </FormControl>
@@ -202,7 +204,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="end_time"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>End Time</FormLabel>
+                                            <FormLabel>{t('endTime')}</FormLabel>
                                             <FormControl>
                                                 <Input type="time" {...field} />
                                             </FormControl>
@@ -218,7 +220,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     name="start_date"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Start Date</FormLabel>
+                                            <FormLabel>{t('startDate')}</FormLabel>
                                             <FormControl>
                                                 <Input 
                                                     type="date" 
@@ -237,11 +239,11 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
 
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                                    Cancel
+                                    {t('cancel')}
                                 </Button>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Create Schedule
+                                    {t('createSchedule')}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -252,9 +254,9 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
             <AlertDialog open={isForceDialogOpen} onOpenChange={setIsForceDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="text-destructive">Scheduling Conflicts Detected</AlertDialogTitle>
+                        <AlertDialogTitle className="text-destructive">{t('conflictsTitle')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            The following students have conflicting classes at this time:
+                            {t('conflictsDescription')}
                             <ul className="list-disc pl-5 mt-2 mb-2 text-sm text-foreground">
                                 {conflictData?.conflicts?.map((c: any, i: number) => (
                                     <li key={i}>
@@ -262,13 +264,13 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                                     </li>
                                 ))}
                             </ul>
-                            Do you want to force this schedule anyway?
+                            {t('conflictsForceQuestion')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
                         <AlertDialogAction onClick={handleForceSubmit} className="bg-destructive hover:bg-destructive/90">
-                            Force Schedule
+                            {t('forceSchedule')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
