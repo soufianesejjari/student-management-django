@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
@@ -11,29 +10,36 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Music2 } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Music2, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 export default function LoginPage() {
   const t = useTranslations()
   const { login } = useAuth()
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+    setIsLoading(true)
 
     try {
-      const response = await api.auth.login({
-        username: email,
-        password: password
-      })
-
+      const response = await api.auth.login({ username, password })
       login(response.data.access, response.data.refresh)
-    } catch (err) {
-      setError(t('login.error'))
+    } catch (err: any) {
+      const status = err?.response?.status
+      if (status === 401 || status === 400) {
+        setError(t('login.error'))
+      } else {
+        setError("Erreur de connexion. Vérifiez votre connexion internet.")
+      }
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -50,15 +56,22 @@ export default function LoginPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+            {error && (
+              <Alert variant="destructive" role="alert">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="email">{t('login.usernameOrEmail')}</Label>
+              <Label htmlFor="username">{t('login.usernameOrEmail')}</Label>
               <Input
-                id="email"
+                id="username"
                 type="text"
+                autoComplete="username"
                 placeholder={t('login.usernamePlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -69,18 +82,38 @@ export default function LoginPage() {
                   {t('login.forgotPassword')}
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full">
-              {t('login.signIn')}
+            <Button type="submit" className="w-full" disabled={isLoading || !username || !password}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Connexion…
+                </>
+              ) : (
+                t('login.signIn')
+              )}
             </Button>
           </CardFooter>
         </form>
@@ -88,3 +121,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { useStudents, createStudent, updateStudent, deleteStudent } from "@/hooks/useStudents"
-import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import { usePageSearch } from "@/hooks/usePageSearch"
+import { PageHeader } from "@/components/layout/page-header"
 import Link from "next/link"
 import { StudentDialog } from "@/components/students/student-dialog"
 import { toast } from "sonner"
@@ -28,9 +29,7 @@ import { useTranslations } from "next-intl"
 
 function StudentsContent() {
   const t = useTranslations()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const { replace } = useRouter()
+  const { page, search, setSearch, setPage } = usePageSearch()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
 
@@ -38,27 +37,7 @@ function StudentsContent() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState<any>(null)
 
-  const page = Number(searchParams.get('page')) || 1
-  const search = searchParams.get('search') || ""
-
   const { students, isLoading, next, previous, totalCount, mutate } = useStudents(page, search)
-
-  const handleSearch = (term: string) => {
-    const params = new URLSearchParams(searchParams)
-    if (term) {
-      params.set('search', term)
-    } else {
-      params.delete('search')
-    }
-    params.set('page', '1')
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', newPage.toString())
-    replace(`${pathname}?${params.toString()}`)
-  }
 
   const handleCreate = async (data: any) => {
     try {
@@ -115,16 +94,17 @@ function StudentsContent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('students.title')}</h1>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('students.addStudent')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('students.title')}
+        action={
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('students.addStudent')}
+          </Button>
+        }
+      />
       <Card>
         <CardHeader>
-          <CardTitle>{t('students.title')}</CardTitle>
           <CardDescription>{t('students.description')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -135,9 +115,7 @@ function StudentsContent() {
                 placeholder={t('students.search')}
                 className="h-9"
                 defaultValue={search}
-                onChange={(e) => {
-                  handleSearch(e.target.value)
-                }}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <Button variant="outline" size="sm">
@@ -216,7 +194,7 @@ function StudentsContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page - 1)}
+              onClick={() => setPage(page - 1)}
               disabled={!previous || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -225,7 +203,7 @@ function StudentsContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page + 1)}
+              onClick={() => setPage(page + 1)}
               disabled={!next || isLoading}
             >
               {t('common.next')}

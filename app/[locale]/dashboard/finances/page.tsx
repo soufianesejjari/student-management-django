@@ -20,7 +20,8 @@ import {
 } from "lucide-react"
 import { usePayments, useExpenses } from "@/hooks/useFinances"
 import { usePaymentStatus } from "@/hooks/usePaymentStatus"
-import { useSearchParams, usePathname, useRouter } from "next/navigation"
+import { usePageSearch } from "@/hooks/usePageSearch"
+import { PageHeader } from "@/components/layout/page-header"
 import { ExpenseDialog } from "@/components/finances/expense-dialog"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
 import { UpdatePaymentStatusDialog } from "@/components/finances/update-payment-status-dialog"
@@ -44,17 +45,12 @@ import { toast } from "sonner"
 
 function FinancesContent() {
   const t = useTranslations()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const { replace } = useRouter()
 
   // Payments Params
-  const paymentsPage = Number(searchParams.get('payments_page')) || 1
-  const paymentsSearch = searchParams.get('payments_search') || ""
+  const { page: paymentsPage, search: paymentsSearch, setSearch: setPaymentsSearch, setPage: setPaymentsPage } = usePageSearch("payments_page", "payments_search")
 
   // Expenses Params
-  const expensesPage = Number(searchParams.get('expenses_page')) || 1
-  const expensesSearch = searchParams.get('expenses_search') || ""
+  const { page: expensesPage, search: expensesSearch, setSearch: setExpensesSearch, setPage: setExpensesPage } = usePageSearch("expenses_page", "expenses_search")
 
   const { payments, isLoading: paymentsLoading, next: paymentsNext, previous: paymentsPrevious, totalCount: paymentsTotal, mutate: mutatePayments } = usePayments(paymentsPage, paymentsSearch)
   const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal, mutate: mutateExpenses } = useExpenses(expensesPage, expensesSearch)
@@ -65,34 +61,6 @@ function FinancesContent() {
     mutatePayments()
     mutateExpenses()
     mutateStatus()
-  }
-
-  const handlePaymentsSearch = (term: string) => {
-    const params = new URLSearchParams(searchParams)
-    if (term) params.set('payments_search', term)
-    else params.delete('payments_search')
-    params.set('payments_page', '1')
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handlePaymentsPageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('payments_page', newPage.toString())
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handleExpensesSearch = (term: string) => {
-    const params = new URLSearchParams(searchParams)
-    if (term) params.set('expenses_search', term)
-    else params.delete('expenses_search')
-    params.set('expenses_page', '1')
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handleExpensesPageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('expenses_page', newPage.toString())
-    replace(`${pathname}?${params.toString()}`)
   }
 
   const handleDeleteExpense = async (id: number) => {
@@ -137,13 +105,15 @@ function FinancesContent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('finances.title')}</h1>
-        <div className="flex gap-2">
-          <PaymentDialog onSuccess={() => { mutate() }} />
-          <ExpenseDialog onSuccess={() => { mutate() }} />
-        </div>
-      </div>
+      <PageHeader
+        title={t('finances.title')}
+        action={
+          <div className="flex gap-2">
+            <PaymentDialog onSuccess={() => { mutate() }} />
+            <ExpenseDialog onSuccess={() => { mutate() }} />
+          </div>
+        }
+      />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -214,7 +184,7 @@ function FinancesContent() {
                     placeholder={t('finances.searchPayments')}
                     className="h-9"
                     defaultValue={paymentsSearch}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePaymentsSearch(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentsSearch(e.target.value)}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -293,7 +263,7 @@ function FinancesContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handlePaymentsPageChange(paymentsPage - 1)}
+                  onClick={() => setPaymentsPage(paymentsPage - 1)}
                   disabled={!paymentsPrevious || paymentsLoading}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -302,7 +272,7 @@ function FinancesContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handlePaymentsPageChange(paymentsPage + 1)}
+                  onClick={() => setPaymentsPage(paymentsPage + 1)}
                   disabled={!paymentsNext || paymentsLoading}
                 >
                   {t('common.next')}
@@ -342,7 +312,7 @@ function FinancesContent() {
                         <TableCell colSpan={7} className="text-center h-24">{t('students.noStudents')}</TableCell>
                       </TableRow>
                     ) : (
-                      paymentStatus.map((status) => (
+                      paymentStatus.map((status: any) => (
                         <TableRow key={status.student_id}>
                           <TableCell className="font-medium">{status.student_name}</TableCell>
                           <TableCell>{status.total_due.toFixed(2)} MAD</TableCell>
@@ -401,7 +371,7 @@ function FinancesContent() {
                     placeholder={t('finances.searchExpenses')}
                     className="h-9"
                     defaultValue={expensesSearch}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleExpensesSearch(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpensesSearch(e.target.value)}
                   />
                 </div>
                 <div className="flex gap-2">
@@ -503,7 +473,7 @@ function FinancesContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleExpensesPageChange(expensesPage - 1)}
+                  onClick={() => setExpensesPage(expensesPage - 1)}
                   disabled={!expensesPrevious || expensesLoading}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -512,7 +482,7 @@ function FinancesContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleExpensesPageChange(expensesPage + 1)}
+                  onClick={() => setExpensesPage(expensesPage + 1)}
                   disabled={!expensesNext || expensesLoading}
                 >
                   {t('common.next')}

@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Download, Plus, Search } from "lucide-react"
 import { useCourses } from "@/hooks/useCourses"
-import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import { usePageSearch } from "@/hooks/usePageSearch"
+import { PageHeader } from "@/components/layout/page-header"
 import Link from "next/link"
 import { CourseDialog } from "@/components/courses/course-dialog"
 import api from "@/lib/api"
@@ -20,33 +21,11 @@ import { Loader2 } from "lucide-react"
 
 function CoursesContent() {
   const t = useTranslations()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const { replace } = useRouter()
-
-  const page = Number(searchParams.get('page')) || 1
-  const search = searchParams.get('search') || ""
+  const { page, search, setSearch, setPage } = usePageSearch()
 
   const { courses, isLoading, next, previous, totalCount, mutate } = useCourses(page, search)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
-
-  const handleSearch = (term: string) => {
-    const params = new URLSearchParams(searchParams)
-    if (term) {
-      params.set('search', term)
-    } else {
-      params.delete('search')
-    }
-    params.set('page', '1') // Reset to page 1 on search
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', newPage.toString())
-    replace(`${pathname}?${params.toString()}`)
-  }
 
   const handleOpenDialog = (course?: any) => {
     setSelectedCourse(course)
@@ -114,13 +93,15 @@ function CoursesContent() {
 
   return (
     <div className="flex flex-col gap-4" suppressHydrationWarning>
-      <div className="flex items-center justify-between" suppressHydrationWarning>
-        <h1 className="text-3xl font-bold tracking-tight">{t('courses.title')}</h1>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('courses.addCourse')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('courses.title')}
+        action={
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('courses.addCourse')}
+          </Button>
+        }
+      />
 
       <CourseDialog
         open={isDialogOpen}
@@ -131,7 +112,6 @@ function CoursesContent() {
 
       <Card suppressHydrationWarning>
         <CardHeader>
-          <CardTitle>{t('courses.title')}</CardTitle>
           <CardDescription>{t('courses.description')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -142,9 +122,7 @@ function CoursesContent() {
                 placeholder={t('courses.search')}
                 className="h-9"
                 defaultValue={search}
-                onChange={(e) => {
-                  handleSearch(e.target.value)
-                }}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <Button variant="outline" size="sm">
@@ -221,7 +199,7 @@ function CoursesContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page - 1)}
+              onClick={() => setPage(page - 1)}
               disabled={!previous || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -230,7 +208,7 @@ function CoursesContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page + 1)}
+              onClick={() => setPage(page + 1)}
               disabled={!next || isLoading}
             >
               {t('common.next')}

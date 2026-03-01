@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { SubjectsManagement } from "@/components/academics/subjects-management"
 import { useTranslations } from "next-intl"
+import { PageHeader } from "@/components/layout/page-header"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { Loader2, Gift, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
@@ -34,7 +35,7 @@ export default function SettingsPage() {
         setFreeCourseId(data.free_course_id ?? null)
         setOfferMaxTimes(data.max_times ?? 1)
       })
-      .catch(() => { /* silent – defaults remain */ })
+      .catch(() => { toast.error(t('settings.loadError') || 'Erreur lors du chargement des paramètres') })
       .finally(() => setLoadingOffer(false))
   }, [])
 
@@ -55,9 +56,7 @@ export default function SettingsPage() {
   }
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('settings.title')}</h1>
-      </div>
+      <PageHeader title={t('settings.title')} />
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>

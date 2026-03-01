@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2, Eye } from "lucide-react"
 import { useTeachers, createTeacher, updateTeacher, deleteTeacher } from "@/hooks/useTeachers"
-import { useSearchParams, usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
+import { usePageSearch } from "@/hooks/usePageSearch"
+import { PageHeader } from "@/components/layout/page-header"
 import { TeacherDialog } from "@/components/teachers/teacher-dialog"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -25,9 +26,7 @@ import {
 
 export default function TeachersPage() {
   const t = useTranslations()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-  const { replace } = useRouter()
+  const { page, search, setSearch, setPage } = usePageSearch()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null)
 
@@ -35,27 +34,7 @@ export default function TeachersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [teacherToDelete, setTeacherToDelete] = useState<any>(null)
 
-  const page = Number(searchParams.get('page')) || 1
-  const search = searchParams.get('search') || ""
-
   const { teachers, isLoading, next, previous, totalCount, mutate } = useTeachers(page, search)
-
-  const handleSearch = (term: string) => {
-    const params = new URLSearchParams(searchParams)
-    if (term) {
-      params.set('search', term)
-    } else {
-      params.delete('search')
-    }
-    params.set('page', '1') // Reset to page 1 on search
-    replace(`${pathname}?${params.toString()}`)
-  }
-
-  const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', newPage.toString())
-    replace(`${pathname}?${params.toString()}`)
-  }
 
   const handleCreate = async (data: any) => {
     try {
@@ -112,16 +91,17 @@ export default function TeachersPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t('teachers.title')}</h1>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('teachers.addTeacher')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('teachers.title')}
+        action={
+          <Button onClick={openCreateDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('teachers.addTeacher')}
+          </Button>
+        }
+      />
       <Card>
         <CardHeader>
-          <CardTitle>{t('teachers.title')}</CardTitle>
           <CardDescription>{t('teachers.description')}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,9 +112,7 @@ export default function TeachersPage() {
                 placeholder={t('teachers.search')}
                 className="h-9"
                 defaultValue={search}
-                onChange={(e) => {
-                  handleSearch(e.target.value)
-                }}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <Button variant="outline" size="sm">
@@ -212,7 +190,7 @@ export default function TeachersPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page - 1)}
+              onClick={() => setPage(page - 1)}
               disabled={!previous || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -221,7 +199,7 @@ export default function TeachersPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(page + 1)}
+              onClick={() => setPage(page + 1)}
               disabled={!next || isLoading}
             >
               {t('common.next')}

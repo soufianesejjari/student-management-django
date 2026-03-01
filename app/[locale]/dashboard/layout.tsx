@@ -3,7 +3,8 @@
 import type React from "react"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect } from "react"
 import {
   BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut,
   Music2, Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck,
@@ -18,6 +19,7 @@ import { useMobile } from "@/hooks/use-mobile"
 import { useTranslations } from "next-intl"
 import { useAuth } from "@/context/AuthContext"
 import { usePermissions } from "@/hooks/usePermissions"
+import { ErrorBoundary } from "@/components/layout/error-boundary"
 
 export default function DashboardLayout({
   children,
@@ -26,9 +28,17 @@ export default function DashboardLayout({
 }) {
   const t = useTranslations()
   const pathname = usePathname()
+  const router = useRouter()
   const isMobile = useMobile()
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, loading, isAdmin } = useAuth()
   const { canAccessModule } = usePermissions()
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [loading, user, router])
 
   // All navigation items — each can declare a required module key
   const allNavigation = [
@@ -41,22 +51,43 @@ export default function DashboardLayout({
     { name: t('navigation.schedule'),  href: "/dashboard/schedule", icon: Calendar,   module: "schedule" },
     { name: t('navigation.finances'),  href: "/dashboard/finances", icon: CreditCard, module: "finances" },
     { name: t('navigation.reports'),   href: "/dashboard/reports",  icon: BarChart3,  module: "reports" },
-    // Admin-only
-    { name: "Rôles & Permissions",     href: "/dashboard/users",    icon: ShieldCheck,module: "users" },
+    { name: "Rôles & Permissions",     href: "/dashboard/users",    icon: ShieldCheck, module: "users" },
     { name: t('navigation.settings'),  href: "/dashboard/settings", icon: Settings,   module: "settings" },
   ]
 
-  // Filter based on role/permissions
   const navigation = allNavigation.filter(
     (item) => item.module === null || canAccessModule(item.module),
   )
 
-  // Initials for avatar
   const initials = user?.full_name
     ? user.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.username?.slice(0, 2).toUpperCase() ?? "?"
 
-  const NavItems = () => (
+  // Show a full-screen loader while auth state resolves
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Music2 className="h-8 w-8 animate-pulse text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Chargement…</p>
+        </div>
+      </div>
+    )
+  }
+
+  const LogoutButton = ({ className }: { className?: string }) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn("justify-start gap-2", className)}
+      onClick={logout}
+    >
+      <LogOut className="h-4 w-4" />
+      {t('navigation.logout')}
+    </Button>
+  )
+
+  const NavItems = ({ onNavClick }: { onNavClick?: () => void }) => (
     <>
       {navigation.map((item) => {
         const isActive = pathname === item.href
@@ -64,6 +95,7 @@ export default function DashboardLayout({
           <Link
             key={item.name}
             href={item.href}
+            onClick={onNavClick}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:text-primary",
               isActive ? "bg-muted font-medium text-primary" : "text-muted-foreground",
@@ -90,13 +122,31 @@ export default function DashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="flex flex-col">
-                <div className="flex items-center gap-2 font-semibold mb-8">
+                <div className="flex items-center gap-2 font-semibold mb-4">
                   <Music2 className="h-6 w-6" />
                   <span>The Musical Academy</span>
                 </div>
-                <nav className="grid gap-2 text-lg font-medium">
+                {/* User info in mobile drawer */}
+                {user && (
+                  <div className="flex items-center gap-2 mb-4 p-2 rounded-lg bg-muted">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{user.full_name || user.username}</p>
+                      <Badge variant={isAdmin ? "default" : "secondary"} className="text-xs capitalize">
+                        {user.role === "secretaire" ? "Secrétaire" : "Admin"}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                <nav className="grid gap-1 text-sm flex-1">
                   <NavItems />
                 </nav>
+                {/* ✅ Mobile logout — was MISSING before */}
+                <div className="pt-4 border-t mt-4">
+                  <LogoutButton className="w-full" />
+                </div>
               </SheetContent>
             </Sheet>
           )}
@@ -105,7 +155,6 @@ export default function DashboardLayout({
         </div>
         <div className="flex-1" suppressHydrationWarning />
         <ModeToggle />
-        {/* User badge */}
         {user && (
           <div className="hidden md:flex items-center gap-2">
             <Badge variant={isAdmin ? "default" : "secondary"} className="capitalize">
@@ -122,23 +171,17 @@ export default function DashboardLayout({
       <div className="flex flex-1" suppressHydrationWarning>
         <aside className="hidden w-64 shrink-0 border-r md:block">
           <div className="flex h-full max-h-screen flex-col gap-2 p-4" suppressHydrationWarning>
-            <nav className="grid gap-2 text-sm">
+            <nav className="grid gap-1 text-sm flex-1">
               <NavItems />
             </nav>
             <div className="mt-auto" suppressHydrationWarning>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start gap-2"
-                onClick={logout}
-              >
-                <LogOut className="h-4 w-4" />
-                {t('navigation.logout')}
-              </Button>
+              <LogoutButton className="w-full" />
             </div>
           </div>
         </aside>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   )
