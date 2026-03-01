@@ -4,14 +4,20 @@ import type React from "react"
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut, Music2, Settings, Users, UserCog, DoorOpen, Menu, Music } from "lucide-react"
+import {
+  BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut,
+  Music2, Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useMobile } from "@/hooks/use-mobile"
 import { useTranslations } from "next-intl"
+import { useAuth } from "@/context/AuthContext"
+import { usePermissions } from "@/hooks/usePermissions"
 
 export default function DashboardLayout({
   children,
@@ -21,19 +27,34 @@ export default function DashboardLayout({
   const t = useTranslations()
   const pathname = usePathname()
   const isMobile = useMobile()
+  const { user, logout, isAdmin } = useAuth()
+  const { canAccessModule } = usePermissions()
 
-  const navigation = [
-    { name: t('navigation.dashboard'), href: "/dashboard", icon: Home },
-    { name: t('navigation.students'), href: "/dashboard/students", icon: Users },
-    { name: t('navigation.teachers'), href: "/dashboard/teachers", icon: UserCog },
-    { name: t('navigation.courses'), href: "/dashboard/courses", icon: BookOpen },
-    { name: t('navigation.subjects'), href: "/dashboard/subjects", icon: Music },
-    { name: t('navigation.rooms'), href: "/dashboard/rooms", icon: DoorOpen },
-    { name: t('navigation.schedule'), href: "/dashboard/schedule", icon: Calendar },
-    { name: t('navigation.finances'), href: "/dashboard/finances", icon: CreditCard },
-    { name: t('navigation.reports'), href: "/dashboard/reports", icon: BarChart3 },
-    { name: t('navigation.settings'), href: "/dashboard/settings", icon: Settings },
+  // All navigation items — each can declare a required module key
+  const allNavigation = [
+    { name: t('navigation.dashboard'), href: "/dashboard",          icon: Home,       module: null },
+    { name: t('navigation.students'),  href: "/dashboard/students", icon: Users,      module: "students" },
+    { name: t('navigation.teachers'),  href: "/dashboard/teachers", icon: UserCog,    module: "teachers" },
+    { name: t('navigation.courses'),   href: "/dashboard/courses",  icon: BookOpen,   module: "courses" },
+    { name: t('navigation.subjects'),  href: "/dashboard/subjects", icon: Music,      module: "subjects" },
+    { name: t('navigation.rooms'),     href: "/dashboard/rooms",    icon: DoorOpen,   module: "rooms" },
+    { name: t('navigation.schedule'),  href: "/dashboard/schedule", icon: Calendar,   module: "schedule" },
+    { name: t('navigation.finances'),  href: "/dashboard/finances", icon: CreditCard, module: "finances" },
+    { name: t('navigation.reports'),   href: "/dashboard/reports",  icon: BarChart3,  module: "reports" },
+    // Admin-only
+    { name: "Rôles & Permissions",     href: "/dashboard/users",    icon: ShieldCheck,module: "users" },
+    { name: t('navigation.settings'),  href: "/dashboard/settings", icon: Settings,   module: "settings" },
   ]
+
+  // Filter based on role/permissions
+  const navigation = allNavigation.filter(
+    (item) => item.module === null || canAccessModule(item.module),
+  )
+
+  // Initials for avatar
+  const initials = user?.full_name
+    ? user.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : user?.username?.slice(0, 2).toUpperCase() ?? "?"
 
   const NavItems = () => (
     <>
@@ -84,9 +105,18 @@ export default function DashboardLayout({
         </div>
         <div className="flex-1" suppressHydrationWarning />
         <ModeToggle />
+        {/* User badge */}
+        {user && (
+          <div className="hidden md:flex items-center gap-2">
+            <Badge variant={isAdmin ? "default" : "secondary"} className="capitalize">
+              {user.role === "secretaire" ? "Secrétaire" : "Admin"}
+            </Badge>
+            <span className="text-sm font-medium">{user.full_name || user.username}</span>
+          </div>
+        )}
         <Avatar>
-          <AvatarImage src="/placeholder.svg" alt="Admin" />
-          <AvatarFallback>AD</AvatarFallback>
+          <AvatarImage src="/placeholder.svg" alt={initials} />
+          <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
       </header>
       <div className="flex flex-1" suppressHydrationWarning>
@@ -96,7 +126,12 @@ export default function DashboardLayout({
               <NavItems />
             </nav>
             <div className="mt-auto" suppressHydrationWarning>
-              <Button variant="outline" size="sm" className="w-full justify-start gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={logout}
+              >
                 <LogOut className="h-4 w-4" />
                 {t('navigation.logout')}
               </Button>

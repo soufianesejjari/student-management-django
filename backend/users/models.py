@@ -2,18 +2,36 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+
 class User(AbstractUser):
-    pass
-    # We can add is_admin flag if needed, but is_staff/is_superuser usually suffice for Django.
-    # The design asked for is_admin, so let's add it for explicit role handling if needed,
-    # or we can rely on is_staff for "Admin" role.
-    # Given "only 1 role is the admin responsible for everything", we might just use is_superuser.
-    # But let's add the field to be consistent with the design request.
+
+    class Role(models.TextChoices):
+        ADMIN = 'admin', _('Admin')
+        SECRETAIRE = 'secretaire', _('Secrétaire')
+
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.ADMIN,
+        help_text=_('Role determines base access level'),
+    )
+    # Keep is_admin for backwards compatibility — kept in sync via save()
     is_admin = models.BooleanField(default=False)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        # Keep is_admin in sync with role field
+        if self.role == self.Role.ADMIN:
+            self.is_admin = True
+        super().save(*args, **kwargs)
+
+    @property
+    def is_secretaire(self):
+        return self.role == self.Role.SECRETAIRE
+
     def __str__(self):
         return self.username
+
 
 class StudentProfile(models.Model):
     STATUS_CHOICES = (

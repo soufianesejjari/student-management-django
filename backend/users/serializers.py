@@ -1,10 +1,63 @@
 from rest_framework import serializers
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from .models import User, StudentProfile, TeacherProfile, TeacherAvailability, TeacherPreferences
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_admin', 'avatar']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_admin', 'role', 'avatar']
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    """Serializes a Django Permission as a flat codename like 'academics.view_course'."""
+    full_codename = serializers.SerializerMethodField()
+    app_label = serializers.CharField(source='content_type.app_label', read_only=True)
+    model = serializers.CharField(source='content_type.model', read_only=True)
+
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'full_codename', 'app_label', 'model']
+
+    def get_full_codename(self, obj):
+        return f"{obj.content_type.app_label}.{obj.codename}"
+
+
+class SecretaireSerializer(serializers.ModelSerializer):
+    """Full serializer for secretary user management by admin."""
+    permissions = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True, required=False, default='password123')
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'role', 'is_active', 'permissions', 'password',
+        ]
+        read_only_fields = ['role']
+
+    def get_permissions(self, obj):
+        perms = obj.user_permissions.select_related('content_type').all()
+        return PermissionSerializer(perms, many=True).data
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', 'password123')
+        user = User(**validated_data)
+        user.role = User.Role.SECRETAIRE
+        user.is_admin = False
+        user.set_password(password)
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
 
 class StudentProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)

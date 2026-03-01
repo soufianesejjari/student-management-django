@@ -6,10 +6,21 @@ import { jwtDecode } from 'jwt-decode';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
-interface User {
+// -----------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------
+
+export type UserRole = 'admin' | 'secretaire';
+
+export interface User {
     user_id: number;
     username: string;
-    // Add other claims if needed
+    email?: string;
+    full_name?: string;
+    role: UserRole;
+    is_admin: boolean;
+    /** '*' means "all permissions" (admin). Otherwise an array of Django-style perm strings. */
+    permissions: string[] | ['*'];
 }
 
 interface AuthContextType {
@@ -17,7 +28,13 @@ interface AuthContextType {
     login: (access: string, refresh: string) => void;
     logout: () => void;
     loading: boolean;
+    /** Convenience: true when the logged-in user is an admin/superuser */
+    isAdmin: boolean;
 }
+
+// -----------------------------------------------------------------------
+// Context
+// -----------------------------------------------------------------------
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -27,7 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
-        // Init auth from cookies
         const access = getCookie('access_token');
         if (access) {
             try {
@@ -44,13 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = (access: string, refresh: string) => {
         setCookie('access_token', access);
         setCookie('refresh_token', refresh);
-
         const decoded = jwtDecode<User>(access);
         setUser(decoded);
-
         router.push('/dashboard');
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const logout = () => {
         deleteCookie('access_token');
         deleteCookie('refresh_token');
@@ -58,8 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.push('/login');
     };
 
+    const isAdmin = !!(user && (user.is_admin || user.role === 'admin'));
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin }}>
             {children}
         </AuthContext.Provider>
     );
@@ -72,3 +89,4 @@ export function useAuth() {
     }
     return context;
 }
+

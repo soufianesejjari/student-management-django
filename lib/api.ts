@@ -134,7 +134,40 @@ export const api = {
             axiosInstance.get(`/planning/teacher/${teacherId}/sessions/`, { params: { year, month } }).then(res => res.data),
         updateSessionAttendance: (teacherId: number, data: any) => 
             axiosInstance.patch(`/planning/teacher/${teacherId}/sessions/`, data).then(res => res.data),
-    }
+    },
+    // -----------------------------------------------------------------------
+    // Role & permission management (admin only)
+    // -----------------------------------------------------------------------
+    secretaires: {
+        /** List all secretaire users */
+        list: () => axiosInstance.get('/users/secretaires/').then(res => res.data),
+        /** Get single secretaire */
+        get: (id: number) => axiosInstance.get(`/users/secretaires/${id}/`).then(res => res.data),
+        /** Create a new secretaire account */
+        create: (data: { username: string; email: string; first_name: string; last_name: string; password?: string }) =>
+            axiosInstance.post('/users/secretaires/', data).then(res => res.data),
+        /** Update basic info of a secretaire */
+        update: (id: number, data: Partial<{ username: string; email: string; first_name: string; last_name: string; is_active: boolean }>) =>
+            axiosInstance.patch(`/users/secretaires/${id}/`, data).then(res => res.data),
+        /** Delete a secretaire account */
+        delete: (id: number) => axiosInstance.delete(`/users/secretaires/${id}/`).then(res => res.data),
+        /** Get current permissions of a secretaire */
+        getPermissions: (id: number) =>
+            axiosInstance.get(`/users/secretaires/${id}/permissions/`).then(res => res.data),
+        /** Assign additional permissions (does not remove existing ones) */
+        assignPermissions: (id: number, permissionIds: number[]) =>
+            axiosInstance.post(`/users/secretaires/${id}/permissions/assign/`, { permission_ids: permissionIds }).then(res => res.data),
+        /** Revoke specific permissions */
+        revokePermissions: (id: number, permissionIds: number[]) =>
+            axiosInstance.post(`/users/secretaires/${id}/permissions/revoke/`, { permission_ids: permissionIds }).then(res => res.data),
+        /** Replace ALL permissions at once */
+        setPermissions: (id: number, permissionIds: number[]) =>
+            axiosInstance.post(`/users/secretaires/${id}/permissions/set/`, { permission_ids: permissionIds }).then(res => res.data),
+    },
+    permissions: {
+        /** Full catalogue of delegatable Django permissions, grouped by app */
+        available: () => axiosInstance.get('/users/available-permissions/').then(res => res.data),
+    },
 };
 
 export default api;

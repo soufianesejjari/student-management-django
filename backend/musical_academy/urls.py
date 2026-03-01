@@ -15,24 +15,21 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-
-from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from users.jwt import CustomTokenObtainPairView
+
 
 class HealthCheckView(APIView):
     """Health check endpoint for Docker/Kubernetes"""
     permission_classes = [AllowAny]
-    
+
     def get(self, request):
         return Response({'status': 'healthy', 'message': 'API is running'})
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,6 +39,6 @@ urlpatterns = [
     path('api/planning/', include('planning.urls')),
     path('api/finances/', include('finances.urls')),
     path('api/dashboard/', include('dashboard.urls')),
-    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
