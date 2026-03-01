@@ -309,11 +309,45 @@ export default function UsersManagementPage() {
               <div className="space-y-6">
                 {Object.entries(availablePerms).map(([appLabel, perms]) => {
                   const activeIds = getActivePermIds(selectedSecretaire)
+                  const modulePermIds = perms.map((p) => p.id)
+                  const allActive = modulePermIds.every((id) => activeIds.has(id))
+                  const someActive = modulePermIds.some((id) => activeIds.has(id))
+
+                  const toggleModuleAll = async () => {
+                    setSaving(true)
+                    try {
+                      if (allActive) {
+                        // Revoke all in this module
+                        await api.secretaires.revokePermissions(selectedSecretaire.id, modulePermIds)
+                      } else {
+                        // Assign all in this module
+                        await api.secretaires.assignPermissions(selectedSecretaire.id, modulePermIds)
+                      }
+                      await refreshSelected(selectedSecretaire.id)
+                      toast.success(allActive ? "Permissions révoquées" : "Permissions attribuées")
+                    } catch {
+                      toast.error("Erreur lors de la mise à jour")
+                    } finally {
+                      setSaving(false)
+                    }
+                  }
+
                   return (
                     <div key={appLabel}>
-                      <h3 className="font-semibold text-sm mb-3">
-                        {APP_LABELS[appLabel] ?? appLabel}
-                      </h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-sm">
+                          {APP_LABELS[appLabel] ?? appLabel}
+                        </h3>
+                        <Button
+                          size="sm"
+                          variant={allActive ? "default" : someActive ? "outline" : "outline"}
+                          onClick={toggleModuleAll}
+                          disabled={saving}
+                          className="text-xs"
+                        >
+                          {allActive ? "Révoquer tous" : someActive ? "Sélectionner tous" : "Sélectionner tous"}
+                        </Button>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {perms.map((perm) => {
                           const isActive = activeIds.has(perm.id)
