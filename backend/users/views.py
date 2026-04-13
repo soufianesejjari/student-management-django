@@ -53,7 +53,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'user__last_name', 'user__email']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'phone', 'parent_phone', 'address']
 
 
 class TeacherProfileViewSet(viewsets.ModelViewSet):
@@ -61,7 +61,7 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
     serializer_class = TeacherProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'speciality']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'speciality', 'phone', 'cin']
 
 
 # ---------------------------------------------------------------------------

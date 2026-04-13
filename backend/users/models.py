@@ -39,11 +39,20 @@ class StudentProfile(models.Model):
         ('INACTIVE', 'Inactive'),
         ('ARCHIVED', 'Archived'),
     )
+    AGE_GROUP_CHOICES = (
+        ('2-5ans', '2-5ans'),
+        ('6-12ans', '6-12ans'),
+        ('Adulte', 'Adulte'),
+    )
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     enrollment_date = models.DateField(auto_now_add=True)
     parent_name = models.CharField(max_length=255, null=True, blank=True)
     parent_phone = models.CharField(max_length=50, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    address = models.CharField(max_length=255, null=True, blank=True)
+    phone = models.CharField(max_length=50, null=True, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    age_group = models.CharField(max_length=20, choices=AGE_GROUP_CHOICES, default='6-12ans')
 
     def __str__(self):
         return f"Student: {self.user.username}"
@@ -59,6 +68,8 @@ class TeacherProfile(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
     color_code = models.CharField(max_length=20, default='#3788d8') # Default blue for calendar
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Pay rate per hour in currency units")
+    cin = models.CharField(max_length=50, null=True, blank=True)
+    phone = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         return f"Teacher: {self.user.username}"

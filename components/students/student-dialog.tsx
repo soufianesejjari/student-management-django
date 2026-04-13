@@ -28,9 +28,12 @@ import { useTranslations } from "next-intl"
 const studentSchema = z.object({
     first_name: z.string().min(1, "First name is required"),
     last_name: z.string().min(1, "Last name is required"),
-    email: z.string().email("Invalid email"),
+    email: z.string().email("Invalid email").optional().or(z.literal("")),
     username: z.string().min(1, "Username is required"),
-    // Include other fields as necessary (e.g. parent info)
+    phone: z.string().min(1, "Phone is required"),
+    address: z.string().min(1, "Address is required"),
+    date_of_birth: z.string().optional(),
+    age_group: z.enum(["2-5ans", "6-12ans", "Adulte"]).default("6-12ans"),
 })
 
 type StudentFormValues = z.infer<typeof studentSchema>

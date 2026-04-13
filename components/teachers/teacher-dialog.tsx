@@ -31,8 +31,10 @@ const teacherSchema = z.object({
     email: z.string().email("Invalid email"),
     username: z.string().min(1, "Username is required"),
     speciality: z.string().min(1, "Speciality is required"),
+    cin: z.string().min(1, "CIN is required"),
+    phone: z.string().min(1, "Phone is required"),
     bio: z.string().optional(),
-    hourly_rate: z.string().optional(),
+    hourly_rate: z.string().min(1, "Hourly rate is required"),
 })
 
 type TeacherFormValues = z.infer<typeof teacherSchema>

@@ -70,7 +70,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        fields = ['id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status', 'courses', 'first_name', 'last_name', 'email', 'username']
+        fields = ['id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status', 'courses', 'first_name', 'last_name', 'email', 'username', 'address', 'phone', 'date_of_birth', 'age_group']
 
     def get_courses(self, obj):
         return ", ".join([e.course.name for e in obj.enrollments.filter(status='ACTIVE')])
@@ -125,7 +125,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeacherProfile
-        fields = ['id', 'user', 'speciality', 'bio', 'status', 'color_code', 'hourly_rate', 'availabilities', 'preferences', 'student_count', 'first_name', 'last_name', 'email', 'username']
+        fields = ['id', 'user', 'speciality', 'bio', 'status', 'color_code', 'hourly_rate', 'availabilities', 'preferences', 'student_count', 'first_name', 'last_name', 'email', 'username', 'cin', 'phone']
 
     def get_student_count(self, obj):
         # Count total active enrollments in courses where this teacher is the default teacher
