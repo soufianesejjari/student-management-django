@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, filters, status
+from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Subject, Course, Enrollment, Subscription, AcademySettings
@@ -17,7 +18,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     """
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -27,7 +28,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     """
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'subject__name']
 
@@ -36,7 +37,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     API endpoint for Enrollments
     """
     queryset = Enrollment.objects.all().select_related('student__user', 'course__subject')
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['student__user__first_name', 'student__user__last_name', 'course__name']
 
@@ -88,7 +89,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     """
     queryset = Subscription.objects.all().select_related('enrollment__student__user', 'enrollment__course')
     serializer_class = SubscriptionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -116,7 +117,7 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
     GET  /api/academics/offer-settings/          – full settings + optional student eligibility
     PATCH /api/academics/offer-settings/update/  – save settings to DB
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
 
     # ── helpers ──────────────────────────────────────────────────────────────
 

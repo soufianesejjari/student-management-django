@@ -20,6 +20,7 @@ from academics.models import Course
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
+    permission_classes = [make_module_permission('enrollments'), StrictDjangoModelPermissions]
     """API endpoints for managing student enrollments in courses."""
     queryset = Enrollment.objects.all().select_related(
         'student__user', 'course__subject'
@@ -92,6 +93,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
 
 
 class SubscriptionViewSet(viewsets.ModelViewSet):
+    permission_classes = [make_module_permission('enrollments'), StrictDjangoModelPermissions]
     """API endpoints for managing subscriptions."""
     queryset = Subscription.objects.all().select_related(
         'enrollment__student__user', 'enrollment__course'
@@ -120,6 +122,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
 
 class PaymentViewSet(viewsets.ModelViewSet):
+    permission_classes = [make_module_permission('enrollments'), StrictDjangoModelPermissions]
     """API endpoints for managing payments."""
     queryset = Payment.objects.all().select_related(
         'subscription__enrollment__student__user',

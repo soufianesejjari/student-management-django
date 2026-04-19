@@ -22,7 +22,6 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form"
-import { Textarea } from "@/components/ui/textarea"
 import { useTranslations } from "next-intl"
 
 const teacherSchema = z.object({
@@ -30,11 +29,10 @@ const teacherSchema = z.object({
     last_name: z.string().min(1, "Last name is required"),
     email: z.string().email("Invalid email"),
     username: z.string().min(1, "Username is required"),
-    speciality: z.string().min(1, "Speciality is required"),
     cin: z.string().min(1, "CIN is required"),
+    speciality: z.string().min(1, "Speciality is required"),
     phone: z.string().min(1, "Phone is required"),
-    bio: z.string().optional(),
-    hourly_rate: z.string().min(1, "Hourly rate is required"),
+    hourly_rate: z.coerce.number().min(0, "Hourly rate must be >= 0"),
 })
 
 type TeacherFormValues = z.infer<typeof teacherSchema>
@@ -42,7 +40,7 @@ type TeacherFormValues = z.infer<typeof teacherSchema>
 interface TeacherDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    teacher?: any
+    teacher?: any // If present, edit mode
     onSubmit: (data: TeacherFormValues) => Promise<void>
 }
 
@@ -60,22 +58,24 @@ export function TeacherDialog({
             last_name: "",
             email: "",
             username: "",
+            cin: "",
             speciality: "",
-            bio: "",
-            hourly_rate: "",
+            phone: "",
+            hourly_rate: 0,
         },
     })
 
     useEffect(() => {
         if (teacher) {
             form.reset({
-                first_name: teacher.user.first_name,
-                last_name: teacher.user.last_name,
-                email: teacher.user.email,
-                username: teacher.user.username,
-                speciality: teacher.speciality,
-                bio: teacher.bio || "",
-                hourly_rate: teacher.hourly_rate?.toString() || "",
+                first_name: teacher.user?.first_name || "",
+                last_name: teacher.user?.last_name || "",
+                email: teacher.user?.email || "",
+                username: teacher.user?.username || "",
+                cin: teacher.cin || "",
+                speciality: teacher.speciality || "",
+                phone: teacher.phone || "",
+                hourly_rate: teacher.hourly_rate || 0,
             })
         } else {
             form.reset({
@@ -83,9 +83,10 @@ export function TeacherDialog({
                 last_name: "",
                 email: "",
                 username: "",
+                cin: "",
                 speciality: "",
-                bio: "",
-                hourly_rate: "",
+                phone: "",
+                hourly_rate: 0,
             })
         }
     }, [teacher, form, open])
@@ -98,7 +99,7 @@ export function TeacherDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{teacher ? t('teachers.editTeacher') : t('teachers.addTeacher')}</DialogTitle>
                     <DialogDescription>
@@ -109,41 +110,38 @@ export function TeacherDialog({
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="first_name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>{t('teachers.firstName')}</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder={t('teachers.firstNamePlaceholder')} {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="last_name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>{t('teachers.lastName')}</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder={t('teachers.lastNamePlaceholder')} {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
+                        <FormField
+                            control={form.control}
+                            name="first_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('teachers.firstName')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('teachers.firstNamePlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="last_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('teachers.lastName')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('teachers.lastNamePlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="email"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('teachers.email')}</FormLabel>
+                                    <FormLabel>{t('teachers.email')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('teachers.emailPlaceholder')} {...field} />
                                     </FormControl>
@@ -156,9 +154,22 @@ export function TeacherDialog({
                             name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('teachers.username')}</FormLabel>
+                                    <FormLabel>{t('students.username')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('teachers.usernamePlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="cin"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('teachers.cin')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('teachers.cin')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -169,9 +180,22 @@ export function TeacherDialog({
                             name="speciality"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('teachers.specialty')}</FormLabel>
+                                    <FormLabel>{t('teachers.specialty')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('teachers.specialtyPlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('teachers.phone')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('teachers.phone')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -182,29 +206,18 @@ export function TeacherDialog({
                             name="hourly_rate"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('teachers.hourlyRate')}</FormLabel>
+                                    <FormLabel>{t('teachers.hourlyRate')} *</FormLabel>
                                     <FormControl>
-                                        <Input type="number" step="0.01" placeholder="25.00" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="bio"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('teachers.bio')}</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder={t('teachers.bioPlaceholder')} {...field} />
+                                        <Input type="number" placeholder="0" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">{t('common.saveChanges')}</Button>
+                            <Button type="submit">
+                                {teacher ? t('common.saveChanges') : t('teachers.addTeacher')}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

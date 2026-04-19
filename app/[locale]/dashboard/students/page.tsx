@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import Link from "next/link"
 import { StudentDialog } from "@/components/students/student-dialog"
 import { toast } from "sonner"
+ import { usePermissions } from "@/hooks/usePermissions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ import { useTranslations } from "next-intl"
 
 function StudentsContent() {
   const t = useTranslations()
+  const { hasPermission } = usePermissions()
   const { page, search, setSearch, setPage } = usePageSearch()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
@@ -97,10 +99,12 @@ function StudentsContent() {
       <PageHeader
         title={t('students.title')}
         action={
-          <Button onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('students.addStudent')}
-          </Button>
+          hasPermission("users.add_studentprofile") ? (
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('students.addStudent')}
+            </Button>
+          ) : undefined
         }
       />
       <Card>
@@ -170,12 +174,16 @@ function StudentsContent() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(student)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(student)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        {hasPermission("users.change_studentprofile") && (
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(student)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasPermission("users.delete_studentprofile") && (
+                          <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(student)}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

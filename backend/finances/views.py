@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, views, status, filters
+from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Sum, Q
@@ -10,7 +11,7 @@ from users.models import StudentProfile
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().select_related('student__user', 'subscription__enrollment__course')
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = [
         'student__user__first_name',
@@ -38,12 +39,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
 class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.all()
     serializer_class = ExpenseSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['description', 'category', 'amount']
 
 class FinancialReportView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
 
     def get(self, request):
         """
@@ -77,7 +78,7 @@ class PaymentStatusView(views.APIView):
     """
     Simple view showing all students with their payment status
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
 
     def get(self, request):
         from academics.models import Enrollment

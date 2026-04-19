@@ -40,11 +40,13 @@ import {
 import { Suspense, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { usePermissions } from "@/hooks/usePermissions"
 import api from "@/lib/api"
 import { toast } from "sonner"
 
 function FinancesContent() {
   const t = useTranslations()
+  const { hasPermission } = usePermissions()
 
   // Payments Params
   const { page: paymentsPage, search: paymentsSearch, setSearch: setPaymentsSearch, setPage: setPaymentsPage } = usePageSearch("payments_page", "payments_search")
@@ -109,8 +111,8 @@ function FinancesContent() {
         title={t('finances.title')}
         action={
           <div className="flex gap-2">
-            <PaymentDialog onSuccess={() => { mutate() }} />
-            <ExpenseDialog onSuccess={() => { mutate() }} />
+            {hasPermission("finances.add_payment") && <PaymentDialog onSuccess={() => { mutate() }} />}
+            {hasPermission("finances.add_expense") && <ExpenseDialog onSuccess={() => { mutate() }} />}
           </div>
         }
       />
@@ -342,7 +344,7 @@ function FinancesContent() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            {status.balance > 0 && (
+                            {status.balance > 0 && hasPermission("finances.add_payment") && (
                               <PaymentDialog 
                                 studentId={status.student_id}
                                 onSuccess={mutate}

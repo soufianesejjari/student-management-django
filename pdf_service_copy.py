@@ -47,33 +47,33 @@ class PDFReportGenerator:
         story = []
         
         # Title
-        title = Paragraph(f"Rapport de Paiement - {sessions_data['month']}", self.title_style)
+        title = Paragraph(f"Payment Report - {sessions_data['month']}", self.title_style)
         story.append(title)
         story.append(Spacer(1, 12))
         
         # Teacher Info
         teacher_info = f"""
         <para align=left>
-        <b>Professeur :</b> {teacher_data['name']}<br/>
-        <b>Taux Horaire :</b> {teacher_data['hourly_rate']:.2f} MAD/heure<br/>
-        <b>Date du Rapport :</b> {datetime.now().strftime('%d-%m-%Y')}
+        <b>Teacher:</b> {teacher_data['name']}<br/>
+        <b>Hourly Rate:</b> ${teacher_data['hourly_rate']:.2f}/hour<br/>
+        <b>Report Date:</b> {datetime.now().strftime('%B %d, %Y')}
         </para>
         """
         story.append(Paragraph(teacher_info, self.styles['Normal']))
         story.append(Spacer(1, 20))
         
         # Summary Section
-        story.append(Paragraph("Résumé Mensuel", self.heading_style))
+        story.append(Paragraph("Monthly Summary", self.heading_style))
         summary = sessions_data['summary']
         
         summary_data = [
-            ['Métrique', 'Valeur'],
-            ['Total des Séances Planifiées', str(summary['total_sessions'])],
-            ['Séances Annulées', str(summary['cancelled_sessions'])],
-            ['Absences du Professeur', str(summary['absent_sessions'])],
-            ['Total Heures Planifiées', f"{summary['total_hours']:.1f}h"],
-            ['Heures Travaillées', f"{summary['worked_hours']:.1f}h"],
-            ['Total Paiement Dû', f"${summary['total_expense']:.2f}"]
+            ['Metric', 'Value'],
+            ['Total Sessions Scheduled', str(summary['total_sessions'])],
+            ['Cancelled Sessions', str(summary['cancelled_sessions'])],
+            ['Teacher Absences', str(summary['absent_sessions'])],
+            ['Total Hours Scheduled', f"{summary['total_hours']:.1f}h"],
+            ['Hours Worked', f"{summary['worked_hours']:.1f}h"],
+            ['Total Payment Due', f"${summary['total_expense']:.2f}"]
         ]
         
         summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
@@ -96,7 +96,7 @@ class PDFReportGenerator:
         # Detailed Sessions
         story.append(Paragraph("Session Details", self.heading_style))
         
-        session_data = [['Date', 'Cours', 'Heure', 'Heures', 'Statut', 'Montant']]
+        session_data = [['Date', 'Course', 'Time', 'Hours', 'Status', 'Amount']]
         
         for session in sessions_data['occurrences']:
             status = 'Cancelled' if session['is_cancelled'] else ('Absent' if session['teacher_is_absent'] else 'Present')
@@ -142,20 +142,20 @@ class PDFReportGenerator:
         story = []
         
         # Title
-        title_text = f"Emploi du Temps : {teacher_data['name']}"
+        title_text = f"Schedule: {teacher_data['name']}"
         title = Paragraph(title_text, self.title_style)
         story.append(title)
         
-        subtitle = Paragraph(f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}", 
+        subtitle = Paragraph(f"{start_date.strftime('%B %d, %Y')} - {end_date.strftime('%B %d, %Y')}", 
                             self.styles['Normal'])
         story.append(subtitle)
         story.append(Spacer(1, 20))
         
         # Group sessions by day
-        days_of_week = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+        days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
         # Create schedule data
-        schedule_data = [['Heure'] + days_of_week]
+        schedule_data = [['Time'] + days_of_week]
         
         # Build time slots (8 AM to 8 PM)
         time_slots = []
@@ -209,19 +209,19 @@ class PDFReportGenerator:
         story = []
         
         # Title
-        title_text = f"Student Emploi du Temps : {student_data['name']}"
+        title_text = f"Student Schedule: {student_data['name']}"
         title = Paragraph(title_text, self.title_style)
         story.append(title)
         
-        subtitle = Paragraph(f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}", 
+        subtitle = Paragraph(f"{start_date.strftime('%B %d, %Y')} - {end_date.strftime('%B %d, %Y')}", 
                             self.styles['Normal'])
         story.append(subtitle)
         story.append(Spacer(1, 20))
         
         # List enrolled courses
-        story.append(Paragraph("Cours Inscrits", self.heading_style))
+        story.append(Paragraph("Enrolled Courses", self.heading_style))
         
-        courses_data = [['Cours', 'Professeur', 'Jours & Heures']]
+        courses_data = [['Course', 'Teacher', 'Days & Times']]
         
         for enrollment in enrollments_data:
             course_schedule = []
@@ -255,8 +255,8 @@ class PDFReportGenerator:
         story.append(PageBreak())
         story.append(Paragraph("Weekly Schedule", self.heading_style))
         
-        days_of_week = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-        schedule_data = [['Heure'] + days_of_week]
+        days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        schedule_data = [['Time'] + days_of_week]
         
         time_slots = []
         for hour in range(8, 21):

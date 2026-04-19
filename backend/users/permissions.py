@@ -88,3 +88,28 @@ def make_module_permission(module_label: str):
 
     _Permission.__name__ = f"{module_label.capitalize()}Permission"
     return _Permission
+from rest_framework.permissions import DjangoModelPermissions
+
+class StrictDjangoModelPermissions(DjangoModelPermissions):
+    """
+    Extends DjangoModelPermissions to also require 'view' permission for GET requests
+    and bypasses all checks for admin users.
+    """
+    perms_map = {
+        'GET': ['%(app_label)s.view_%(model_name)s'],
+        'OPTIONS': [],
+        'HEAD': [],
+        'POST': ['%(app_label)s.add_%(model_name)s'],
+        'PUT': ['%(app_label)s.change_%(model_name)s'],
+        'PATCH': ['%(app_label)s.change_%(model_name)s'],
+        'DELETE': ['%(app_label)s.delete_%(model_name)s'],
+    }
+
+    def has_permission(self, request, view):
+        # Admin bypass
+        if request.user and request.user.is_authenticated and (request.user.is_admin or request.user.is_superuser or getattr(request.user, 'role', '') == 'admin'):
+            return True
+            
+        # Defer to standard Django model perm checks
+        return super().has_permission(request, view)
+

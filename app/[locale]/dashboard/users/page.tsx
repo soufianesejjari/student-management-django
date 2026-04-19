@@ -30,6 +30,7 @@ import { useAuth } from "@/context/AuthContext"
 import { api } from "@/lib/api"
 import { ShieldCheck, UserPlus, Trash2, Settings2, User2, CheckCircle2, XCircle } from "lucide-react"
 import { toast } from "sonner"
+import { useTranslations } from "next-intl"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,31 +59,12 @@ interface Secretaire {
 type AvailablePermissions = Record<string, PermissionItem[]>
 
 // ---------------------------------------------------------------------------
-// Human-readable labels for app modules
-// ---------------------------------------------------------------------------
-
-const APP_LABELS: Record<string, string> = {
-  users:       "Utilisateurs (Étudiants / Professeurs)",
-  academics:   "Académique (Cours / Sujets)",
-  planning:    "Planning (Séances / Salles)",
-  finances:    "Finances (Paiements / Dépenses)",
-  enrollments: "Inscriptions",
-  dashboard:   "Tableau de bord",
-}
-
-const ACTION_LABELS: Record<string, string> = {
-  view:   "Voir",
-  add:    "Ajouter",
-  change: "Modifier",
-  delete: "Supprimer",
-}
-
-// ---------------------------------------------------------------------------
 // Page component
 // ---------------------------------------------------------------------------
 
 export default function UsersManagementPage() {
   const { isAdmin } = useAuth()
+  const t = useTranslations("users")
 
   const [secretaires, setSecretaires] = useState<Secretaire[]>([])
   const [availablePerms, setAvailablePerms] = useState<AvailablePermissions>({})
@@ -197,6 +179,22 @@ export default function UsersManagementPage() {
     return codename
   }
 
+  const getTranslatedAppLabel = (appLabel: string) => {
+    try {
+      return t(`modules.${appLabel}` as any) || appLabel
+    } catch {
+      return appLabel
+    }
+  }
+
+  const getTranslatedActionLabel = (action: string) => {
+    try {
+      return t(`actions.${action}` as any) || action
+    } catch {
+      return action
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Guard: admin only
   // -----------------------------------------------------------------------
@@ -204,7 +202,7 @@ export default function UsersManagementPage() {
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Accès réservé aux administrateurs.</p>
+        <p className="text-muted-foreground">{t("adminOnly")}</p>
       </div>
     )
   }
@@ -220,15 +218,15 @@ export default function UsersManagementPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-6 w-6" />
-            Gestion des rôles & permissions
+            {t("manageRoles")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gérez les comptes secrétaires et leurs accès aux différents modules.
+            {t("manageDesc")}
           </p>
         </div>
         <Button onClick={() => setCreating(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
-          Nouveau secrétaire
+          {t("newSecretary")}
         </Button>
       </div>
 
@@ -236,16 +234,16 @@ export default function UsersManagementPage() {
         {/* Left — Secretaire list */}
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-base">Secrétaires</CardTitle>
+            <CardTitle className="text-base">{t("title")}</CardTitle>
             <CardDescription>
-              {secretaires.length} compte{secretaires.length !== 1 ? "s" : ""}
+              {secretaires.length} {secretaires.length !== 1 ? t("accounts") : t("account")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Chargement…</p>
+              <p className="text-sm text-muted-foreground">{t("loading")}</p>
             ) : secretaires.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucun secrétaire.</p>
+              <p className="text-sm text-muted-foreground">{t("noSecretary")}</p>
             ) : (
               secretaires.map((sec) => (
                 <div
@@ -268,7 +266,7 @@ export default function UsersManagementPage() {
                   </div>
                   <div className="flex items-center gap-1 ml-2 shrink-0">
                     <Badge variant={sec.is_active ? "default" : "secondary"} className="text-xs">
-                      {sec.is_active ? "Actif" : "Inactif"}
+                      {sec.is_active ? t("active") : t("inactive")}
                     </Badge>
                     <Button
                       variant="ghost"
@@ -291,19 +289,19 @@ export default function UsersManagementPage() {
             <CardTitle className="text-base flex items-center gap-2">
               <Settings2 className="h-4 w-4" />
               {selectedSecretaire
-                ? `Permissions de ${selectedSecretaire.first_name} ${selectedSecretaire.last_name}`
-                : "Permissions"}
+                ? t("permissionsOf", { name: `${selectedSecretaire.first_name} ${selectedSecretaire.last_name}` })
+                : t("permissions")}
             </CardTitle>
             <CardDescription>
               {selectedSecretaire
-                ? "Activez ou désactivez l'accès à chaque fonctionnalité."
-                : "Sélectionnez un secrétaire pour gérer ses permissions."}
+                ? t("permissionsDescActive")
+                : t("permissionsDescInactive")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!selectedSecretaire ? (
               <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-                Sélectionnez un secrétaire dans la liste.
+                {t("selectSecretary")}
               </div>
             ) : (
               <div className="space-y-6">
@@ -336,7 +334,7 @@ export default function UsersManagementPage() {
                     <div key={appLabel}>
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-semibold text-sm">
-                          {APP_LABELS[appLabel] ?? appLabel}
+                          {getTranslatedAppLabel(appLabel)}
                         </h3>
                         <Button
                           size="sm"
@@ -345,7 +343,7 @@ export default function UsersManagementPage() {
                           disabled={saving}
                           className="text-xs"
                         >
-                          {allActive ? "Révoquer tous" : someActive ? "Sélectionner tous" : "Sélectionner tous"}
+                          {allActive ? t("revokeAll") : t("selectAll")}
                         </Button>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -367,7 +365,7 @@ export default function UsersManagementPage() {
                                 )}
                                 <div className="min-w-0">
                                   <p className="text-sm font-medium truncate">
-                                    {ACTION_LABELS[action] ?? action}
+                                    {getTranslatedActionLabel(action)}
                                   </p>
                                   <p className="text-xs text-muted-foreground truncate">
                                     {perm.model}
@@ -397,32 +395,32 @@ export default function UsersManagementPage() {
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nouveau secrétaire</DialogTitle>
+            <DialogTitle>{t("newSecretary")}</DialogTitle>
             <DialogDescription>
-              Créez un compte secrétaire. Le mot de passe par défaut est <code>password123</code> si laissé vide.
+              {t("createDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Prénom</Label>
+                <Label>{t("firstName")}</Label>
                 <Input
                   value={form.first_name}
                   onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                  placeholder="Prénom"
+                  placeholder={t("firstName")}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Nom</Label>
+                <Label>{t("lastName")}</Label>
                 <Input
                   value={form.last_name}
                   onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                  placeholder="Nom"
+                  placeholder={t("lastName")}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Nom d'utilisateur</Label>
+              <Label>{t("username")}</Label>
               <Input
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -430,7 +428,7 @@ export default function UsersManagementPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Email</Label>
+              <Label>{t("email")}</Label>
               <Input
                 type="email"
                 value={form.email}
@@ -439,22 +437,22 @@ export default function UsersManagementPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Mot de passe</Label>
+              <Label>{t("password")}</Label>
               <Input
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="Laisser vide pour password123"
+                placeholder={t("passwordDesc")}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreating(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setCreating(false)}>{t("cancel")}</Button>
             <Button
               onClick={handleCreate}
               disabled={saving || !form.username || !form.email}
             >
-              {saving ? "Création…" : "Créer"}
+              {saving ? t("creating") : t("create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -464,20 +462,18 @@ export default function UsersManagementPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer le secrétaire ?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteConfirmTitleSec")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Vous allez supprimer le compte de{" "}
-              <strong>{deleteTarget?.first_name} {deleteTarget?.last_name}</strong>.
-              Cette action est irréversible.
+              {t("deleteConfirmDescSec", { name: `${deleteTarget?.first_name} ${deleteTarget?.last_name}` })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDelete}
             >
-              Supprimer
+              {t("deleteBtn")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

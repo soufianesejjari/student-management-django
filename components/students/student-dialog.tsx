@@ -23,6 +23,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useTranslations } from "next-intl"
 
 const studentSchema = z.object({
@@ -59,16 +60,24 @@ export function StudentDialog({
             last_name: "",
             email: "",
             username: "",
+            phone: "",
+            address: "",
+            date_of_birth: "",
+            age_group: "6-12ans",
         },
     })
 
     useEffect(() => {
         if (student) {
             form.reset({
-                first_name: student.user.first_name,
-                last_name: student.user.last_name,
-                email: student.user.email,
-                username: student.user.username,
+                first_name: student.user?.first_name || "",
+                last_name: student.user?.last_name || "",
+                email: student.user?.email || "",
+                username: student.user?.username || "",
+                phone: student.phone || "",
+                address: student.address || "",
+                date_of_birth: student.date_of_birth || "",
+                age_group: student.age_group || "6-12ans",
             })
         } else {
             form.reset({
@@ -76,19 +85,25 @@ export function StudentDialog({
                 last_name: "",
                 email: "",
                 username: "",
+                phone: "",
+                address: "",
+                date_of_birth: "",
+                age_group: "6-12ans",
             })
         }
     }, [student, form, open])
 
     const handleSubmit = async (data: StudentFormValues) => {
-        await onSubmit(data)
+        const payload = { ...data }
+        if (!payload.date_of_birth) delete payload.date_of_birth
+        await onSubmit(payload)
         onOpenChange(false)
         form.reset()
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{student ? t('students.editStudent') : t('students.addStudent')}</DialogTitle>
                     <DialogDescription>
@@ -104,7 +119,7 @@ export function StudentDialog({
                             name="first_name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('students.firstName')}</FormLabel>
+                                    <FormLabel>{t('students.firstName')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('students.firstNamePlaceholder')} {...field} />
                                     </FormControl>
@@ -117,9 +132,35 @@ export function StudentDialog({
                             name="last_name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('students.lastName')}</FormLabel>
+                                    <FormLabel>{t('students.lastName')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('students.lastNamePlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="address"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('students.address')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('students.addressPlaceholder')} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('students.phone')} *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder={t('students.phonePlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -143,10 +184,45 @@ export function StudentDialog({
                             name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>{t('students.username')}</FormLabel>
+                                    <FormLabel>{t('students.username')} *</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('students.usernamePlaceholder')} {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="date_of_birth"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('students.dateOfBirth')}</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="age_group"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>{t('students.ageGroup')} *</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="..." />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="2-5ans">{t('students.ageGroup2to5')}</SelectItem>
+                                            <SelectItem value="6-12ans">{t('students.ageGroup6to12')}</SelectItem>
+                                            <SelectItem value="Adulte">{t('students.ageGroupAdult')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}

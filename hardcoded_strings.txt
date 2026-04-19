@@ -1,0 +1,434 @@
+--- app/[locale]/page.tsx ---
+  The Musical Academy
+--- app/[locale]/dashboard/layout.tsx ---
+  Chargement…
+  )
+
+  return (
+  The Musical Academy
+--- app/[locale]/dashboard/page.tsx ---
+  Avril 2025
+  ) : upcomingClasses?.length === 0 ? (
+  T1 2025
+--- app/[locale]/dashboard/settings/page.tsx ---
+  Inactive
+  Active
+  Typically the Solfège course. Leave empty to disable the offer even if the toggle is on.
+--- app/[locale]/dashboard/teachers/page.tsx ---
+  ) : teachers?.length === 0 ? (
+  (null)
+
+  // Delete Dialog State
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [teacherToDelete, setTeacherToDelete] = useState
+--- app/[locale]/dashboard/teachers/[id]/page.tsx ---
+  a.localeCompare(b))
+
+    return (
+  Absent
+--- app/[locale]/dashboard/students/page.tsx ---
+  ) : students?.length === 0 ? (
+  (null)
+
+  // Delete Dialog State
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [studentToDelete, setStudentToDelete] = useState
+--- app/[locale]/dashboard/courses/page.tsx ---
+  ) : courses?.length === 0 ? (
+--- app/[locale]/dashboard/users/page.tsx ---
+  ([])
+  const [availablePerms, setAvailablePerms] = useState
+  ) : secretaires.length === 0 ? (
+  (null)
+  const [creating, setCreating] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState
+--- app/[locale]/dashboard/rooms/page.tsx ---
+  ) : rooms.length === 0 ? (
+--- app/[locale]/dashboard/finances/page.tsx ---
+  ) : paymentStatus.length === 0 ? (
+  ) : payments?.length === 0 ? (
+  acc + Number(curr.amount), 0) || 0
+
+  return (
+  ) : expenses?.length === 0 ? (
+--- app/[locale]/dashboard/reports/page.tsx ---
+  Piano (32%)
+--- app/[locale]/login/page.tsx ---
+  Connexion…
+  The Musical Academy
+--- components/mode-toggle.tsx ---
+  Dark
+  Toggle theme
+  Light
+  System
+--- components/academics/subjects-management.tsx ---
+  Chargement des sujets...
+  Nom du sujet
+  Aucun sujet créé. Cliquez sur "Ajouter Sujet" pour en créer un.
+  Promise
+  Type
+  Gérez les sujets (instruments) disponibles à votre académie
+  Annuler
+  Couleur
+  Sujets musicaux
+--- components/ui/async-select.tsx ---
+  No results found.
+  renderValue(item) === value)
+    const [displayLabel, setDisplayLabel] = React.useState
+--- components/ui/alert-dialog.tsx ---
+  )
+AlertDialogFooter.displayName = "AlertDialogFooter"
+
+const AlertDialogTitle = React.forwardRef
+  ))
+AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
+
+const AlertDialogDescription = React.forwardRef
+  ))
+AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
+
+const AlertDialogContent = React.forwardRef
+  ,
+    React.ComponentPropsWithoutRef
+  ))
+AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
+
+const AlertDialogCancel = React.forwardRef
+  ))
+AlertDialogDescription.displayName =
+    AlertDialogPrimitive.Description.displayName
+
+const AlertDialogAction = React.forwardRef
+--- components/ui/tabs.tsx ---
+  ))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+
+const TabsContent = React.forwardRef
+  ,
+  React.ComponentPropsWithoutRef
+  ))
+TabsList.displayName = TabsPrimitive.List.displayName
+
+const TabsTrigger = React.forwardRef
+--- components/ui/card.tsx ---
+  ))
+CardDescription.displayName = 'CardDescription'
+
+const CardContent = React.forwardRef
+  ))
+Card.displayName = 'Card'
+
+const CardHeader = React.forwardRef
+  ))
+CardHeader.displayName = 'CardHeader'
+
+const CardTitle = React.forwardRef
+  ))
+CardTitle.displayName = 'CardTitle'
+
+const CardDescription = React.forwardRef
+  ))
+CardContent.displayName = 'CardContent'
+
+const CardFooter = React.forwardRef
+--- components/ui/popover.tsx ---
+  ,
+    React.ComponentPropsWithoutRef
+--- components/ui/sheet.tsx ---
+  Close
+  ,
+  React.ComponentPropsWithoutRef
+  ))
+SheetTitle.displayName = SheetPrimitive.Title.displayName
+
+const SheetDescription = React.forwardRef
+  )
+SheetFooter.displayName = 'SheetFooter'
+
+const SheetTitle = React.forwardRef
+  ,
+    VariantProps
+--- components/ui/label.tsx ---
+  ,
+  React.ComponentPropsWithoutRef
+  &
+    VariantProps
+--- components/ui/alert.tsx ---
+  ))
+AlertTitle.displayName = "AlertTitle"
+
+const AlertDescription = React.forwardRef
+  & VariantProps
+  ))
+Alert.displayName = "Alert"
+
+const AlertTitle = React.forwardRef
+--- components/ui/switch.tsx ---
+  ,
+  React.ComponentPropsWithoutRef
+--- components/ui/command.tsx ---
+  ))
+CommandSeparator.displayName = CommandPrimitive.Separator.displayName
+
+const CommandItem = React.forwardRef
+  ))
+
+CommandInput.displayName = CommandPrimitive.Input.displayName
+
+const CommandList = React.forwardRef
+  ))
+
+CommandEmpty.displayName = CommandPrimitive.Empty.displayName
+
+const CommandGroup = React.forwardRef
+  ))
+
+CommandList.displayName = CommandPrimitive.List.displayName
+
+const CommandEmpty = React.forwardRef
+  ))
+
+CommandGroup.displayName = CommandPrimitive.Group.displayName
+
+const CommandSeparator = React.forwardRef
+  ,
+    React.ComponentPropsWithoutRef
+--- components/ui/avatar.tsx ---
+  ,
+  React.ComponentPropsWithoutRef
+  ))
+Avatar.displayName = AvatarPrimitive.Root.displayName
+
+const AvatarImage = React.forwardRef
+  ))
+AvatarImage.displayName = AvatarPrimitive.Image.displayName
+
+const AvatarFallback = React.forwardRef
+--- components/ui/dialog.tsx ---
+  ))
+DialogTitle.displayName = DialogPrimitive.Title.displayName
+
+const DialogDescription = React.forwardRef
+  Close
+  ))
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+const DialogContent = React.forwardRef
+  )
+DialogFooter.displayName = "DialogFooter"
+
+const DialogTitle = React.forwardRef
+  ,
+    React.ComponentPropsWithoutRef
+--- components/ui/badge.tsx ---
+  ,
+    VariantProps
+--- components/ui/table.tsx ---
+  ))
+TableRow.displayName = 'TableRow'
+
+const TableHead = React.forwardRef
+  ))
+TableCell.displayName = 'TableCell'
+
+const TableCaption = React.forwardRef
+  ))
+TableFooter.displayName = 'TableFooter'
+
+const TableRow = React.forwardRef
+  ))
+TableBody.displayName = 'TableBody'
+
+const TableFooter = React.forwardRef
+  ))
+TableHeader.displayName = 'TableHeader'
+
+const TableBody = React.forwardRef
+  ))
+Table.displayName = 'Table'
+
+const TableHeader = React.forwardRef
+  ))
+TableHead.displayName = 'TableHead'
+
+const TableCell = React.forwardRef
+--- components/ui/separator.tsx ---
+  ,
+    React.ComponentPropsWithoutRef
+--- components/ui/button.tsx ---
+  ,
+    VariantProps
+--- components/ui/checkbox.tsx ---
+  ,
+    React.ComponentPropsWithoutRef
+--- components/ui/dropdown-menu.tsx ---
+  ,
+  React.ComponentPropsWithoutRef
+  ))
+DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
+
+const DropdownMenuSeparator = React.forwardRef
+  ))
+DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
+
+const DropdownMenuItem = React.forwardRef
+  ))
+DropdownMenuSubTrigger.displayName =
+  DropdownMenuPrimitive.SubTrigger.displayName
+
+const DropdownMenuSubContent = React.forwardRef
+  ))
+DropdownMenuSubContent.displayName =
+  DropdownMenuPrimitive.SubContent.displayName
+
+const DropdownMenuContent = React.forwardRef
+  ))
+DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
+
+const DropdownMenuCheckboxItem = React.forwardRef
+  ))
+DropdownMenuCheckboxItem.displayName =
+  DropdownMenuPrimitive.CheckboxItem.displayName
+
+const DropdownMenuRadioItem = React.forwardRef
+  ))
+DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
+
+const DropdownMenuLabel = React.forwardRef
+--- components/ui/select.tsx ---
+  ,
+  React.ComponentPropsWithoutRef
+  ))
+SelectLabel.displayName = SelectPrimitive.Label.displayName
+
+const SelectItem = React.forwardRef
+  ))
+SelectScrollDownButton.displayName =
+  SelectPrimitive.ScrollDownButton.displayName
+
+const SelectContent = React.forwardRef
+  ))
+SelectContent.displayName = SelectPrimitive.Content.displayName
+
+const SelectLabel = React.forwardRef
+  ))
+SelectItem.displayName = SelectPrimitive.Item.displayName
+
+const SelectSeparator = React.forwardRef
+  ))
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
+
+const SelectScrollDownButton = React.forwardRef
+  ))
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+
+const SelectScrollUpButton = React.forwardRef
+--- components/ui/form.tsx ---
+  = FieldPath
+  ,
+    React.ComponentPropsWithoutRef
+--- components/layout/error-boundary.tsx ---
+  Une erreur s'est produite
+  Réessayer
+--- components/planning/CalendarColumn.tsx ---
+  (Mod)
+--- components/planning/session-dialog.tsx ---
+  (null)
+    const [isForceDialogOpen, setIsForceDialogOpen] = useState(false)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+
+    const form = useForm
+--- components/planning/reschedule-dialog.tsx ---
+  End Time
+  New Date
+  Reason (Optional)
+  date
+  Reschedule Session
+  Cancel
+  Move this session to a different time.
+  Pick a date
+  Start Time
+--- components/planning/weekly-calendar.tsx ---
+  (null)
+    const [selectedDate, setSelectedDate] = useState
+  ([])
+    const [instances, setInstances] = useState
+  ([])
+    const [loading, setLoading] = useState(true)
+    const [selectedSession, setSelectedSession] = useState
+--- components/teachers/teacher-dialog.tsx ---
+  Promise
+--- components/students/student-dialog.tsx ---
+  Promise
+--- components/students/payments-table.tsx ---
+  Status
+  Ref
+  Date
+  Method
+  Amount
+  No payments found.
+--- components/courses/course-dialog.tsx ---
+  ([])
+    const [isSuggesting, setIsSuggesting] = useState(false)
+
+    const form = useForm
+  Promise
+  (null)
+    const [isChecking, setIsChecking] = useState(false)
+    const [suggestedSlots, setSuggestedSlots] = useState
+--- components/courses/session-dialog.tsx ---
+  (null)
+
+    const form = useForm
+  ([])
+    const [isSuggesting, setIsSuggesting] = useState(false)
+    const [teacher, setTeacher] = useState
+  (null)
+    const [isChecking, setIsChecking] = useState(false)
+    const [suggestedSlots, setSuggestedSlots] = useState
+--- components/courses/add-student-dialog.tsx ---
+  (null)
+    const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
+    const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
+
+    const form = useForm
+  (null)
+    // Per-student eligibility (loaded after student is selected)
+    const [offerSettings, setOfferSettings] = useState
+  Final Price (MAD)
+  ) : offerSettings?.can_add_free_course ? (
+                                    /* ELIGIBLE — big checkbox card */
+  ) : offerSettings && !offerSettings.can_add_free_course ? (
+                                    /* NOT ELIGIBLE — small info note */
+  ) : pricingSuggestion && pricingSuggestion.is_promotional ? (
+  You can override the suggested price here.
+  Notes (Optional)
+  (null)
+
+    const t = useTranslations()
+
+    // Global offer config (loaded once when dialog opens, no student needed)
+    const [globalOffer, setGlobalOffer] = useState
+  ) : pricingSuggestion ? (
+--- components/courses/course-schedule.tsx ---
+  ([])
+    const [loading, setLoading] = useState(true)
+    const [openDialog, setOpenDialog] = useState(false)
+    const [selectedSession, setSelectedSession] = useState
+  Add Session
+  No Schedule Yet
+  Class Sessions
+  Loading schedule...
+  Add Schedule
+  Create an official class schedule for this course
+--- components/courses/enrolled-students-table.tsx ---
+  Promo
+  Open menu
+--- components/rooms/room-dialog.tsx ---
+  )
+
+    return (
+--- components/finances/payment-dialog.tsx ---
+  )
+
+    return (

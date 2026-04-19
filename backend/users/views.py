@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, status, filters
+from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -38,7 +39,7 @@ def get_delegatable_permissions():
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name', 'last_name', 'email', 'username']
 
@@ -51,7 +52,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class StudentProfileViewSet(viewsets.ModelViewSet):
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'phone', 'parent_phone', 'address']
 
@@ -59,7 +60,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
 class TeacherProfileViewSet(viewsets.ModelViewSet):
     queryset = TeacherProfile.objects.all()
     serializer_class = TeacherProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'speciality', 'phone', 'cin']
 

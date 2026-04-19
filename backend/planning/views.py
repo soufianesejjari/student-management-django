@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions, status, views, filters
+from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -17,18 +18,19 @@ from .serializers import (
 )
 from users.models import TeacherProfile, TeacherAvailability, TeacherPreferences
 from .pdf_service import PDFReportGenerator
+from .services import get_teacher_monthly_occurrences
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'capacity']
 
 class ClassSessionViewSet(viewsets.ModelViewSet):
     queryset = ClassSession.objects.all()
     serializer_class = ClassSessionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['course__name', 'teacher__user__first_name', 'teacher__user__last_name', 'room__name']
 
@@ -182,7 +184,7 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
 
 
 class AvailabilityCheckView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def post(self, request):
         serializer = AvailabilityCheckSerializer(data=request.data)
@@ -225,7 +227,7 @@ class AvailabilityCheckView(views.APIView):
 
 
 class SmartSchedulingView(views.APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def post(self, request):
         """
@@ -334,7 +336,7 @@ class SmartSchedulingView(views.APIView):
 
 class TeacherSessionsView(views.APIView):
     """Get all sessions for a teacher in a given month with attendance status"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
         """
@@ -353,64 +355,7 @@ class TeacherSessionsView(views.APIView):
         except TeacherProfile.DoesNotExist:
             return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get first and last day of month
-        first_day = date(year, month, 1)
-        last_day = date(year, month, monthrange(year, month)[1])
-        
-        # Get all recurring sessions for this teacher active in this month
-        sessions = ClassSession.objects.filter(
-            teacher=teacher
-        ).filter(
-            Q(start_date__lte=last_day) & 
-            (Q(end_date__gte=first_day) | Q(end_date__isnull=True))
-        ).select_related('course', 'room')
-        
-        # Build occurrences for this month
-        occurrences = []
-        current_day = first_day
-        
-        while current_day <= last_day:
-            day_of_week = (current_day.weekday() + 1) % 7  # Convert Python weekday (0=Mon) to ISO (0=Mon, but adjust)
-            
-            for session in sessions:
-                if session.day_of_week == day_of_week:
-                    # Check if this session should occur on this date
-                    if session.start_date <= current_day and (session.end_date is None or session.end_date >= current_day):
-                        # Check for overrides in SessionInstance
-                        instance = SessionInstance.objects.filter(
-                            class_session=session,
-                            original_date=current_day
-                        ).first()
-                        
-                        is_cancelled = instance and instance.is_cancelled
-                        is_absent = instance and instance.teacher_is_absent
-                        
-                        # Calculate duration in hours
-                        start_dt = datetime.combine(current_day, session.start_time)
-                        end_dt = datetime.combine(current_day, session.end_time)
-                        duration_hours = (end_dt - start_dt).total_seconds() / 3600
-                        
-                        occurrences.append({
-                            'id': session.id,
-                            'instance_id': instance.id if instance else None,
-                            'date': current_day.isoformat(),
-                            'day_of_week': session.day_of_week,
-                            'course': session.course.name,
-                            'start_time': session.start_time.isoformat(),
-                            'end_time': session.end_time.isoformat(),
-                            'room': session.room.name,
-                            'duration_hours': duration_hours,
-                            'is_cancelled': is_cancelled,
-                            'teacher_is_absent': is_absent,
-                            'hourly_rate': float(teacher.hourly_rate),
-                        })
-            
-            current_day += timedelta(days=1)
-        
-        # Calculate totals
-        total_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'])
-        worked_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'] and not o['teacher_is_absent'])
-        total_expense = worked_hours * float(teacher.hourly_rate)
+        occurrences, total_hours, worked_hours, total_expense = get_teacher_monthly_occurrences(teacher, year, month)
         
         return Response({
             'teacher': {
@@ -458,7 +403,7 @@ class TeacherSessionsView(views.APIView):
 
 class TeacherPaymentReportView(views.APIView):
     """Generate PDF payment report for a teacher"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
         if not teacher_id:
@@ -556,7 +501,7 @@ class TeacherPaymentReportView(views.APIView):
 
 class TeacherSchedulePDFView(views.APIView):
     """Generate PDF schedule for a teacher"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
         if not teacher_id:
@@ -622,7 +567,7 @@ class StudentSchedulePDFView(views.APIView):
     Generate and download student schedule PDF
     GET /api/planning/student/<pk>/schedule-pdf/
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
     
     def get(self, request, pk):
         from users.models import StudentProfile
