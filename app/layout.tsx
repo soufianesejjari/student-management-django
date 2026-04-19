@@ -13,6 +13,10 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "The Musical Academy",
   description: "Application de gestion d'école de musique",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   generator: 'v0.app'
 }
 

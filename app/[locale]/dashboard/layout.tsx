@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect } from "react"
 import {
   BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut,
-  Music2, Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck,
+  Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -66,12 +66,12 @@ export default function DashboardLayout({
   // Show a full-screen loader while auth state resolves
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Music2 className="h-8 w-8 animate-pulse text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Chargement…</p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <img src="/logo.png" alt="The Musical Academy" className="h-16 w-auto object-contain animate-pulse" />
+        <p className="text-sm text-muted-foreground">Chargement…</p>
       </div>
+    </div>
     )
   }
 
@@ -122,9 +122,9 @@ export default function DashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="flex flex-col">
-                <div className="flex items-center gap-2 font-semibold mb-4">
-                  <Music2 className="h-6 w-6" />
-                  <span>The Musical Academy</span>
+                <div className="flex items-center gap-3 font-semibold mb-4">
+                  <img src="/logo.png" alt="The Musical Academy" className="h-10 w-auto object-contain" />
+                  <span className="text-lg">The Musical Academy</span>
                 </div>
                 {/* User info in mobile drawer */}
                 {user && (
@@ -150,8 +150,8 @@ export default function DashboardLayout({
               </SheetContent>
             </Sheet>
           )}
-          <Music2 className="h-6 w-6" />
-          <span className="hidden md:inline-block">The Musical Academy</span>
+          <img src="/logo.png" alt="The Musical Academy" className="h-10 w-auto object-contain" />
+          <span className="hidden md:inline-block text-lg font-semibold">The Musical Academy</span>
         </div>
         <div className="flex-1" suppressHydrationWarning />
         <ModeToggle />

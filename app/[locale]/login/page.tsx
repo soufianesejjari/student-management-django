@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Music2, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 export default function LoginPage() {
@@ -47,8 +47,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 flex flex-col items-center">
-          <div className="flex items-center gap-2 font-bold text-2xl mb-2">
-            <Music2 className="h-6 w-6" />
+          <div className="flex items-center gap-3 font-bold text-2xl mb-2">
+            <img src="/logo.png" alt="The Musical Academy" className="h-12 w-auto object-contain" />
             <span>The Musical Academy</span>
           </div>
           <CardTitle className="text-2xl">{t('login.title')}</CardTitle>
