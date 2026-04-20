@@ -151,7 +151,6 @@ export default function DashboardLayout({
             </Sheet>
           )}
           <img src="/logo.png" alt="The Musical Academy" className="h-10 w-auto object-contain" />
-          <span className="hidden md:inline-block text-lg font-semibold">The Musical Academy</span>
         </div>
         <div className="flex-1" suppressHydrationWarning />
         <ModeToggle />
@@ -168,18 +167,18 @@ export default function DashboardLayout({
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
       </header>
-      <div className="flex flex-1" suppressHydrationWarning>
-        <aside className="hidden w-64 shrink-0 border-r md:block">
-          <div className="flex h-full max-h-screen flex-col gap-2 p-4" suppressHydrationWarning>
+      <div className="flex flex-1 overflow-hidden" suppressHydrationWarning>
+        <aside className="hidden w-64 shrink-0 border-r md:flex md:flex-col sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="flex flex-col gap-2 p-4 min-h-full" suppressHydrationWarning>
             <nav className="grid gap-1 text-sm flex-1">
               <NavItems />
             </nav>
-            <div className="mt-auto" suppressHydrationWarning>
+            <div className="mt-auto pt-4" suppressHydrationWarning>
               <LogoutButton className="w-full" />
             </div>
           </div>
         </aside>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 h-[calc(100vh-4rem)]">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>

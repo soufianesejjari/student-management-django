@@ -165,7 +165,7 @@ function CoursesContent() {
                         <TableCell>{course?.teacher_name || "-"}</TableCell>
                         <TableCell>{course?.enrollment_count || 0}</TableCell>
                         <TableCell>{course?.schedule_summary || t('courses.notScheduled')}</TableCell>
-                        <TableCell>{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(course?.price || 0)}</TableCell>
+                        <TableCell>{new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MAD' }).format(course?.price || 0)}</TableCell>
                         <TableCell>
                           <span
                             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${course?.status === "ACTIVE"

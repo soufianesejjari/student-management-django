@@ -70,34 +70,34 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.schoolInfo')}</CardTitle>
-              <CardDescription>{t('settings.schoolInfoDescription')}</CardDescription>
+              <CardDescription>Les informations de l'école sont gérées centralement. Contactez l'administrateur pour les modifier.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="school-name">{t('settings.schoolName')}</Label>
-                <Input id="school-name" defaultValue="The Musical Academy" />
+                <Input id="school-name" defaultValue="The Musical Academy" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-address">{t('settings.address')}</Label>
-                <Input id="school-address" defaultValue="123 Rue de la Musique" />
+                <Input id="school-address" defaultValue="à coté du café LE CAVALLI, Av. Taha Houcine, Fès 30050" readOnly />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="school-city">{t('settings.city')}</Label>
-                  <Input id="school-city" defaultValue="Paris" />
+                  <Input id="school-city" defaultValue="Fès" readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="school-postal">{t('settings.postalCode')}</Label>
-                  <Input id="school-postal" defaultValue="75001" />
+                  <Input id="school-postal" defaultValue="30050" readOnly />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-phone">{t('settings.phone')}</Label>
-                <Input id="school-phone" defaultValue="+33 1 23 45 67 89" />
+                <Input id="school-phone" defaultValue="+212 695-969711" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-email">{t('settings.email')}</Label>
-                <Input id="school-email" defaultValue="contact@musicalacademy.com" />
+                <Input id="school-email" defaultValue="contact@themusicalacademy.net" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-description">{t('settings.description')}</Label>
@@ -108,7 +108,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button>{t('settings.saveChanges')}</Button>
+              <Button disabled title="Contactez l'administrateur pour modifier">
+                {t('settings.saveChanges')}
+              </Button>
             </CardFooter>
           </Card>
           <Card>
@@ -280,7 +282,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button>{t('settings.savePreferences')}</Button>
+              <Button disabled title="Fonctionnalité à venir">
+                {t('settings.savePreferences')}
+              </Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -314,7 +318,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button>{t('settings.updatePassword')}</Button>
+              <Button disabled title="Fonctionnalité à venir">
+                {t('settings.updatePassword')}
+              </Button>
             </CardFooter>
           </Card>
           <Card>
@@ -367,37 +373,39 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="billing-name">{t('settings.billingName')}</Label>
-                <Input id="billing-name" defaultValue="The Musical Academy SARL" />
+                <Input id="billing-name" defaultValue="The Musical Academy" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-email">{t('settings.billingEmail')}</Label>
-                <Input id="billing-email" defaultValue="facturation@musicalacademy.com" />
+                <Input id="billing-email" defaultValue="contact@themusicalacademy.net" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-address">{t('settings.billingAddress')}</Label>
-                <Input id="billing-address" defaultValue="123 Rue de la Musique" />
+                <Input id="billing-address" defaultValue="à coté du café LE CAVALLI, Av. Taha Houcine, Fès 30050" readOnly />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="billing-city">{t('settings.city')}</Label>
-                  <Input id="billing-city" defaultValue="Paris" />
+                  <Input id="billing-city" defaultValue="Fès" readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="billing-postal">{t('settings.postalCode')}</Label>
-                  <Input id="billing-postal" defaultValue="75001" />
+                  <Input id="billing-postal" defaultValue="30050" readOnly />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-country">{t('settings.country')}</Label>
-                <Input id="billing-country" defaultValue="France" />
+                <Input id="billing-country" defaultValue="Maroc" readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tax-id">{t('settings.taxId')}</Label>
-                <Input id="tax-id" defaultValue="FR12345678901" />
+                <Input id="tax-id" defaultValue="" placeholder="À venir" readOnly />
               </div>
             </CardContent>
             <CardFooter>
-              <Button>{t('settings.saveBillingInfo')}</Button>
+              <Button disabled title="Contactez l'administrateur pour modifier">
+                {t('settings.saveBillingInfo')}
+              </Button>
             </CardFooter>
           </Card>
           <Card>
