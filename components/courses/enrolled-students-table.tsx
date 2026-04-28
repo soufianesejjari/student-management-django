@@ -23,6 +23,8 @@ import {
 import { api } from "@/lib/api"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 interface EnrolledStudentsTableProps {
     courseId: number
@@ -30,8 +32,24 @@ interface EnrolledStudentsTableProps {
 
 export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) {
     const t = useTranslations()
+    const router = useRouter()
     const [enrollments, setEnrollments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+
+    const copyPhone = async (phone?: string) => {
+        if (!phone) {
+            toast.error(t('enrolledCourses.noPhoneToCopy'))
+            return
+        }
+
+        try {
+            await navigator.clipboard.writeText(phone)
+            toast.success(t('enrolledCourses.phoneCopied'))
+        } catch (error) {
+            console.error("Failed to copy phone:", error)
+            toast.error(t('common.error'))
+        }
+    }
 
     const fetchEnrollments = async () => {
         try {
@@ -119,11 +137,13 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(enrollment.id.toString())}>
-                                                {t('enrolledCourses.copyId')}
+                                            <DropdownMenuItem onClick={() => copyPhone(enrollment.student_phone)}>
+                                                {t('enrolledCourses.copyPhone')}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem>{t('enrolledCourses.viewStudent')}</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/students/${enrollment.student}`)}>
+                                                {t('enrolledCourses.viewStudent')}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem>{t('enrolledCourses.suspend')}</DropdownMenuItem>
                                             <DropdownMenuItem className="text-red-600">{t('enrolledCourses.cancel')}</DropdownMenuItem>
                                         </DropdownMenuContent>

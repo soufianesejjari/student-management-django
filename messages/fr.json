@@ -848,6 +848,9 @@
     "paySubscription": "Payer l'abonnement",
     "promo": "Promo",
     "copyId": "Copier l'ID d'inscription",
+    "copyPhone": "Copier le téléphone",
+    "phoneCopied": "Téléphone copié",
+    "noPhoneToCopy": "Aucun téléphone à copier",
     "viewStudent": "Voir la fiche étudiant",
     "suspend": "Suspendre l'inscription",
     "cancel": "Annuler l'inscription"

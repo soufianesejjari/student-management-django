@@ -42,13 +42,14 @@ class CourseSerializer(serializers.ModelSerializer):
 
 class EnrollmentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
+    student_phone = serializers.SerializerMethodField()
     course_name = serializers.CharField(source='course.name', read_only=True)
     course_subject = serializers.CharField(source='course.subject.name', read_only=True)
 
     class Meta:
         model = Enrollment
         fields = [
-            'id', 'student', 'student_name', 'course', 'course_name', 'course_subject',
+            'id', 'student', 'student_name', 'student_phone', 'course', 'course_name', 'course_subject',
             'enrolled_at', 'status', 'default_price', 'custom_price',
             'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price',
             'is_active'
@@ -57,6 +58,9 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
     def get_student_name(self, obj):
         return obj.student.user.get_full_name() or obj.student.user.username
+
+    def get_student_phone(self, obj):
+        return obj.student.phone or obj.student.parent_phone or ""
 
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     """

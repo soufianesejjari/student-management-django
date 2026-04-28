@@ -848,6 +848,9 @@
     "paySubscription": "Pay Subscription",
     "promo": "Promo",
     "copyId": "Copy Enrollment ID",
+    "copyPhone": "Copy Phone",
+    "phoneCopied": "Phone copied",
+    "noPhoneToCopy": "No phone to copy",
     "viewStudent": "View Student Details",
     "suspend": "Suspend Enrollment",
     "cancel": "Cancel Enrollment"
