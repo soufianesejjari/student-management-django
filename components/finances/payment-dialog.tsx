@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import type { ReactNode } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,20 +17,36 @@ import { useTranslations } from "next-intl"
 interface PaymentDialogProps {
     onSuccess?: () => void
     studentId?: number
+    subscriptionId?: number | null
+    defaultAmount?: string | number
+    children?: ReactNode
 }
 
-export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
+export function PaymentDialog({ onSuccess, studentId, subscriptionId, defaultAmount, children }: PaymentDialogProps) {
     const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState({
         student: studentId || 0,
-        amount: "",
+        amount: defaultAmount != null ? String(defaultAmount) : "",
         method: "CASH",
         date: new Date().toISOString().split('T')[0],
         status: "PAID",
         notes: ""
     })
+
+    useEffect(() => {
+        if (!open) {
+            setFormData({
+                student: studentId || 0,
+                amount: defaultAmount != null ? String(defaultAmount) : "",
+                method: "CASH",
+                date: new Date().toISOString().split('T')[0],
+                status: "PAID",
+                notes: ""
+            })
+        }
+    }, [open, studentId, defaultAmount])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -44,6 +61,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
         try {
             await api.post("/finances/payments/", {
                 student: formData.student,
+                subscription: subscriptionId || null,
                 amount: parseFloat(formData.amount),
                 method: formData.method,
                 date: formData.date,
@@ -55,7 +73,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
             setOpen(false)
             setFormData({
                 student: studentId || 0,
-                amount: "",
+                amount: defaultAmount != null ? String(defaultAmount) : "",
                 method: "CASH",
                 date: new Date().toISOString().split('T')[0],
                 status: "PAID",
@@ -70,7 +88,7 @@ export function PaymentDialog({ onSuccess, studentId }: PaymentDialogProps) {
         }
     }
 
-    const buttonContent = studentId ? (
+    const buttonContent = children ? children : studentId ? (
         <Button variant="outline" size="sm">
             {t('dialogs.payment.recordBtn')}
         </Button>

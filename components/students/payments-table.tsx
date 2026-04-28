@@ -13,12 +13,14 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
+import { useTranslations } from "next-intl"
 
 interface PaymentsTableProps {
     studentId: number
 }
 
 export function PaymentsTable({ studentId }: PaymentsTableProps) {
+    const t = useTranslations()
     const [payments, setPayments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -44,6 +46,10 @@ export function PaymentsTable({ studentId }: PaymentsTableProps) {
 
     useEffect(() => {
         fetchPayments()
+
+        const handleRefresh = () => fetchPayments()
+        window.addEventListener("payment-updated", handleRefresh)
+        return () => window.removeEventListener("payment-updated", handleRefresh)
     }, [studentId])
 
     if (loading) {
@@ -59,18 +65,18 @@ export function PaymentsTable({ studentId }: PaymentsTableProps) {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Ref</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Method</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>{t('paymentsTable.ref')}</TableHead>
+                        <TableHead>{t('paymentsTable.date')}</TableHead>
+                        <TableHead>{t('paymentsTable.amount')}</TableHead>
+                        <TableHead>{t('paymentsTable.method')}</TableHead>
+                        <TableHead>{t('paymentsTable.status')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {payments.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={5} className="h-24 text-center">
-                                No payments found.
+                                {t('paymentsTable.noPayments')}
                             </TableCell>
                         </TableRow>
                     ) : (

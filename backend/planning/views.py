@@ -184,6 +184,7 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
 
 
 class AvailabilityCheckView(views.APIView):
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def post(self, request):
@@ -227,6 +228,7 @@ class AvailabilityCheckView(views.APIView):
 
 
 class SmartSchedulingView(views.APIView):
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def post(self, request):
@@ -336,6 +338,7 @@ class SmartSchedulingView(views.APIView):
 
 class TeacherSessionsView(views.APIView):
     """Get all sessions for a teacher in a given month with attendance status"""
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
@@ -403,6 +406,7 @@ class TeacherSessionsView(views.APIView):
 
 class TeacherPaymentReportView(views.APIView):
     """Generate PDF payment report for a teacher"""
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
@@ -501,6 +505,7 @@ class TeacherPaymentReportView(views.APIView):
 
 class TeacherSchedulePDFView(views.APIView):
     """Generate PDF schedule for a teacher"""
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
 
     def get(self, request, teacher_id=None):
@@ -567,6 +572,7 @@ class StudentSchedulePDFView(views.APIView):
     Generate and download student schedule PDF
     GET /api/planning/student/<pk>/schedule-pdf/
     """
+    queryset = ClassSession.objects.all()
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
     
     def get(self, request, pk):

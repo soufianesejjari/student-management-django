@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { EnrolledCoursesTable } from "@/components/students/enrolled-courses-table"
 import { PaymentsTable } from "@/components/students/payments-table"
+import { EnrollCourseDialog } from "@/components/students/enroll-course-dialog"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
 
@@ -20,7 +21,6 @@ export default function StudentDetailPage() {
     const [student, setStudent] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [openAddCourseDialog, setOpenAddCourseDialog] = useState(false)
-    const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
 
     const fetchStudent = async () => {
         try {
@@ -48,6 +48,7 @@ export default function StudentDetailPage() {
             document.body.appendChild(link)
             link.click()
             link.remove()
+            window.URL.revokeObjectURL(url)
             toast.success(t('students.scheduleDownloaded'))
         } catch (error) {
             console.error(error)
@@ -81,9 +82,11 @@ export default function StudentDetailPage() {
         <div className="flex-1 space-y-4 p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">{student.first_name} {student.last_name}</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        {student.user?.first_name || student.first_name} {student.user?.last_name || student.last_name}
+                    </h2>
                     <div className="flex items-center space-x-4 text-muted-foreground text-sm mt-1">
-                        {student.email && <div className="flex items-center"><Mail className="mr-1 h-3 w-3" /> {student.email}</div>}
+                        {(student.user?.email || student.email) && <div className="flex items-center"><Mail className="mr-1 h-3 w-3" /> {student.user?.email || student.email}</div>}
                         {student.phone && <div className="flex items-center"><Phone className="mr-1 h-3 w-3" /> {student.phone}</div>}
                     </div>
                 </div>
@@ -102,7 +105,9 @@ export default function StudentDetailPage() {
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{student.date_joined ? format(new Date(student.date_joined), "MMM yyyy") : "N/A"}</div>
+                        <div className="text-2xl font-bold">
+                            {student.enrollment_date ? format(new Date(student.enrollment_date), "MMM yyyy") : "N/A"}
+                        </div>
                         <p className="text-xs text-muted-foreground">{t('students.registrationDate')}</p>
                     </CardContent>
                 </Card>
@@ -126,7 +131,15 @@ export default function StudentDetailPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Dialogs will be added here */}
+            <EnrollCourseDialog
+                open={openAddCourseDialog}
+                onOpenChange={setOpenAddCourseDialog}
+                studentId={student.id}
+                onSuccess={() => {
+                    fetchStudent()
+                    window.dispatchEvent(new Event('enrollment-updated'))
+                }}
+            />
         </div>
     )
 }
