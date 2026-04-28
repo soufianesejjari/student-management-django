@@ -1,7 +1,23 @@
+from datetime import date
+
 from rest_framework import serializers
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Sum
+from django.utils.text import slugify
 from .models import User, StudentProfile, TeacherProfile, TeacherAvailability, TeacherPreferences
+
+
+def _generate_username(*parts):
+    base = slugify(" ".join(str(part).strip() for part in parts if part)) or "user"
+    username = base
+    counter = 2
+
+    while User.objects.filter(username=username).exists():
+        username = f"{base}-{counter}"
+        counter += 1
+
+    return username
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -64,23 +80,62 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     # Write-only fields for user creation
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
-    email = serializers.EmailField(write_only=True)
-    username = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
     courses = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
+    payment_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
-        fields = ['id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status', 'courses', 'first_name', 'last_name', 'email', 'username', 'address', 'phone', 'date_of_birth', 'age_group']
+        fields = [
+            'id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status',
+            'courses', 'payment_status', 'payment_balance', 'first_name', 'last_name',
+            'email', 'address', 'phone', 'date_of_birth', 'age_group',
+        ]
 
     def get_courses(self, obj):
         return ", ".join([e.course.name for e in obj.enrollments.filter(status='ACTIVE')])
+
+    def _payment_summary(self, obj):
+        from academics.models import Enrollment
+        from finances.models import Payment
+
+        active_enrollments = Enrollment.objects.filter(student=obj, status='ACTIVE').select_related('course')
+        if not active_enrollments.exists():
+            return 'NONE', 0
+
+        today = date.today()
+        month_payments = Payment.objects.filter(
+            student=obj,
+            date__month=today.month,
+            date__year=today.year,
+        )
+
+        total_monthly = sum((enrollment.custom_price or 0) for enrollment in active_enrollments)
+        total_paid = month_payments.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
+        balance = float(total_monthly - total_paid)
+
+        if balance <= 0:
+            return 'PAID', balance
+        if today.day > 7:
+            return 'OVERDUE', balance
+        return 'PENDING', balance
+
+    def get_payment_status(self, obj):
+        return self._payment_summary(obj)[0]
+
+    def get_payment_balance(self, obj):
+        return self._payment_summary(obj)[1]
     
     def create(self, validated_data):
+        first_name = validated_data.pop('first_name')
+        last_name = validated_data.pop('last_name')
+        email = validated_data.pop('email', '')
         user_data = {
-            'first_name': validated_data.pop('first_name'),
-            'last_name': validated_data.pop('last_name'),
-            'email': validated_data.pop('email'),
-            'username': validated_data.pop('username'),
+            'first_name': first_name,
+            'last_name': last_name,
+            'email': email,
+            'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
         }
         # Create user with default password
         user = User.objects.create_user(**user_data, password='password123')
@@ -117,7 +172,7 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
-    username = serializers.CharField(write_only=True)
+    username = serializers.CharField(write_only=True, required=False, allow_blank=True)
     
     availabilities = TeacherAvailabilitySerializer(many=True, read_only=True)
     preferences = TeacherPreferencesSerializer(read_only=True)
@@ -136,11 +191,14 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
         return count
 
     def create(self, validated_data):
+        first_name = validated_data.pop('first_name')
+        last_name = validated_data.pop('last_name')
+        email = validated_data.pop('email')
         user_data = {
-            'first_name': validated_data.pop('first_name'),
-            'last_name': validated_data.pop('last_name'),
-            'email': validated_data.pop('email'),
-            'username': validated_data.pop('username'),
+            'first_name': first_name,
+            'last_name': last_name,
+            'email': email,
+            'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
         }
         # Create user with default password
         user = User.objects.create_user(**user_data, password='password123')

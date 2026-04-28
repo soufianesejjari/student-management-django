@@ -54,7 +54,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
     serializer_class = StudentProfileSerializer
     permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'phone', 'parent_phone', 'address']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__username', 'phone', 'parent_phone', 'address', 'age_group', 'status']
 
 
 class TeacherProfileViewSet(viewsets.ModelViewSet):
@@ -62,7 +62,7 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
     serializer_class = TeacherProfileSerializer
     permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'speciality', 'phone', 'cin']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__username', 'speciality', 'phone', 'cin', 'status']
 
 
 # ---------------------------------------------------------------------------

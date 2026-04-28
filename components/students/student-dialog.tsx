@@ -30,7 +30,6 @@ const studentSchema = z.object({
     first_name: z.string().min(1, "First name is required"),
     last_name: z.string().min(1, "Last name is required"),
     email: z.string().email("Invalid email").optional().or(z.literal("")),
-    username: z.string().min(1, "Username is required"),
     phone: z.string().min(1, "Phone is required"),
     address: z.string().min(1, "Address is required"),
     date_of_birth: z.string().optional(),
@@ -59,7 +58,6 @@ export function StudentDialog({
             first_name: "",
             last_name: "",
             email: "",
-            username: "",
             phone: "",
             address: "",
             date_of_birth: "",
@@ -73,7 +71,6 @@ export function StudentDialog({
                 first_name: student.user?.first_name || "",
                 last_name: student.user?.last_name || "",
                 email: student.user?.email || "",
-                username: student.user?.username || "",
                 phone: student.phone || "",
                 address: student.address || "",
                 date_of_birth: student.date_of_birth || "",
@@ -84,7 +81,6 @@ export function StudentDialog({
                 first_name: "",
                 last_name: "",
                 email: "",
-                username: "",
                 phone: "",
                 address: "",
                 date_of_birth: "",
@@ -174,19 +170,6 @@ export function StudentDialog({
                                     <FormLabel>{t('students.email')}</FormLabel>
                                     <FormControl>
                                         <Input placeholder={t('students.emailPlaceholder')} {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="username"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>{t('students.username')} *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder={t('students.usernamePlaceholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

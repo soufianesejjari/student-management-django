@@ -131,11 +131,11 @@ function StudentsContent() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('students.name')}</TableHead>
-                  <TableHead>{t('students.email')}</TableHead>
-                  <TableHead>{t('navigation.courses')}</TableHead>
+                  <TableHead>{t('students.fullName')}</TableHead>
+                  <TableHead>{t('students.phoneNumber')}</TableHead>
+                  <TableHead>{t('students.courses')}</TableHead>
                   <TableHead>{t('students.status')}</TableHead>
-                  <TableHead>{t('navigation.finances')}</TableHead>
+                  <TableHead>{t('students.finances')}</TableHead>
                   <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -156,7 +156,7 @@ function StudentsContent() {
                           {student.user.first_name} {student.user.last_name}
                         </Link>
                       </TableCell>
-                      <TableCell>{student.user.email}</TableCell>
+                      <TableCell>{student.phone || '-'}</TableCell>
                       <TableCell>{student.courses || t('common.none')}</TableCell>
                       <TableCell>
                         <span
@@ -169,8 +169,23 @@ function StudentsContent() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
-                          {t('students.paymentsUpToDate')}
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${student.payment_status === 'PAID'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                            : student.payment_status === 'OVERDUE'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                              : student.payment_status === 'PENDING'
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                            }`}
+                        >
+                          {student.payment_status === 'PAID'
+                            ? t('students.financePaid')
+                            : student.payment_status === 'OVERDUE'
+                              ? t('students.financeOverdue')
+                              : student.payment_status === 'PENDING'
+                                ? t('students.financePending')
+                                : t('students.financeUnknown')}
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
