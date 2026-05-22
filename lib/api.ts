@@ -102,13 +102,25 @@ export const api = {
         update: (id: string, data: any) => axiosInstance.patch(`/academics/courses/${id}/`, data).then(res => res.data),
         sessions: (id: string) => axiosInstance.get(`/academics/courses/${id}/sessions/`).then(res => res.data),
     },
+    academicYears: {
+        list: () => axiosInstance.get('/academics/academic-years/').then(res => res.data),
+        current: () => axiosInstance.get('/academics/academic-years/current/').then(res => res.data),
+        create: (data: any) => axiosInstance.post('/academics/academic-years/', data).then(res => res.data),
+        update: (id: number, data: any) => axiosInstance.patch(`/academics/academic-years/${id}/`, data).then(res => res.data),
+        activate: (id: number) => axiosInstance.post(`/academics/academic-years/${id}/activate/`).then(res => res.data),
+    },
     enrollments: {
         list: (params?: any) => axiosInstance.get('/academics/enrollments/', { params }).then(res => res.data),
         create: (data: any) => axiosInstance.post('/academics/enrollments/', data).then(res => res.data),
         get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
         offerSettings: (student_id?: number) =>
             axiosInstance.get('/academics/offer-settings/', { params: student_id ? { student_id } : {} }).then(res => res.data),
-        updateOfferSettings: (data: { enabled?: boolean; free_course_id?: number | null; max_times?: number }) =>
+        updateOfferSettings: (data: {
+            enabled?: boolean;
+            free_course_id?: number | null;
+            max_times?: number;
+            school?: Record<string, string>;
+        }) =>
             axiosInstance.patch('/academics/offer-settings/update/', data).then(res => res.data),
         suggestPrice: (data: { student_id: number, course_id: number }) =>
             axiosInstance.post('/academics/enrollments/suggest-price/', data).then(res => res.data),

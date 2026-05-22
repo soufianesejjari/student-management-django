@@ -15,7 +15,7 @@ interface PaymentStatusItem {
 export function usePaymentStatus() {
   const { data, error, isLoading, mutate } = useSWR<PaymentStatusItem[] | any>(
     "/finances/payment-status/",
-    async (url) => {
+    async (url: string) => {
       const res = await api.get(url)
       return res.data
     }

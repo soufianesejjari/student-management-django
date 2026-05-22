@@ -7,6 +7,7 @@ from .models import Payment, Expense
 from .serializers import PaymentSerializer, ExpenseSerializer
 from datetime import datetime, timedelta, date
 from users.models import StudentProfile
+from academics.models import AcademicYear
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().select_related('student__user', 'subscription__enrollment__course')
@@ -23,6 +24,21 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        academic_year_id = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year_id:
+            academic_year = AcademicYear.objects.filter(pk=academic_year_id).first()
+        elif not all_years:
+            academic_year = AcademicYear.get_active()
+        else:
+            academic_year = None
+
+        if academic_year:
+            queryset = queryset.filter(
+                Q(subscription__enrollment__academic_year=academic_year) |
+                Q(subscription__isnull=True, date__gte=academic_year.start_date, date__lte=academic_year.end_date)
+            )
         
         # Filter by student ID
         student_id = self.request.query_params.get('student_id') or self.request.query_params.get('student')
@@ -43,7 +59,25 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['description', 'category', 'amount']
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        academic_year_id = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year_id:
+            academic_year = AcademicYear.objects.filter(pk=academic_year_id).first()
+        elif not all_years:
+            academic_year = AcademicYear.get_active()
+        else:
+            academic_year = None
+
+        if academic_year:
+            queryset = queryset.filter(date__gte=academic_year.start_date, date__lte=academic_year.end_date)
+
+        return queryset
+
 class FinancialReportView(views.APIView):
+    queryset = Payment.objects.all()
     permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
 
     def get(self, request):
@@ -51,11 +85,21 @@ class FinancialReportView(views.APIView):
         Simple aggregation for monthly/yearly reports
         Params: year (default current), month (optional)
         """
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else None
+
         year = request.query_params.get('year', datetime.now().year)
         month = request.query_params.get('month')
 
-        payments = Payment.objects.filter(date__year=year)
-        expenses = Expense.objects.filter(date__year=year)
+        if academic_year:
+            payments = Payment.objects.filter(
+                Q(subscription__enrollment__academic_year=academic_year) |
+                Q(subscription__isnull=True, date__gte=academic_year.start_date, date__lte=academic_year.end_date)
+            )
+            expenses = Expense.objects.filter(date__gte=academic_year.start_date, date__lte=academic_year.end_date)
+        else:
+            payments = Payment.objects.filter(date__year=year)
+            expenses = Expense.objects.filter(date__year=year)
 
         if month:
             payments = payments.filter(date__month=month)
@@ -67,6 +111,7 @@ class FinancialReportView(views.APIView):
 
         return Response({
             'year': year,
+            'academic_year': academic_year.name if academic_year else None,
             'month': month,
             'total_income': total_income,
             'total_expenses': total_expenses,
@@ -78,10 +123,13 @@ class PaymentStatusView(views.APIView):
     """
     Simple view showing all students with their payment status
     """
+    queryset = Payment.objects.all()
     permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
 
     def get(self, request):
         from academics.models import Enrollment
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         students = StudentProfile.objects.filter(status='ACTIVE').select_related('user')
         today = date.today()
@@ -94,6 +142,7 @@ class PaymentStatusView(views.APIView):
             # Get active enrollments
             enrollments = Enrollment.objects.filter(
                 student=student,
+                academic_year=academic_year,
                 status='ACTIVE'
             ).select_related('course')
             
@@ -105,6 +154,9 @@ class PaymentStatusView(views.APIView):
                 student=student,
                 date__month=current_month,
                 date__year=current_year
+            ).filter(
+                Q(subscription__enrollment__academic_year=academic_year) |
+                Q(subscription__isnull=True)
             )
             
             total_paid = month_payments.aggregate(Sum('amount'))['amount__sum'] or 0

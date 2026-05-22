@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status, views, filters
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
@@ -17,6 +17,7 @@ from .serializers import (
     SessionInstanceSerializer
 )
 from users.models import TeacherProfile, TeacherAvailability, TeacherPreferences
+from academics.models import AcademicYear
 from .pdf_service import PDFReportGenerator
 from .services import get_teacher_monthly_occurrences
 
@@ -36,6 +37,14 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        academic_year = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+        elif not all_years:
+            queryset = queryset.filter(academic_year=AcademicYear.get_active())
+
         course_id = self.request.query_params.get('course')
         if course_id:
             queryset = queryset.filter(course_id=course_id)
@@ -78,7 +87,7 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
                 
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        except ValidationError as e:
+        except DjangoValidationError as e:
             # Catch Django ValidationErrors (Room/Teacher hard conflicts) from model.clean()
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -87,8 +96,39 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post']) 
     def check_conflicts(self, request):
         """Dry-run check for conflicts"""
-        # Logic to simulate creation and return conflicts
-        pass
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = ClassSession(**serializer.validated_data)
+
+        try:
+            instance.clean()
+        except DjangoValidationError as e:
+            return Response({
+                "status": "conflict",
+                "is_available": False,
+                "conflict_type": "hard",
+                "message": "Room or teacher scheduling conflict detected",
+                "detail": e.messages,
+                "can_force": False,
+            }, status=status.HTTP_200_OK)
+
+        student_conflicts = instance.get_student_conflicts()
+        if student_conflicts:
+            return Response({
+                "status": "conflict",
+                "is_available": False,
+                "conflict_type": "student",
+                "message": "Student scheduling conflicts detected",
+                "conflicts": student_conflicts,
+                "can_force": True,
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "status": "ok",
+            "is_available": True,
+            "message": "No scheduling conflicts detected",
+            "conflicts": [],
+        }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def reschedule(self, request, pk=None):
@@ -160,17 +200,22 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         else:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+
         # Filter sessions that are active within this range
         # A session is active if its recurrence period overlaps with the requested range
         sessions = ClassSession.objects.filter(
             Q(start_date__lte=end_date) &
             (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
-        )
+        ).filter(academic_year=academic_year)
         
         # Get all session instances (exceptions) within the date range
         instances = SessionInstance.objects.filter(
             original_date__gte=start_date,
             original_date__lte=end_date
+        ).filter(
+            class_session__academic_year=academic_year
         ).select_related('class_session', 'class_session__course', 'class_session__teacher', 'class_session__room')
         
         # Serialize both
@@ -191,9 +236,12 @@ class AvailabilityCheckView(views.APIView):
         serializer = AvailabilityCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        academic_year_id = request.data.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
 
         # Check Room Availability
         room_conflict = ClassSession.objects.filter(
+            academic_year=academic_year,
             room_id=data['room_id'],
             day_of_week=data['day_of_week'],
             start_time__lt=data['end_time'],
@@ -210,6 +258,7 @@ class AvailabilityCheckView(views.APIView):
 
         # Check Teacher Availability
         teacher_conflict = ClassSession.objects.filter(
+            academic_year=academic_year,
             teacher_id=data['teacher_id'],
             day_of_week=data['day_of_week'],
             start_time__lt=data['end_time'],
@@ -242,11 +291,14 @@ class SmartSchedulingView(views.APIView):
         teacher_id = data['teacher_id']
         duration = data['duration_minutes']
         day = data['day_of_week']
+        academic_year_id = request.data.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         teacher = TeacherProfile.objects.get(pk=teacher_id)
         
         # 1. Get Teacher's Existing Schedule for that Day
         existing_sessions = ClassSession.objects.filter(
+            academic_year=academic_year,
             teacher=teacher,
             day_of_week=day
         ).order_by('start_time')
@@ -352,13 +404,15 @@ class TeacherSessionsView(views.APIView):
         
         year = int(request.query_params.get('year', date.today().year))
         month = int(request.query_params.get('month', date.today().month))
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         try:
             teacher = TeacherProfile.objects.get(pk=teacher_id)
         except TeacherProfile.DoesNotExist:
             return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        occurrences, total_hours, worked_hours, total_expense = get_teacher_monthly_occurrences(teacher, year, month)
+        occurrences, total_hours, worked_hours, total_expense = get_teacher_monthly_occurrences(teacher, year, month, academic_year)
         
         return Response({
             'teacher': {
@@ -415,6 +469,8 @@ class TeacherPaymentReportView(views.APIView):
         
         year = int(request.query_params.get('year', date.today().year))
         month = int(request.query_params.get('month', date.today().month))
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         try:
             teacher = TeacherProfile.objects.get(pk=teacher_id)
@@ -426,6 +482,7 @@ class TeacherPaymentReportView(views.APIView):
         last_day = date(year, month, monthrange(year, month)[1])
         
         sessions = ClassSession.objects.filter(
+            academic_year=academic_year,
             teacher=teacher
         ).filter(
             Q(start_date__lte=last_day) & 
@@ -533,7 +590,10 @@ class TeacherSchedulePDFView(views.APIView):
             end_date = start_date + timedelta(days=6)
         
         # Get all sessions for teacher
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         sessions = ClassSession.objects.filter(
+            academic_year=academic_year,
             teacher=teacher
         ).filter(
             Q(start_date__lte=end_date) & 
@@ -600,14 +660,18 @@ class StudentSchedulePDFView(views.APIView):
         
         # Get all sessions for student's enrolled courses
         from academics.models import Enrollment
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         # First get the courses the student is enrolled in
         enrolled_courses = Enrollment.objects.filter(
             student=student,
+            academic_year=academic_year,
             status='ACTIVE'
         ).values_list('course_id', flat=True)
         
         sessions = ClassSession.objects.filter(
+            academic_year=academic_year,
             course_id__in=enrolled_courses
         ).filter(
             Q(start_date__lte=end_date) & 

@@ -1,7 +1,14 @@
 from rest_framework import serializers
-from .models import Subject, Course, Enrollment, Subscription
+from .models import AcademicYear, Subject, Course, Enrollment, Subscription
 from users.models import StudentProfile
 from django.db.models import Count
+
+class AcademicYearSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcademicYear
+        fields = ['id', 'name', 'start_date', 'end_date', 'is_active', 'created_at']
+        read_only_fields = ['created_at']
+
 
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,10 +31,21 @@ class CourseSerializer(serializers.ModelSerializer):
         return None
 
     def get_enrollment_count(self, obj):
-        return obj.enrollments.filter(status='ACTIVE').count()
+        academic_year_id = self.context.get('academic_year_id')
+        queryset = obj.enrollments.filter(status='ACTIVE')
+        if academic_year_id:
+            queryset = queryset.filter(academic_year_id=academic_year_id)
+        else:
+            queryset = queryset.filter(academic_year=AcademicYear.get_active())
+        return queryset.count()
 
     def get_schedule_summary(self, obj):
+        academic_year_id = self.context.get('academic_year_id')
         sessions = obj.sessions.all()
+        if academic_year_id:
+            sessions = sessions.filter(academic_year_id=academic_year_id)
+        else:
+            sessions = sessions.filter(academic_year=AcademicYear.get_active())
         if not sessions.exists():
             return "Non planifié"
         
@@ -43,13 +61,15 @@ class CourseSerializer(serializers.ModelSerializer):
 class EnrollmentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_phone = serializers.SerializerMethodField()
+    academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
     course_name = serializers.CharField(source='course.name', read_only=True)
     course_subject = serializers.CharField(source='course.subject.name', read_only=True)
 
     class Meta:
         model = Enrollment
         fields = [
-            'id', 'student', 'student_name', 'student_phone', 'course', 'course_name', 'course_subject',
+            'id', 'student', 'student_name', 'student_phone', 'academic_year', 'academic_year_name',
+            'course', 'course_name', 'course_subject',
             'enrolled_at', 'status', 'default_price', 'custom_price',
             'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price',
             'is_active'
@@ -73,28 +93,45 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
     )
     subscription_start_date = serializers.DateField(write_only=True, required=True)
     is_free_offer = serializers.BooleanField(write_only=True, required=False, default=False)
+    academic_year = serializers.PrimaryKeyRelatedField(
+        queryset=AcademicYear.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     
     class Meta:
         model = Enrollment
         fields = [
-            'id', 'student', 'course', 'custom_price', 'notes',
+            'id', 'student', 'course', 'academic_year', 'custom_price', 'notes',
             'subscription_type', 'subscription_start_date', 'is_free_offer'
         ]
+
+    def validate_academic_year(self, value):
+        return value or AcademicYear.get_active()
     
     def validate(self, attrs):
         # Check for duplicate enrollment
         student = attrs['student']
         course = attrs['course']
+        academic_year = attrs.get('academic_year') or AcademicYear.get_active()
+        attrs['academic_year'] = academic_year
 
         existing = Enrollment.objects.filter(
             student=student,
             course=course,
+            academic_year=academic_year,
             status='ACTIVE'
         ).exists()
         
         if existing:
             raise serializers.ValidationError(
-                "Student is already enrolled in this course."
+                "Student is already enrolled in this course for this academic year."
+            )
+
+        subscription_start_date = attrs.get('subscription_start_date')
+        if subscription_start_date and not (academic_year.start_date <= subscription_start_date <= academic_year.end_date):
+            raise serializers.ValidationError(
+                "Subscription start date must be inside the selected academic year."
             )
         
         return attrs
@@ -110,6 +147,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         
         student = validated_data['student']
         course = validated_data['course']
+        academic_year = validated_data['academic_year']
         custom_price = validated_data.get('custom_price')
         
         # Get suggested pricing
@@ -127,6 +165,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         enrollment = Enrollment.objects.create(
             student=student,
             course=course,
+            academic_year=academic_year,
             default_price=pricing['default_price'],
             custom_price=effective_custom_price,
             is_promotional=effective_is_promotional,
@@ -156,11 +195,14 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     enrollment_details = EnrollmentSerializer(source='enrollment', read_only=True)
     student_name = serializers.SerializerMethodField()
     course_name = serializers.SerializerMethodField()
+    academic_year = serializers.IntegerField(source='enrollment.academic_year_id', read_only=True)
+    academic_year_name = serializers.CharField(source='enrollment.academic_year.name', read_only=True)
     
     class Meta:
         model = Subscription
         fields = [
             'id', 'enrollment', 'enrollment_details', 'student_name', 'course_name',
+            'academic_year', 'academic_year_name',
             'subscription_type', 'start_date', 'end_date', 'amount',
             'payment_status', 'created_at'
         ]

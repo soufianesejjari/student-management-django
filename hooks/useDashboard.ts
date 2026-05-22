@@ -22,3 +22,13 @@ export function useUpcomingClasses() {
         isError: error
     };
 }
+
+export function useDashboardReports() {
+    const { data, error, isLoading } = useSWR('/dashboard/reports/', fetcher);
+
+    return {
+        reports: data,
+        isLoading,
+        isError: error
+    };
+}

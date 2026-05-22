@@ -2,8 +2,9 @@ from datetime import date
 
 from rest_framework import serializers
 from django.contrib.auth.models import Permission
+from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils.text import slugify
 from .models import User, StudentProfile, TeacherProfile, TeacherAvailability, TeacherPreferences
 
@@ -43,7 +44,7 @@ class PermissionSerializer(serializers.ModelSerializer):
 class SecretaireSerializer(serializers.ModelSerializer):
     """Full serializer for secretary user management by admin."""
     permissions = serializers.SerializerMethodField()
-    password = serializers.CharField(write_only=True, required=False, default='password123')
+    password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
@@ -57,8 +58,12 @@ class SecretaireSerializer(serializers.ModelSerializer):
         perms = obj.user_permissions.select_related('content_type').all()
         return PermissionSerializer(perms, many=True).data
 
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
     def create(self, validated_data):
-        password = validated_data.pop('password', 'password123')
+        password = validated_data.pop('password')
         user = User(**validated_data)
         user.role = User.Role.SECRETAIRE
         user.is_admin = False
@@ -94,13 +99,24 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_courses(self, obj):
-        return ", ".join([e.course.name for e in obj.enrollments.filter(status='ACTIVE')])
+        from academics.models import AcademicYear
+
+        return ", ".join([
+            e.course.name
+            for e in obj.enrollments.filter(status='ACTIVE', academic_year=AcademicYear.get_active())
+        ])
 
     def _payment_summary(self, obj):
         from academics.models import Enrollment
+        from academics.models import AcademicYear
         from finances.models import Payment
 
-        active_enrollments = Enrollment.objects.filter(student=obj, status='ACTIVE').select_related('course')
+        academic_year = AcademicYear.get_active()
+        active_enrollments = Enrollment.objects.filter(
+            student=obj,
+            status='ACTIVE',
+            academic_year=academic_year,
+        ).select_related('course')
         if not active_enrollments.exists():
             return 'NONE', 0
 
@@ -109,6 +125,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             student=obj,
             date__month=today.month,
             date__year=today.year,
+        ).filter(
+            Q(subscription__enrollment__academic_year=academic_year) |
+            Q(subscription__isnull=True)
         )
 
         total_monthly = sum((enrollment.custom_price or 0) for enrollment in active_enrollments)
@@ -137,8 +156,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'email': email,
             'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
         }
-        # Create user with default password
-        user = User.objects.create_user(**user_data, password='password123')
+        user = User.objects.create_user(**user_data)
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
         validated_data['user'] = user
         return super().create(validated_data)
 
@@ -200,8 +220,9 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             'email': email,
             'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
         }
-        # Create user with default password
-        user = User.objects.create_user(**user_data, password='password123')
+        user = User.objects.create_user(**user_data)
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
         validated_data['user'] = user
         return super().create(validated_data)
 

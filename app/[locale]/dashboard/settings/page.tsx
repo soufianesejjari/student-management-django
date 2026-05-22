@@ -13,7 +13,7 @@ import { useTranslations } from "next-intl"
 import { PageHeader } from "@/components/layout/page-header"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
-import { Loader2, Gift, AlertTriangle, CheckCircle2, XCircle } from "lucide-react"
+import { Loader2, Gift, AlertTriangle, CheckCircle2, XCircle, CalendarDays } from "lucide-react"
 import { AsyncSelect } from "@/components/ui/async-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +27,26 @@ export default function SettingsPage() {
   const [offerMaxTimes, setOfferMaxTimes] = useState(1)
   const [loadingOffer, setLoadingOffer] = useState(true)
   const [savingOffer, setSavingOffer] = useState(false)
+  const [savingSchool, setSavingSchool] = useState(false)
+  const [schoolSettings, setSchoolSettings] = useState<Record<string, string>>({
+    name: "",
+    address: "",
+    city: "",
+    postal_code: "",
+    phone: "",
+    email: "",
+    description: "",
+    country: "",
+    tax_id: "",
+  })
+  const [academicYears, setAcademicYears] = useState<any[]>([])
+  const [loadingYears, setLoadingYears] = useState(true)
+  const [savingYear, setSavingYear] = useState(false)
+  const [yearForm, setYearForm] = useState({
+    name: "",
+    start_date: "",
+    end_date: "",
+  })
 
   useEffect(() => {
     api.enrollments.offerSettings()
@@ -34,10 +54,62 @@ export default function SettingsPage() {
         setOfferEnabled(Boolean(data.enabled))
         setFreeCourseId(data.free_course_id ?? null)
         setOfferMaxTimes(data.max_times ?? 1)
+        if (data.school) {
+          setSchoolSettings((current) => ({ ...current, ...data.school }))
+        }
       })
       .catch(() => { toast.error(t('settings.loadError') || 'Erreur lors du chargement des paramètres') })
       .finally(() => setLoadingOffer(false))
   }, [])
+
+  const loadAcademicYears = async () => {
+    setLoadingYears(true)
+    try {
+      const data = await api.academicYears.list()
+      const years = Array.isArray(data) ? data : data.results || []
+      setAcademicYears(years)
+    } catch {
+      toast.error(t('settings.academicYearLoadError'))
+    } finally {
+      setLoadingYears(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAcademicYears()
+  }, [])
+
+  const handleCreateAcademicYear = async () => {
+    if (!yearForm.name || !yearForm.start_date || !yearForm.end_date) {
+      toast.error(t('settings.academicYearRequired'))
+      return
+    }
+
+    setSavingYear(true)
+    try {
+      await api.academicYears.create(yearForm)
+      toast.success(t('settings.academicYearSaved'))
+      setYearForm({ name: "", start_date: "", end_date: "" })
+      loadAcademicYears()
+    } catch {
+      toast.error(t('settings.academicYearSaveError'))
+    } finally {
+      setSavingYear(false)
+    }
+  }
+
+  const handleActivateAcademicYear = async (id: number) => {
+    setSavingYear(true)
+    try {
+      await api.academicYears.activate(id)
+      toast.success(t('settings.academicYearActivated'))
+      loadAcademicYears()
+    } catch {
+      toast.error(t('settings.academicYearActivateError'))
+    } finally {
+      setSavingYear(false)
+    }
+  }
 
   const handleSaveOffer = async () => {
     setSavingOffer(true)
@@ -54,12 +126,33 @@ export default function SettingsPage() {
       setSavingOffer(false)
     }
   }
+
+  const handleSaveSchool = async () => {
+    setSavingSchool(true)
+    try {
+      const data = await api.enrollments.updateOfferSettings({ school: schoolSettings })
+      if (data.school) {
+        setSchoolSettings((current) => ({ ...current, ...data.school }))
+      }
+      toast.success(t('settings.schoolSavedSuccess'))
+    } catch {
+      toast.error(t('settings.schoolSavedError'))
+    } finally {
+      setSavingSchool(false)
+    }
+  }
+
+  const updateSchoolField = (field: string, value: string) => {
+    setSchoolSettings((current) => ({ ...current, [field]: value }))
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('settings.title')} />
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
           <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
+          <TabsTrigger value="academic-year">{t('settings.academicYear')}</TabsTrigger>
           <TabsTrigger value="subjects">{t('settings.subjects')}</TabsTrigger>
           <TabsTrigger value="offer">{t('settings.offer')}</TabsTrigger>
           <TabsTrigger value="notifications">{t('settings.notifications')}</TabsTrigger>
@@ -70,45 +163,58 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.schoolInfo')}</CardTitle>
-              <CardDescription>Les informations de l'école sont gérées centralement. Contactez l'administrateur pour les modifier.</CardDescription>
+              <CardDescription>{t('settings.schoolInfoDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="school-name">{t('settings.schoolName')}</Label>
-                <Input id="school-name" defaultValue="The Musical Academy" readOnly />
+                <Input id="school-name" value={schoolSettings.name} disabled={loadingOffer} onChange={(event) => updateSchoolField('name', event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-address">{t('settings.address')}</Label>
-                <Input id="school-address" defaultValue="à coté du café LE CAVALLI, Av. Taha Houcine, Fès 30050" readOnly />
+                <Input id="school-address" value={schoolSettings.address} disabled={loadingOffer} onChange={(event) => updateSchoolField('address', event.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="school-city">{t('settings.city')}</Label>
-                  <Input id="school-city" defaultValue="Fès" readOnly />
+                  <Input id="school-city" value={schoolSettings.city} disabled={loadingOffer} onChange={(event) => updateSchoolField('city', event.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="school-postal">{t('settings.postalCode')}</Label>
-                  <Input id="school-postal" defaultValue="30050" readOnly />
+                  <Input id="school-postal" value={schoolSettings.postal_code} disabled={loadingOffer} onChange={(event) => updateSchoolField('postal_code', event.target.value)} />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-phone">{t('settings.phone')}</Label>
-                <Input id="school-phone" defaultValue="+212 695-969711" readOnly />
+                <Input id="school-phone" value={schoolSettings.phone} disabled={loadingOffer} onChange={(event) => updateSchoolField('phone', event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-email">{t('settings.email')}</Label>
-                <Input id="school-email" defaultValue="contact@themusicalacademy.net" readOnly />
+                <Input id="school-email" type="email" value={schoolSettings.email} disabled={loadingOffer} onChange={(event) => updateSchoolField('email', event.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="school-country">{t('settings.country')}</Label>
+                  <Input id="school-country" value={schoolSettings.country} disabled={loadingOffer} onChange={(event) => updateSchoolField('country', event.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="school-tax-id">{t('settings.taxId')}</Label>
+                  <Input id="school-tax-id" value={schoolSettings.tax_id} disabled={loadingOffer} onChange={(event) => updateSchoolField('tax_id', event.target.value)} />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="school-description">{t('settings.description')}</Label>
                 <Textarea
                   id="school-description"
-                  defaultValue="The Musical Academy est une école de musique proposant des cours pour tous les niveaux et tous les âges."
+                  value={schoolSettings.description}
+                  disabled={loadingOffer}
+                  onChange={(event) => updateSchoolField('description', event.target.value)}
                 />
               </div>
             </CardContent>
             <CardFooter>
-              <Button disabled title="Contactez l'administrateur pour modifier">
+              <Button onClick={handleSaveSchool} disabled={savingSchool || loadingOffer}>
+                {savingSchool && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('settings.saveChanges')}
               </Button>
             </CardFooter>
@@ -135,6 +241,86 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="subjects" className="space-y-4">
           <SubjectsManagement />
+        </TabsContent>
+
+        <TabsContent value="academic-year" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-primary" />
+                <CardTitle>{t('settings.academicYear')}</CardTitle>
+              </div>
+              <CardDescription>{t('settings.academicYearDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="academic-year-name">{t('settings.academicYearName')}</Label>
+                  <Input
+                    id="academic-year-name"
+                    placeholder="2026-2027"
+                    value={yearForm.name}
+                    onChange={(event) => setYearForm({ ...yearForm, name: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="academic-year-start">{t('settings.academicYearStart')}</Label>
+                  <Input
+                    id="academic-year-start"
+                    type="date"
+                    value={yearForm.start_date}
+                    onChange={(event) => setYearForm({ ...yearForm, start_date: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="academic-year-end">{t('settings.academicYearEnd')}</Label>
+                  <Input
+                    id="academic-year-end"
+                    type="date"
+                    value={yearForm.end_date}
+                    onChange={(event) => setYearForm({ ...yearForm, end_date: event.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button onClick={handleCreateAcademicYear} disabled={savingYear}>
+                {savingYear && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('settings.academicYearCreate')}
+              </Button>
+
+              <div className="space-y-3">
+                {loadingYears ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{t('common.loading')}</span>
+                  </div>
+                ) : academicYears.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('settings.academicYearEmpty')}</p>
+                ) : (
+                  academicYears.map((year) => (
+                    <div key={year.id} className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{year.name}</p>
+                          {year.is_active && <Badge className="bg-green-100 text-green-700 border-0">{t('settings.active')}</Badge>}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {year.start_date} - {year.end_date}
+                        </p>
+                      </div>
+                      <Button
+                        variant={year.is_active ? "outline" : "default"}
+                        disabled={year.is_active || savingYear}
+                        onClick={() => handleActivateAcademicYear(year.id)}
+                      >
+                        {year.is_active ? t('settings.academicYearCurrent') : t('settings.academicYearActivate')}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ── Enrollment Offer ─────────────────────────────────────────── */}
@@ -373,33 +559,33 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="billing-name">{t('settings.billingName')}</Label>
-                <Input id="billing-name" defaultValue="The Musical Academy" readOnly />
+                <Input id="billing-name" value={schoolSettings.name} readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-email">{t('settings.billingEmail')}</Label>
-                <Input id="billing-email" defaultValue="contact@themusicalacademy.net" readOnly />
+                <Input id="billing-email" value={schoolSettings.email} readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-address">{t('settings.billingAddress')}</Label>
-                <Input id="billing-address" defaultValue="à coté du café LE CAVALLI, Av. Taha Houcine, Fès 30050" readOnly />
+                <Input id="billing-address" value={schoolSettings.address} readOnly />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="billing-city">{t('settings.city')}</Label>
-                  <Input id="billing-city" defaultValue="Fès" readOnly />
+                  <Input id="billing-city" value={schoolSettings.city} readOnly />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="billing-postal">{t('settings.postalCode')}</Label>
-                  <Input id="billing-postal" defaultValue="30050" readOnly />
+                  <Input id="billing-postal" value={schoolSettings.postal_code} readOnly />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="billing-country">{t('settings.country')}</Label>
-                <Input id="billing-country" defaultValue="Maroc" readOnly />
+                <Input id="billing-country" value={schoolSettings.country} readOnly />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tax-id">{t('settings.taxId')}</Label>
-                <Input id="tax-id" defaultValue="" placeholder="À venir" readOnly />
+                <Input id="tax-id" value={schoolSettings.tax_id} placeholder="À venir" readOnly />
               </div>
             </CardContent>
             <CardFooter>

@@ -45,6 +45,7 @@ class SessionInstance(models.Model):
 class ClassSession(models.Model):
     """The core scheduling unit - represents a recurring class session"""
     course = models.ForeignKey('academics.Course', on_delete=models.CASCADE, related_name='sessions')
+    academic_year = models.ForeignKey('academics.AcademicYear', on_delete=models.PROTECT, related_name='sessions')
     teacher = models.ForeignKey('users.TeacherProfile', on_delete=models.CASCADE, related_name='sessions')
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='sessions')
     day_of_week = models.IntegerField(help_text="0=Monday, 6=Sunday")
@@ -70,7 +71,10 @@ class ClassSession(models.Model):
         # Get active enrollments for this course
         # Note: We need to import Enrollment dynamically or rely on related_name if defined
         # Assuming course.enrollments is available
-        enrolled_students = self.course.enrollments.filter(status='ACTIVE')
+        enrolled_students = self.course.enrollments.filter(
+            status='ACTIVE',
+            academic_year=self.academic_year,
+        )
         
         for enrollment in enrolled_students:
             student = enrollment.student
@@ -78,8 +82,10 @@ class ClassSession(models.Model):
             # Find overlapping sessions for this student
             # Conflict condition: Same day AND Overlapping Time
             student_sessions = ClassSession.objects.filter(
+                academic_year=self.academic_year,
                 course__enrollments__student=student,
                 course__enrollments__status='ACTIVE',
+                course__enrollments__academic_year=self.academic_year,
                 day_of_week=self.day_of_week
             ).filter(
                 # (StartA < EndB) and (EndA > StartB)
@@ -99,14 +105,30 @@ class ClassSession(models.Model):
 
     def clean(self):
         """Validate no conflicts for room and teacher"""
+        from academics.models import AcademicYear
+
+        if not self.academic_year_id:
+            self.academic_year = AcademicYear.get_active()
+
         if self.start_time >= self.end_time:
             raise ValidationError("End time must be after start time")
 
+        if not (self.academic_year.start_date <= self.start_date <= self.academic_year.end_date):
+            raise ValidationError("Session start date must be inside the academic year")
+
+        if self.end_date and not (self.academic_year.start_date <= self.end_date <= self.academic_year.end_date):
+            raise ValidationError("Session end date must be inside the academic year")
+
+        effective_end_date = self.end_date or self.academic_year.end_date
+
         # Check room conflicts
         room_conflicts = ClassSession.objects.filter(
+            academic_year=self.academic_year,
             room=self.room,
             day_of_week=self.day_of_week
         ).filter(
+            Q(start_date__lte=effective_end_date) &
+            (Q(end_date__gte=self.start_date) | Q(end_date__isnull=True)) &
             Q(start_time__lt=self.end_time, end_time__gt=self.start_time)
         ).exclude(pk=self.pk)
 
@@ -115,9 +137,12 @@ class ClassSession(models.Model):
 
         # Check teacher conflicts
         teacher_conflicts = ClassSession.objects.filter(
+            academic_year=self.academic_year,
             teacher=self.teacher,
             day_of_week=self.day_of_week
         ).filter(
+            Q(start_date__lte=effective_end_date) &
+            (Q(end_date__gte=self.start_date) | Q(end_date__isnull=True)) &
             Q(start_time__lt=self.end_time, end_time__gt=self.start_time)
         ).exclude(pk=self.pk)
 

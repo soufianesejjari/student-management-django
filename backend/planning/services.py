@@ -3,7 +3,7 @@ from calendar import monthrange
 from django.db.models import Q
 from .models import ClassSession, SessionInstance
 
-def get_teacher_monthly_occurrences(teacher, year, month):
+def get_teacher_monthly_occurrences(teacher, year, month, academic_year=None):
     first_day = date(year, month, 1)
     last_day = date(year, month, monthrange(year, month)[1])
     
@@ -17,6 +17,9 @@ def get_teacher_monthly_occurrences(teacher, year, month):
         Q(start_date__lte=search_end) & 
         (Q(end_date__gte=search_start) | Q(end_date__isnull=True))
     ).select_related('course', 'room')
+
+    if academic_year:
+        sessions = sessions.filter(academic_year=academic_year)
     
     instances = SessionInstance.objects.filter(
         class_session__in=sessions,

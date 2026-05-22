@@ -1,5 +1,70 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
+
+
+class AcademicYear(models.Model):
+    """School year boundary used to isolate enrollments, schedules and billing."""
+
+    name = models.CharField(max_length=20, unique=True, help_text="Example: 2025-2026")
+    start_date = models.DateField()
+    end_date = models.DateField()
+    is_active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-start_date']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['is_active'],
+                condition=Q(is_active=True),
+                name='only_one_active_academic_year',
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        if self.start_date >= self.end_date:
+            raise ValidationError("Academic year end date must be after start date")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        if self.is_active:
+            AcademicYear.objects.exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def default_dates_for(cls, today=None):
+        today = today or timezone.now().date()
+        start_year = today.year if today.month >= 9 else today.year - 1
+        return (
+            timezone.datetime(start_year, 9, 1).date(),
+            timezone.datetime(start_year + 1, 8, 31).date(),
+        )
+
+    @classmethod
+    def get_active(cls):
+        today = timezone.now().date()
+        active = cls.objects.filter(is_active=True).first()
+        if active:
+            return active
+
+        current = cls.objects.filter(start_date__lte=today, end_date__gte=today).first()
+        if current:
+            current.is_active = True
+            current.save(update_fields=['is_active'])
+            return current
+
+        start_date, end_date = cls.default_dates_for(today)
+        return cls.objects.create(
+            name=f"{start_date.year}-{end_date.year}",
+            start_date=start_date,
+            end_date=end_date,
+            is_active=True,
+        )
 
 class Subject(models.Model):
     """Musical instruments or subject areas (Piano, Guitar, Solfège, etc.)"""
@@ -77,6 +142,11 @@ class Enrollment(models.Model):
     
     student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='enrollments')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.PROTECT,
+        related_name='enrollments'
+    )
     enrolled_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
     
@@ -112,7 +182,7 @@ class Enrollment(models.Model):
         return self.status == 'ACTIVE'
 
     class Meta:
-        unique_together = ('student', 'course')
+        unique_together = ('student', 'course', 'academic_year')
         ordering = ['-enrolled_at']
 
     def __str__(self):
@@ -177,6 +247,16 @@ class AcademySettings(models.Model):
     """
 
     # ── Course Offer ──────────────────────────────────────────────────────────
+    school_name = models.CharField(max_length=255, default="The Musical Academy")
+    school_address = models.CharField(max_length=255, blank=True, default="à coté du café LE CAVALLI, Av. Taha Houcine, Fès 30050")
+    school_city = models.CharField(max_length=100, blank=True, default="Fès")
+    school_postal_code = models.CharField(max_length=20, blank=True, default="30050")
+    school_phone = models.CharField(max_length=50, blank=True, default="+212 695-969711")
+    school_email = models.EmailField(blank=True, default="contact@themusicalacademy.net")
+    school_description = models.TextField(blank=True, default="The Musical Academy est une école de musique proposant des cours pour tous les niveaux et tous les âges.")
+    school_country = models.CharField(max_length=100, blank=True, default="Maroc")
+    school_tax_id = models.CharField(max_length=100, blank=True, default="")
+
     offer_enabled = models.BooleanField(
         default=False,
         help_text="When enabled, students automatically receive the free course on their first enrollment.",

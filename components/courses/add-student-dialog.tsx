@@ -432,7 +432,7 @@ export function AddStudentToCourseDialog({
                                 <FormItem>
                                     <FormLabel>Notes (Optional)</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Any special notes..." className="resize-none" {...field} />
+                                        <Textarea placeholder={t('dialogs.enrollStudent.notesPlaceholder')} className="resize-none" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

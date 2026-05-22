@@ -450,7 +450,7 @@ export default function UsersManagementPage() {
             <Button variant="outline" onClick={() => setCreating(false)}>{t("cancel")}</Button>
             <Button
               onClick={handleCreate}
-              disabled={saving || !form.username || !form.email}
+              disabled={saving || !form.username || !form.email || !form.password}
             >
               {saving ? t("creating") : t("create")}
             </Button>

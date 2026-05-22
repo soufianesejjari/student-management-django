@@ -2,7 +2,7 @@
 Business logic service for enrollment pricing calculations.
 """
 from django.conf import settings as django_settings
-from academics.models import Course, Enrollment, AcademySettings
+from academics.models import AcademicYear, Course, Enrollment, AcademySettings
 from users.models import StudentProfile
 
 
@@ -58,9 +58,11 @@ class EnrollmentService:
             }
 
         # Get all active enrollments for this student
+        academic_year = AcademicYear.get_active()
         active_enrollments = Enrollment.objects.filter(
             student=student,
-            status='ACTIVE'
+            status='ACTIVE',
+            academic_year=academic_year,
         ).select_related('course__subject')
 
         # Group enrollments by subject

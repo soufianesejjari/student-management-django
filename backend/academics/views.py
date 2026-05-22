@@ -2,8 +2,9 @@ from rest_framework import viewsets, permissions, filters, status
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Subject, Course, Enrollment, Subscription, AcademySettings
+from .models import AcademicYear, Subject, Course, Enrollment, Subscription, AcademySettings
 from .serializers import (
+    AcademicYearSerializer,
     SubjectSerializer,
     CourseSerializer,
     EnrollmentSerializer,
@@ -11,6 +12,25 @@ from .serializers import (
     SubscriptionSerializer
 )
 from .services import EnrollmentService
+
+
+class AcademicYearViewSet(viewsets.ModelViewSet):
+    queryset = AcademicYear.objects.all()
+    serializer_class = AcademicYearSerializer
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
+
+    @action(detail=False, methods=['get'])
+    def current(self, request):
+        return Response(self.get_serializer(AcademicYear.get_active()).data)
+
+    @action(detail=True, methods=['post'], url_path='activate')
+    def activate(self, request, pk=None):
+        academic_year = self.get_object()
+        academic_year.is_active = True
+        academic_year.save()
+        return Response(self.get_serializer(academic_year).data)
 
 class SubjectViewSet(viewsets.ModelViewSet):
     """
@@ -32,11 +52,18 @@ class CourseViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'subject__name']
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        academic_year_id = self.request.query_params.get('academic_year')
+        if academic_year_id:
+            context['academic_year_id'] = academic_year_id
+        return context
+
 class EnrollmentViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Enrollments
     """
-    queryset = Enrollment.objects.all().select_related('student__user', 'course__subject')
+    queryset = Enrollment.objects.all().select_related('student__user', 'course__subject', 'academic_year')
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['student__user__first_name', 'student__user__last_name', 'course__name']
@@ -51,6 +78,13 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         Optionally restrict to a specific course via query param ?course_id=
         """
         queryset = super().get_queryset()
+        academic_year = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+        elif not all_years:
+            queryset = queryset.filter(academic_year=AcademicYear.get_active())
         
         # Filter by course ID (supporting both 'course_id' and 'course')
         course_id = self.request.query_params.get('course_id') or self.request.query_params.get('course')
@@ -87,12 +121,19 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Subscriptions
     """
-    queryset = Subscription.objects.all().select_related('enrollment__student__user', 'enrollment__course')
+    queryset = Subscription.objects.all().select_related('enrollment__student__user', 'enrollment__course', 'enrollment__academic_year')
     serializer_class = SubscriptionSerializer
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     
     def get_queryset(self):
         queryset = super().get_queryset()
+        academic_year = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year:
+            queryset = queryset.filter(enrollment__academic_year_id=academic_year)
+        elif not all_years:
+            queryset = queryset.filter(enrollment__academic_year=AcademicYear.get_active())
         
         # Filter by student
         student_id = self.request.query_params.get('student')
@@ -117,6 +158,7 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
     GET  /api/academics/offer-settings/          – full settings + optional student eligibility
     PATCH /api/academics/offer-settings/update/  – save settings to DB
     """
+    queryset = AcademySettings.objects.all()
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
 
     # ── helpers ──────────────────────────────────────────────────────────────
@@ -135,6 +177,17 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
                     'subject_type': fc.subject.subject_type if fc.subject else None,
                 }
         return {
+            'school': {
+                'name': s.school_name,
+                'address': s.school_address,
+                'city': s.school_city,
+                'postal_code': s.school_postal_code,
+                'phone': s.school_phone,
+                'email': s.school_email,
+                'description': s.school_description,
+                'country': s.school_country,
+                'tax_id': s.school_tax_id,
+            },
             'enabled': s.offer_enabled,
             'free_course_id': s.free_course_id,
             'max_times': s.offer_max_times,
@@ -162,8 +215,13 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
 
         free_course_id = s.free_course_id
         max_times = s.offer_max_times
+        academic_year = AcademicYear.get_active()
 
-        active_qs = Enrollment.objects.filter(student_id=student_id_int, status='ACTIVE')
+        active_qs = Enrollment.objects.filter(
+            student_id=student_id_int,
+            academic_year=academic_year,
+            status='ACTIVE',
+        )
         active_count = active_qs.count()
 
         # How many times has the student already received the free offer (ever)
@@ -205,6 +263,23 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
         """
         s = AcademySettings.get()
         data = request.data
+
+        if 'school' in data and isinstance(data['school'], dict):
+            school = data['school']
+            mapping = {
+                'name': 'school_name',
+                'address': 'school_address',
+                'city': 'school_city',
+                'postal_code': 'school_postal_code',
+                'phone': 'school_phone',
+                'email': 'school_email',
+                'description': 'school_description',
+                'country': 'school_country',
+                'tax_id': 'school_tax_id',
+            }
+            for payload_key, model_field in mapping.items():
+                if payload_key in school:
+                    setattr(s, model_field, school[payload_key] or '')
 
         if 'enabled' in data:
             s.offer_enabled = bool(data['enabled'])

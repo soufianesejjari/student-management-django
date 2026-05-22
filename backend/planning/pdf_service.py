@@ -46,6 +46,25 @@ class PDFReportGenerator:
             alignment=TA_CENTER
         )
         self.logo_path = self._find_logo_path()
+        self.academy = self._load_academy_identity()
+
+    def _load_academy_identity(self):
+        try:
+            from academics.models import AcademySettings
+            settings = AcademySettings.get()
+            return {
+                'name': settings.school_name or ACADEMY_NAME,
+                'phone': settings.school_phone or ACADEMY_PHONE,
+                'email': settings.school_email or ACADEMY_EMAIL,
+                'address': settings.school_address or ACADEMY_ADDRESS,
+            }
+        except Exception:
+            return {
+                'name': ACADEMY_NAME,
+                'phone': ACADEMY_PHONE,
+                'email': ACADEMY_EMAIL,
+                'address': ACADEMY_ADDRESS,
+            }
     
     def _find_logo_path(self):
         possible_paths = [
@@ -69,12 +88,12 @@ class PDFReportGenerator:
             except:
                 pass
         academy_header = Paragraph(
-            f"<b>{ACADEMY_NAME}</b>", 
+            f"<b>{self.academy['name']}</b>", 
             ParagraphStyle('AcademyHeader', parent=self.styles['Normal'], fontSize=10, alignment=TA_CENTER, textColor=ACADEMY_PRIMARY_COLOR)
         )
         story.append(academy_header)
         contact_line = Paragraph(
-            f"{ACADEMY_PHONE} | {ACADEMY_EMAIL}<br/>{ACADEMY_ADDRESS}",
+            f"{self.academy['phone']} | {self.academy['email']}<br/>{self.academy['address']}",
             ParagraphStyle('AcademyContact', parent=self.styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor('#666666'))
         )
         story.append(contact_line)
