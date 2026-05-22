@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import Link from "next/link"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
@@ -76,12 +75,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">{t('login.password')}</Label>
-                <Link href="#" className="text-sm text-primary hover:underline">
-                  {t('login.forgotPassword')}
-                </Link>
-              </div>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -121,4 +115,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
