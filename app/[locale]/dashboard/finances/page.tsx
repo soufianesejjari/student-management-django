@@ -7,18 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   ArrowDownUp,
-  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
-  Download,
   DollarSign,
-  Filter,
   PieChart,
   Pencil,
   Trash2,
   TrendingUp,
 } from "lucide-react"
-import { usePayments, useExpenses } from "@/hooks/useFinances"
+import { usePayments, useExpenses, useFinancialReports } from "@/hooks/useFinances"
 import { usePaymentStatus } from "@/hooks/usePaymentStatus"
 import { usePageSearch } from "@/hooks/usePageSearch"
 import { PageHeader } from "@/components/layout/page-header"
@@ -57,6 +54,8 @@ function FinancesContent() {
   const { payments, isLoading: paymentsLoading, next: paymentsNext, previous: paymentsPrevious, totalCount: paymentsTotal, mutate: mutatePayments } = usePayments(paymentsPage, paymentsSearch)
   const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal, mutate: mutateExpenses } = useExpenses(expensesPage, expensesSearch)
   const { paymentStatus, isLoading: statusLoading, mutate: mutateStatus } = usePaymentStatus()
+  const currentMonthDate = new Date()
+  const { reports: financialReports } = useFinancialReports(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1)
   const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
 
   const mutate = () => {
@@ -79,31 +78,12 @@ function FinancesContent() {
     }
   }
 
-  // Simple client-side calculation for KPIs (assuming all data returned)
-  const currentMonth = new Date().getMonth()
-  const currentYear = new Date().getFullYear()
-
-  // Note: KPI calculations might be inaccurate if data is paginated. 
-  // Ideally, backend providing stats via a separate endpoint (DashboardStatsView/FinancialReportView) is cleaner.
-  // For now, we accept that these KPIs essentially reflect the *current page* or standard fetched data.
-  // To fix this properly, we should use useFinancialReports or Dashboard stats.
-
-  const monthlyPayments = payments?.filter((p: any) => {
-    const d = new Date(p.date)
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear && p.status === 'PAID'
-  }) || []
-
-  const monthlyExpensesList = expenses?.filter((e: any) => {
-    const d = new Date(e.date)
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear && e.status === 'PAID'
-  }) || []
-
-  const totalIncome = monthlyPayments.reduce((acc: number, curr: any) => acc + Number(curr.amount), 0)
-  const totalExpenses = monthlyExpensesList.reduce((acc: number, curr: any) => acc + Number(curr.amount), 0)
+  const totalIncome = Number(financialReports?.total_income || 0)
+  const totalExpenses = Number(financialReports?.total_expenses || 0)
   const netProfit = totalIncome - totalExpenses
 
-  const pendingPaymentsCount = payments?.filter((p: any) => p.status === 'PENDING').length || 0
-  const pendingAmount = payments?.filter((p: any) => p.status === 'PENDING').reduce((acc: number, curr: any) => acc + Number(curr.amount), 0) || 0
+  const pendingPaymentsCount = Number(financialReports?.pending_payments_count || 0)
+  const pendingAmount = Number(financialReports?.pending_payments_amount || 0)
 
   return (
     <div className="flex flex-col gap-4">
@@ -171,7 +151,6 @@ function FinancesContent() {
           <TabsTrigger value="payments">{t('finances.paymentsReceived')}</TabsTrigger>
           <TabsTrigger value="status">{t('finances.paymentStatus')}</TabsTrigger>
           <TabsTrigger value="expenses">{t('finances.expenses')}</TabsTrigger>
-          <TabsTrigger value="reports">{t('navigation.reports')}</TabsTrigger>
         </TabsList>
         <TabsContent value="payments" className="space-y-4">
           <Card>
@@ -188,16 +167,6 @@ function FinancesContent() {
                     defaultValue={paymentsSearch}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentsSearch(e.target.value)}
                   />
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {t('common.filter')}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    {t('common.export')}
-                  </Button>
                 </div>
               </div>
               <div className="rounded-md border">
@@ -376,16 +345,6 @@ function FinancesContent() {
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpensesSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {t('common.filter')}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    {t('common.export')}
-                  </Button>
-                </div>
               </div>
               <div className="rounded-md border">
                 <Table>
@@ -489,33 +448,6 @@ function FinancesContent() {
                 >
                   {t('common.next')}
                   <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('finances.financialReports')}</CardTitle>
-              <CardDescription>{t('finances.financialReportsDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full bg-muted/20 rounded-md flex items-center justify-center text-muted-foreground">
-                {t('finances.revenueExpensesChart')}
-              </div>
-              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
-                  <Download className="h-6 w-6 mb-2" />
-                  <span>{t('finances.monthlyReport')}</span>
-                </Button>
-                <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
-                  <Download className="h-6 w-6 mb-2" />
-                  <span>{t('finances.quarterlyReport')}</span>
-                </Button>
-                <Button variant="outline" className="h-auto flex flex-col items-center justify-center p-4">
-                  <Download className="h-6 w-6 mb-2" />
-                  <span>{t('finances.annualReport')}</span>
                 </Button>
               </div>
             </CardContent>

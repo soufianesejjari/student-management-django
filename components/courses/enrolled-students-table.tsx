@@ -64,6 +64,18 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
         }
     }
 
+    const updateEnrollmentStatus = async (enrollmentId: number, status: "SUSPENDED" | "CANCELLED") => {
+        try {
+            await api.patch(`/academics/enrollments/${enrollmentId}/`, { status })
+            toast.success(t('common.success'))
+            fetchEnrollments()
+            window.dispatchEvent(new Event('enrollment-updated'))
+        } catch (error) {
+            console.error("Failed to update enrollment status:", error)
+            toast.error(t('common.error'))
+        }
+    }
+
     useEffect(() => {
         fetchEnrollments()
 
@@ -144,8 +156,19 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                             <DropdownMenuItem onClick={() => router.push(`/dashboard/students/${enrollment.student}`)}>
                                                 {t('enrolledCourses.viewStudent')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem>{t('enrolledCourses.suspend')}</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600">{t('enrolledCourses.cancel')}</DropdownMenuItem>
+                                            {enrollment.status === 'ACTIVE' && (
+                                                <DropdownMenuItem onClick={() => updateEnrollmentStatus(enrollment.id, "SUSPENDED")}>
+                                                    {t('enrolledCourses.suspend')}
+                                                </DropdownMenuItem>
+                                            )}
+                                            {enrollment.status !== 'CANCELLED' && (
+                                                <DropdownMenuItem
+                                                    className="text-red-600"
+                                                    onClick={() => updateEnrollmentStatus(enrollment.id, "CANCELLED")}
+                                                >
+                                                    {t('enrolledCourses.cancel')}
+                                                </DropdownMenuItem>
+                                            )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>

@@ -73,6 +73,17 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             return EnrollmentCreateSerializer
         return EnrollmentSerializer
 
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        if not data.get('academic_year'):
+            data['academic_year'] = AcademicYear.get_active().pk
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def get_queryset(self):
         """
         Optionally restrict to a specific course via query param ?course_id=

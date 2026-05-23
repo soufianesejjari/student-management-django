@@ -108,6 +108,8 @@ class FinancialReportView(views.APIView):
         total_income = payments.aggregate(Sum('amount'))['amount__sum'] or 0
         total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
         net_profit = total_income - total_expenses
+        pending_payments = payments.filter(status='PENDING')
+        pending_amount = pending_payments.aggregate(Sum('amount'))['amount__sum'] or 0
 
         return Response({
             'year': year,
@@ -115,7 +117,9 @@ class FinancialReportView(views.APIView):
             'month': month,
             'total_income': total_income,
             'total_expenses': total_expenses,
-            'net_profit': net_profit
+            'net_profit': net_profit,
+            'pending_payments_count': pending_payments.count(),
+            'pending_payments_amount': pending_amount,
         })
 
 

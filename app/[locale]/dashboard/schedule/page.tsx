@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl"
 export default function SchedulePage() {
   const t = useTranslations()
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [calendarVersion, setCalendarVersion] = useState(0)
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-100px)]">
@@ -25,14 +26,11 @@ export default function SchedulePage() {
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
         onSuccess={() => {
-          // We might need to trigger a refresh in WeeklyCalendar. 
-          // For now, page reload or internal SWR revalidation will handle it eventually.
-          // Ideally WeeklyCalendar should expose a refresh method or share context.
-          window.location.reload()
+          setCalendarVersion((version) => version + 1)
         }}
       />
 
-      <WeeklyCalendar />
+      <WeeklyCalendar key={calendarVersion} />
     </div>
   )
 }

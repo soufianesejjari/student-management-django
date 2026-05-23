@@ -12,20 +12,20 @@ export default function Home() {
     {
       title: "MUSIQUE & THÉRAPIE",
       description: "La musicothérapie offre un espace doux, sûr et bienveillant où chaque enfant peut s'exprimer, respirer, progresser et être pleinement accepté.",
-      image: "/placeholder.jpg",
-      link: "/programmes"
+      image: "/logo.png",
+      link: "#contact"
     },
     {
       title: "Chant et Chorale",
       description: "Découvrez l'univers riche et diversifié du chant oriental et andalou à travers nos programmes de chant et chorale.",
-      image: "/placeholder.jpg",
-      link: "/programmes"
+      image: "/logo.png",
+      link: "#contact"
     },
     {
       title: "Cours de Vocalise",
       description: "Une méthode claire et progressive pour développer une voix plus juste, plus forte et plus confiante.",
-      image: "/placeholder.jpg",
-      link: "/programmes"
+      image: "/logo.png",
+      link: "#contact"
     }
   ]
 
@@ -61,9 +61,6 @@ export default function Home() {
             </Link>
             <Link href="#boutique" className="text-sm font-medium hover:text-primary transition-colors">
               Boutique
-            </Link>
-            <Link href="#blog" className="text-sm font-medium hover:text-primary transition-colors">
-              Blog
             </Link>
             <Link href="#contact" className="text-sm font-medium hover:text-primary transition-colors">
               Contact
@@ -120,7 +117,7 @@ export default function Home() {
               <div className="flex items-center justify-center">
                 <div className="relative w-full max-w-lg aspect-video overflow-hidden rounded-xl bg-muted">
                   <Image
-                    src="/placeholder.jpg"
+                    src="/logo.png"
                     alt="About The Musical Academy"
                     fill
                     className="object-cover"
@@ -187,7 +184,7 @@ export default function Home() {
             <div className="flex flex-col items-center gap-8">
               <div className="relative w-full max-w-md aspect-square overflow-hidden rounded-xl bg-muted">
                 <Image
-                  src="/placeholder.jpg"
+                  src="/logo.png"
                   alt="The Musical Bag"
                   fill
                   className="object-contain"
@@ -301,33 +298,19 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              <div className="w-full space-y-4">
-                <div className="grid gap-2">
-                  <label htmlFor="name" className="text-sm font-medium">Nom</label>
-                  <input
-                    id="name"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    placeholder="Votre nom"
-                  />
+              <div className="w-full rounded-xl border bg-background p-6 space-y-4">
+                <h3 className="text-xl font-semibold">Contact direct</h3>
+                <p className="text-sm text-muted-foreground">
+                  Les demandes d'information se font directement par téléphone ou email.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <a href="tel:+212695969711">
+                    <Button className="w-full">Appeler maintenant</Button>
+                  </a>
+                  <a href="mailto:contact@themusicalacademy.net">
+                    <Button className="w-full" variant="outline">Envoyer un email</Button>
+                  </a>
                 </div>
-                <div className="grid gap-2">
-                  <label htmlFor="email" className="text-sm font-medium">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    placeholder="votre@email.com"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="message" className="text-sm font-medium">Message</label>
-                  <textarea
-                    id="message"
-                    className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-                    placeholder="Votre message..."
-                  />
-                </div>
-                <Button className="w-full">Envoyer</Button>
               </div>
             </div>
           </div>
@@ -353,7 +336,6 @@ export default function Home() {
                 <Link href="#programmes" className="text-sm hover:text-primary-foreground/80">Programmes</Link>
                 <Link href="#qui-sommes-nous" className="text-sm hover:text-primary-foreground/80">Qui sommes-nous?</Link>
                 <Link href="#boutique" className="text-sm hover:text-primary-foreground/80">Boutique</Link>
-                <Link href="#blog" className="text-sm hover:text-primary-foreground/80">Blog</Link>
                 <Link href="#contact" className="text-sm hover:text-primary-foreground/80">Contact</Link>
               </nav>
             </div>

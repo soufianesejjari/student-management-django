@@ -37,9 +37,12 @@ export function useExpenses(page: number = 1, search: string = '') {
     };
 }
 
-export function useFinancialReports(year?: number) {
-     const params = year ? `?year=${year}` : '';
-     const { data, error, isLoading } = useSWR(`/finances/reports/${params}`, fetcher);
+export function useFinancialReports(year?: number, month?: number) {
+     const params = new URLSearchParams();
+     if (year) params.append('year', year.toString());
+     if (month) params.append('month', month.toString());
+     const query = params.toString() ? `?${params.toString()}` : '';
+     const { data, error, isLoading } = useSWR(`/finances/reports/${query}`, fetcher);
      return {
         reports: data,
         isLoading,

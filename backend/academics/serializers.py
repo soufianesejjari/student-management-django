@@ -97,6 +97,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         queryset=AcademicYear.objects.all(),
         required=False,
         allow_null=True,
+        default=AcademicYear.get_active,
     )
     
     class Meta:

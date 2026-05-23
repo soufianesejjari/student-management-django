@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Download, Plus, Search, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { useStudents, createStudent, updateStudent, deleteStudent } from "@/hooks/useStudents"
 import { useState } from "react"
 import { usePageSearch } from "@/hooks/usePageSearch"
@@ -122,10 +122,6 @@ function StudentsContent() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              {t('common.export')}
-            </Button>
           </div>
           <div className="rounded-md border">
             <Table>
