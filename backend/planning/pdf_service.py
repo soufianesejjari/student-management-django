@@ -111,11 +111,16 @@ class PDFReportGenerator:
         title = Paragraph(f"Rapport de Paiement - {sessions_data['month']}", self.title_style)
         story.append(title)
         story.append(Spacer(1, 12))
+        payroll = sessions_data.get('payroll') or {}
+        expense_ref = payroll.get('expense_id') or 'Non générée'
+        expense_status = payroll.get('expense_status') or 'N/A'
         
         teacher_info = f"""
         <para align=left>
         <b>Professeur :</b> {teacher_data['name']}<br/>
         <b>Taux Horaire :</b> {teacher_data['hourly_rate']:.2f} MAD/heure<br/>
+        <b>Dépense salaire :</b> {expense_ref}<br/>
+        <b>Statut dépense :</b> {expense_status}<br/>
         <b>Date du Rapport :</b> {datetime.now().strftime('%d-%m-%Y')}
         </para>
         """
@@ -132,6 +137,7 @@ class PDFReportGenerator:
             ['Absences du Professeur', str(summary['absent_sessions'])],
             ['Total Heures Planifiées', f"{summary['total_hours']:.1f}h"],
             ['Heures Travaillées', f"{summary['worked_hours']:.1f}h"],
+            ['Taux Horaire', f"{teacher_data['hourly_rate']:.2f} MAD/h"],
             ['Total Paiement Dû', f"{summary['total_expense']:.2f} MAD"]
         ]
         

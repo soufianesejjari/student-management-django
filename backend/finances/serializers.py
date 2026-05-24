@@ -37,6 +37,70 @@ class PaymentSerializer(serializers.ModelSerializer):
         return payment
 
 class ExpenseSerializer(serializers.ModelSerializer):
+    salary_teacher_id = serializers.SerializerMethodField()
+    salary_teacher_name = serializers.SerializerMethodField()
+    salary_payroll_id = serializers.SerializerMethodField()
+    salary_year = serializers.SerializerMethodField()
+    salary_month = serializers.SerializerMethodField()
+    salary_worked_hours = serializers.SerializerMethodField()
+    salary_hourly_rate = serializers.SerializerMethodField()
+
     class Meta:
         model = Expense
-        fields = ['id', 'description', 'amount', 'date', 'category', 'status', 'created_at']
+        fields = [
+            'id', 'description', 'amount', 'date', 'category', 'status', 'created_at',
+            'salary_teacher_id', 'salary_teacher_name', 'salary_payroll_id',
+            'salary_year', 'salary_month', 'salary_worked_hours', 'salary_hourly_rate',
+        ]
+        read_only_fields = [
+            'created_at', 'salary_teacher_id', 'salary_teacher_name', 'salary_payroll_id',
+            'salary_year', 'salary_month', 'salary_worked_hours', 'salary_hourly_rate',
+        ]
+
+    def _payroll(self, obj):
+        try:
+            return obj.teacher_payroll
+        except Exception:
+            return None
+
+    def get_salary_teacher_id(self, obj):
+        payroll = self._payroll(obj)
+        return payroll.teacher_id if payroll else None
+
+    def get_salary_teacher_name(self, obj):
+        payroll = self._payroll(obj)
+        if not payroll:
+            return None
+        return payroll.teacher.user.get_full_name() or payroll.teacher.user.username
+
+    def get_salary_payroll_id(self, obj):
+        payroll = self._payroll(obj)
+        return payroll.id if payroll else None
+
+    def get_salary_year(self, obj):
+        payroll = self._payroll(obj)
+        return payroll.year if payroll else None
+
+    def get_salary_month(self, obj):
+        payroll = self._payroll(obj)
+        return payroll.month if payroll else None
+
+    def get_salary_worked_hours(self, obj):
+        payroll = self._payroll(obj)
+        return float(payroll.worked_hours) if payroll else None
+
+    def get_salary_hourly_rate(self, obj):
+        payroll = self._payroll(obj)
+        return float(payroll.hourly_rate) if payroll else None
+
+    def validate(self, attrs):
+        if self.instance and self._payroll(self.instance):
+            changed_locked_fields = []
+            for field in ('amount', 'date', 'category', 'description'):
+                if field in attrs and attrs[field] != getattr(self.instance, field):
+                    changed_locked_fields.append(field)
+            if changed_locked_fields:
+                raise serializers.ValidationError(
+                    "Salary expense details are managed by teacher payroll. Reopen and revalidate the payroll to change them."
+                )
+        return attrs

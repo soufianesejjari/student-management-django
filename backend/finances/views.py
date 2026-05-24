@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, views, status, filters
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.db.models import ProtectedError
 from django.db.models import Sum, Q
 from .models import Payment, Expense
 from .serializers import PaymentSerializer, ExpenseSerializer
@@ -53,7 +54,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return queryset
 
 class ExpenseViewSet(viewsets.ModelViewSet):
-    queryset = Expense.objects.all()
+    queryset = Expense.objects.all().select_related(
+        'teacher_payroll__teacher__user',
+        'teacher_payroll__academic_year',
+    )
     serializer_class = ExpenseSerializer
     permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
@@ -74,7 +78,36 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         if academic_year:
             queryset = queryset.filter(date__gte=academic_year.start_date, date__lte=academic_year.end_date)
 
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+
+        expense_status = self.request.query_params.get('status')
+        if expense_status:
+            queryset = queryset.filter(status=expense_status)
+
+        teacher_id = self.request.query_params.get('teacher_id') or self.request.query_params.get('teacher')
+        if teacher_id:
+            queryset = queryset.filter(teacher_payroll__teacher_id=teacher_id)
+
+        year = self.request.query_params.get('year')
+        if year:
+            queryset = queryset.filter(teacher_payroll__year=year)
+
+        month = self.request.query_params.get('month')
+        if month:
+            queryset = queryset.filter(teacher_payroll__month=month)
+
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "This salary expense is linked to a teacher payroll and cannot be deleted directly."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 class FinancialReportView(views.APIView):
     queryset = Payment.objects.all()
@@ -105,10 +138,13 @@ class FinancialReportView(views.APIView):
             payments = payments.filter(date__month=month)
             expenses = expenses.filter(date__month=month)
 
-        total_income = payments.aggregate(Sum('amount'))['amount__sum'] or 0
-        total_expenses = expenses.aggregate(Sum('amount'))['amount__sum'] or 0
+        paid_payments = payments.filter(status='PAID')
+        paid_expenses = expenses.filter(status='PAID')
+        pending_payments = payments.exclude(status='PAID')
+
+        total_income = paid_payments.aggregate(Sum('amount'))['amount__sum'] or 0
+        total_expenses = paid_expenses.aggregate(Sum('amount'))['amount__sum'] or 0
         net_profit = total_income - total_expenses
-        pending_payments = payments.filter(status='PENDING')
         pending_amount = pending_payments.aggregate(Sum('amount'))['amount__sum'] or 0
 
         return Response({
@@ -120,6 +156,8 @@ class FinancialReportView(views.APIView):
             'net_profit': net_profit,
             'pending_payments_count': pending_payments.count(),
             'pending_payments_amount': pending_amount,
+            'paid_payments_count': paid_payments.count(),
+            'paid_expenses_count': paid_expenses.count(),
         })
 
 
@@ -163,11 +201,12 @@ class PaymentStatusView(views.APIView):
                 Q(subscription__isnull=True)
             )
             
-            total_paid = month_payments.aggregate(Sum('amount'))['amount__sum'] or 0
+            paid_month_payments = month_payments.filter(status='PAID')
+            total_paid = paid_month_payments.aggregate(Sum('amount'))['amount__sum'] or 0
             balance = total_monthly - total_paid
             
             # Get last payment
-            last_payment = month_payments.order_by('-date').first()
+            last_payment = paid_month_payments.order_by('-date').first()
             
             # Determine status
             if balance <= 0:

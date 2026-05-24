@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -41,6 +42,61 @@ class SessionInstance(models.Model):
     def __str__(self):
         status = "Cancelled" if self.is_cancelled else "Rescheduled" if self.is_rescheduled else "Normal"
         return f"{self.class_session} - {self.original_date} ({status})"
+
+
+class TeacherMonthlyPayroll(models.Model):
+    """Validated monthly salary calculation for a teacher, linked to an expense."""
+
+    STATUS_CHOICES = (
+        ('DRAFT', 'Draft'),
+        ('VALIDATED', 'Validated'),
+    )
+
+    teacher = models.ForeignKey('users.TeacherProfile', on_delete=models.CASCADE, related_name='monthly_payrolls')
+    academic_year = models.ForeignKey('academics.AcademicYear', on_delete=models.PROTECT, related_name='teacher_payrolls')
+    expense = models.OneToOneField(
+        'finances.Expense',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='teacher_payroll',
+    )
+    year = models.PositiveIntegerField()
+    month = models.PositiveSmallIntegerField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
+    total_sessions = models.PositiveIntegerField(default=0)
+    cancelled_sessions = models.PositiveIntegerField(default=0)
+    absent_sessions = models.PositiveIntegerField(default=0)
+    total_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    worked_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    validated_at = models.DateTimeField(null=True, blank=True)
+    reopened_at = models.DateTimeField(null=True, blank=True)
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='validated_teacher_payrolls',
+    )
+    reopened_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reopened_teacher_payrolls',
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('teacher', 'academic_year', 'year', 'month')
+        ordering = ['-year', '-month', 'teacher__user__last_name']
+
+    def __str__(self):
+        return f"{self.teacher} payroll {self.year}-{self.month:02d} ({self.status})"
 
 class ClassSession(models.Model):
     """The core scheduling unit - represents a recurring class session"""

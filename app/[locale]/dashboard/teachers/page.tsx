@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Plus, Search, Pencil, Trash2, Eye } from "lucide-react"
+import { CalendarCheck, ChevronLeft, ChevronRight, Plus, Search, Pencil, Trash2, Eye } from "lucide-react"
 import { useTeachers, createTeacher, updateTeacher, deleteTeacher } from "@/hooks/useTeachers"
+import { validateMonthlyTeacherPayrolls } from "@/hooks/useTeacherSessions"
 import { useState } from "react"
 import { usePageSearch } from "@/hooks/usePageSearch"
 import { PageHeader } from "@/components/layout/page-header"
@@ -29,6 +30,7 @@ export default function TeachersPage() {
   const { page, search, setSearch, setPage } = usePageSearch()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null)
+  const [payrollBatchLoading, setPayrollBatchLoading] = useState(false)
 
   // Delete Dialog State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -89,15 +91,41 @@ export default function TeachersPage() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleValidateMonthlyPayrolls = async () => {
+    const now = new Date()
+    if (now.getDate() < 28) {
+      const confirmed = window.confirm(t('teachers.beforeValidationDayConfirm', { day: 28 }))
+      if (!confirmed) return
+    }
+
+    setPayrollBatchLoading(true)
+    try {
+      const response = await validateMonthlyTeacherPayrolls(now.getFullYear(), now.getMonth() + 1)
+      const data = response.data
+      toast.success(t('teachers.batchPayrollSuccess', { count: data.validated_count || 0 }))
+    } catch (error) {
+      console.error(error)
+      toast.error(t('teachers.batchPayrollFailed'))
+    } finally {
+      setPayrollBatchLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title={t('teachers.title')}
         action={
-          <Button onClick={openCreateDialog}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('teachers.addTeacher')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleValidateMonthlyPayrolls} disabled={payrollBatchLoading}>
+              {payrollBatchLoading ? <CalendarCheck className="mr-2 h-4 w-4 animate-pulse" /> : <CalendarCheck className="mr-2 h-4 w-4" />}
+              {t('teachers.generateMonthlyPayrolls')}
+            </Button>
+            <Button onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('teachers.addTeacher')}
+            </Button>
+          </div>
         }
       />
       <Card>

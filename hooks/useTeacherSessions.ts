@@ -24,3 +24,24 @@ export async function updateSessionAttendance(teacherId: number, sessionId: numb
         teacher_is_absent: isAbsent
     });
 }
+
+export async function validateTeacherPayroll(teacherId: number, year: number, month: number) {
+    return api.post(`/planning/teacher/${teacherId}/payroll/validate/`, {
+        year,
+        month
+    });
+}
+
+export async function reopenTeacherPayroll(teacherId: number, year: number, month: number) {
+    return api.post(`/planning/teacher/${teacherId}/payroll/reopen/`, {
+        year,
+        month
+    });
+}
+
+export async function validateMonthlyTeacherPayrolls(year: number, month: number) {
+    return api.post('/planning/teacher-payrolls/validate-month/', {
+        year,
+        month
+    });
+}

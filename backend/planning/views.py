@@ -8,7 +8,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from datetime import datetime, timedelta, time, date
 from calendar import monthrange
-from .models import Room, ClassSession, SessionInstance
+from .models import Room, ClassSession, SessionInstance, TeacherMonthlyPayroll
 from .serializers import (
     RoomSerializer, 
     ClassSessionSerializer, 
@@ -19,7 +19,17 @@ from .serializers import (
 from users.models import TeacherProfile, TeacherAvailability, TeacherPreferences
 from academics.models import AcademicYear
 from .pdf_service import PDFReportGenerator
-from .services import get_teacher_monthly_occurrences
+from .services import (
+    get_teacher_payroll_history,
+    get_teacher_monthly_occurrences,
+    get_teacher_payroll_summary,
+    get_teacher_monthly_payroll,
+    is_before_payroll_validation_day,
+    reopen_teacher_monthly_payroll,
+    serialize_teacher_payroll,
+    validate_all_teacher_monthly_payrolls,
+    validate_teacher_monthly_payroll,
+)
 
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
@@ -413,6 +423,9 @@ class TeacherSessionsView(views.APIView):
             return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
         
         occurrences, total_hours, worked_hours, total_expense = get_teacher_monthly_occurrences(teacher, year, month, academic_year)
+        summary = get_teacher_payroll_summary(occurrences, total_hours, worked_hours, total_expense, teacher)
+        payroll = get_teacher_monthly_payroll(teacher, year, month, academic_year)
+        before_validation_day = is_before_payroll_validation_day(year, month)
         
         return Response({
             'teacher': {
@@ -422,14 +435,11 @@ class TeacherSessionsView(views.APIView):
             },
             'month': f"{year}-{month:02d}",
             'occurrences': occurrences,
-            'summary': {
-                'total_sessions': len(occurrences),
-                'cancelled_sessions': sum(1 for o in occurrences if o['is_cancelled']),
-                'absent_sessions': sum(1 for o in occurrences if o['teacher_is_absent']),
-                'total_hours': total_hours,
-                'worked_hours': worked_hours,
-                'total_expense': round(total_expense, 2),
-            }
+            'summary': summary,
+            'payroll': serialize_teacher_payroll(payroll),
+            'payroll_history': get_teacher_payroll_history(teacher, academic_year),
+            'before_validation_day': before_validation_day,
+            'validation_day': 28,
         })
 
     def patch(self, request, teacher_id=None):
@@ -442,20 +452,152 @@ class TeacherSessionsView(views.APIView):
         session_id = request.data.get('session_id')
         occurrence_date = request.data.get('date')
         teacher_is_absent = request.data.get('teacher_is_absent', False)
+
+        try:
+            occurrence_day = datetime.strptime(occurrence_date, '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid occurrence date is required"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             session = ClassSession.objects.get(pk=session_id, teacher_id=teacher_id)
         except ClassSession.DoesNotExist:
             return Response({"detail": "Session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        month_is_validated = TeacherMonthlyPayroll.objects.filter(
+            teacher_id=teacher_id,
+            academic_year=session.academic_year,
+            year=occurrence_day.year,
+            month=occurrence_day.month,
+            status='VALIDATED',
+        ).exists()
+        if month_is_validated:
+            return Response(
+                {"detail": "Teacher payroll for this month is validated. Reopen the month before changing attendance."},
+                status=status.HTTP_409_CONFLICT,
+            )
         
         # Update or create instance
         instance, created = SessionInstance.objects.update_or_create(
             class_session=session,
-            original_date=occurrence_date,
+            original_date=occurrence_day,
             defaults={'teacher_is_absent': teacher_is_absent}
         )
         
         return Response(SessionInstanceSerializer(instance).data)
+
+
+class TeacherPayrollValidateView(views.APIView):
+    """Validate a teacher month and create/update the linked salary expense."""
+    queryset = ClassSession.objects.all()
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
+
+    def post(self, request, teacher_id=None):
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            year = int(request.data.get('year', request.query_params.get('year', date.today().year)))
+            month = int(request.data.get('month', request.query_params.get('month', date.today().month)))
+            if month < 1 or month > 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid year and month are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        academic_year_id = request.data.get('academic_year') or request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        if not academic_year:
+            return Response({"detail": "Active academic year is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            teacher = TeacherProfile.objects.get(pk=teacher_id)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        payroll, occurrences, summary = validate_teacher_monthly_payroll(
+            teacher,
+            year,
+            month,
+            academic_year,
+            user=request.user,
+            notes=request.data.get('notes', ''),
+        )
+        return Response({
+            'payroll': serialize_teacher_payroll(payroll),
+            'summary': summary,
+            'occurrences': occurrences,
+            'before_validation_day': is_before_payroll_validation_day(year, month),
+            'validation_day': 28,
+        })
+
+
+class TeacherPayrollReopenView(views.APIView):
+    """Reopen a validated teacher month so attendance can be corrected and revalidated."""
+    queryset = ClassSession.objects.all()
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
+
+    def post(self, request, teacher_id=None):
+        if not teacher_id:
+            return Response({"detail": "Teacher ID required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            year = int(request.data.get('year', request.query_params.get('year', date.today().year)))
+            month = int(request.data.get('month', request.query_params.get('month', date.today().month)))
+            if month < 1 or month > 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid year and month are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        academic_year_id = request.data.get('academic_year') or request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        if not academic_year:
+            return Response({"detail": "Active academic year is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            teacher = TeacherProfile.objects.get(pk=teacher_id)
+        except TeacherProfile.DoesNotExist:
+            return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        payroll = reopen_teacher_monthly_payroll(teacher, year, month, academic_year, user=request.user)
+        return Response({'payroll': serialize_teacher_payroll(payroll)})
+
+
+class TeacherPayrollBatchValidateView(views.APIView):
+    """Validate monthly payroll for all active teachers with sessions in the month."""
+    queryset = ClassSession.objects.all()
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
+
+    def post(self, request):
+        try:
+            year = int(request.data.get('year', request.query_params.get('year', date.today().year)))
+            month = int(request.data.get('month', request.query_params.get('month', date.today().month)))
+            if month < 1 or month > 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid year and month are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        academic_year_id = request.data.get('academic_year') or request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        if not academic_year:
+            return Response({"detail": "Active academic year is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        results = validate_all_teacher_monthly_payrolls(
+            year,
+            month,
+            academic_year,
+            user=request.user,
+            notes=request.data.get('notes', ''),
+        )
+        return Response({
+            'year': year,
+            'month': month,
+            'academic_year': academic_year.id,
+            'before_validation_day': is_before_payroll_validation_day(year, month),
+            'validation_day': 28,
+            'results': results,
+            'validated_count': sum(1 for result in results if result['status'] == 'VALIDATED'),
+            'skipped_count': sum(1 for result in results if result['status'] == 'SKIPPED'),
+            'error_count': sum(1 for result in results if result['status'] == 'ERROR'),
+        })
 
 
 class TeacherPaymentReportView(views.APIView):
@@ -477,59 +619,14 @@ class TeacherPaymentReportView(views.APIView):
         except TeacherProfile.DoesNotExist:
             return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get session data using the same logic as TeacherSessionsView
-        first_day = date(year, month, 1)
-        last_day = date(year, month, monthrange(year, month)[1])
-        
-        sessions = ClassSession.objects.filter(
-            academic_year=academic_year,
-            teacher=teacher
-        ).filter(
-            Q(start_date__lte=last_day) & 
-            (Q(end_date__gte=first_day) | Q(end_date__isnull=True))
-        ).select_related('course', 'room')
-        
-        occurrences = []
-        current_day = first_day
-        
-        while current_day <= last_day:
-            day_of_week = (current_day.weekday() + 1) % 7
-            
-            for session in sessions:
-                if session.day_of_week == day_of_week:
-                    if session.start_date <= current_day and (session.end_date is None or session.end_date >= current_day):
-                        instance = SessionInstance.objects.filter(
-                            class_session=session,
-                            original_date=current_day
-                        ).first()
-                        
-                        is_cancelled = instance and instance.is_cancelled
-                        is_absent = instance and instance.teacher_is_absent
-                        
-                        start_dt = datetime.combine(current_day, session.start_time)
-                        end_dt = datetime.combine(current_day, session.end_time)
-                        duration_hours = (end_dt - start_dt).total_seconds() / 3600
-                        
-                        occurrences.append({
-                            'id': session.id,
-                            'instance_id': instance.id if instance else None,
-                            'date': current_day.isoformat(),
-                            'day_of_week': session.day_of_week,
-                            'course': session.course.name,
-                            'start_time': session.start_time.isoformat(),
-                            'end_time': session.end_time.isoformat(),
-                            'room': session.room.name,
-                            'duration_hours': duration_hours,
-                            'is_cancelled': is_cancelled,
-                            'teacher_is_absent': is_absent,
-                            'hourly_rate': float(teacher.hourly_rate),
-                        })
-            
-            current_day += timedelta(days=1)
-        
-        total_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'])
-        worked_hours = sum(o['duration_hours'] for o in occurrences if not o['is_cancelled'] and not o['teacher_is_absent'])
-        total_expense = worked_hours * float(teacher.hourly_rate)
+        occurrences, total_hours, worked_hours, total_expense = get_teacher_monthly_occurrences(
+            teacher,
+            year,
+            month,
+            academic_year,
+        )
+        summary = get_teacher_payroll_summary(occurrences, total_hours, worked_hours, total_expense, teacher)
+        payroll = get_teacher_monthly_payroll(teacher, year, month, academic_year)
         
         teacher_data = {
             'id': teacher.id,
@@ -540,14 +637,8 @@ class TeacherPaymentReportView(views.APIView):
         sessions_data = {
             'month': f"{year}-{month:02d}",
             'occurrences': occurrences,
-            'summary': {
-                'total_sessions': len(occurrences),
-                'cancelled_sessions': sum(1 for o in occurrences if o['is_cancelled']),
-                'absent_sessions': sum(1 for o in occurrences if o['teacher_is_absent']),
-                'total_hours': total_hours,
-                'worked_hours': worked_hours,
-                'total_expense': round(total_expense, 2),
-            }
+            'summary': summary,
+            'payroll': serialize_teacher_payroll(payroll),
         }
         
         # Generate PDF

@@ -80,7 +80,7 @@ function FinancesContent() {
 
   const totalIncome = Number(financialReports?.total_income || 0)
   const totalExpenses = Number(financialReports?.total_expenses || 0)
-  const netProfit = totalIncome - totalExpenses
+  const netProfit = Number(financialReports?.net_profit || 0)
 
   const pendingPaymentsCount = Number(financialReports?.pending_payments_count || 0)
   const pendingAmount = Number(financialReports?.pending_payments_amount || 0)
@@ -370,7 +370,19 @@ function FinancesContent() {
                     ) : (
                       expenses?.map((expense: any) => (
                         <TableRow key={expense.id}>
-                          <TableCell className="font-medium">{expense.description}</TableCell>
+                          <TableCell className="font-medium">
+                            <div>{expense.description}</div>
+                            {expense.salary_payroll_id && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {t('finances.salaryTrace', {
+                                  teacher: expense.salary_teacher_name || '-',
+                                  month: `${expense.salary_year}-${String(expense.salary_month).padStart(2, '0')}`,
+                                  hours: Number(expense.salary_worked_hours || 0).toFixed(1),
+                                  rate: Number(expense.salary_hourly_rate || 0).toFixed(2),
+                                })}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>{expense.amount} MAD</TableCell>
                           <TableCell>{expense.date}</TableCell>
                           <TableCell>{expense.category}</TableCell>
@@ -395,30 +407,32 @@ function FinancesContent() {
                                   </Button>
                                 }
                               />
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" aria-label="Delete expense">
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>{t('finances.deleteExpenseTitle')}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      {t('finances.deleteExpenseDescription')}
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeleteExpense(expense.id)}
-                                      disabled={deletingExpenseId === expense.id}
-                                    >
-                                      {deletingExpenseId === expense.id ? t('finances.deleting') : t('common.delete')}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              {!expense.salary_payroll_id && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" aria-label="Delete expense">
+                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('finances.deleteExpenseTitle')}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('finances.deleteExpenseDescription')}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteExpense(expense.id)}
+                                        disabled={deletingExpenseId === expense.id}
+                                      >
+                                        {deletingExpenseId === expense.id ? t('finances.deleting') : t('common.delete')}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

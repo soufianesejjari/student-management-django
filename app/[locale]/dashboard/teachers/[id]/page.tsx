@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronLeft, ChevronRight, Loader2, FileDown, Calendar } from "lucide-react"
-import { useTeacherSessions, updateSessionAttendance } from "@/hooks/useTeacherSessions"
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, FileDown, Loader2, ReceiptText, Unlock } from "lucide-react"
+import { reopenTeacherPayroll, updateSessionAttendance, useTeacherSessions, validateTeacherPayroll } from "@/hooks/useTeacherSessions"
 import { toast } from "sonner"
 import api from "@/lib/api"
 import { useTranslations, useLocale } from "next-intl"
@@ -20,6 +20,7 @@ export default function TeacherProfile() {
     
     const [currentDate, setCurrentDate] = useState(new Date())
     const [savingStates, setSavingStates] = useState<{ [key: string]: boolean }>({})
+    const [payrollSaving, setPayrollSaving] = useState(false)
 
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth() + 1
@@ -47,6 +48,39 @@ export default function TeacherProfile() {
             toast.error(t('teachers.attendanceFailed'))
         } finally {
             setSavingStates(prev => ({ ...prev, [key]: false }))
+        }
+    }
+
+    const handleValidatePayroll = async () => {
+        if (sessionData?.before_validation_day) {
+            const confirmed = window.confirm(t('teachers.beforeValidationDayConfirm', { day: sessionData.validation_day || 28 }))
+            if (!confirmed) return
+        }
+
+        setPayrollSaving(true)
+        try {
+            await validateTeacherPayroll(teacherId, year, month)
+            await mutate()
+            toast.success(t('teachers.payrollValidatedSuccess'))
+        } catch (error) {
+            console.error(error)
+            toast.error(t('teachers.payrollActionFailed'))
+        } finally {
+            setPayrollSaving(false)
+        }
+    }
+
+    const handleReopenPayroll = async () => {
+        setPayrollSaving(true)
+        try {
+            await reopenTeacherPayroll(teacherId, year, month)
+            await mutate()
+            toast.success(t('teachers.payrollReopenedSuccess'))
+        } catch (error) {
+            console.error(error)
+            toast.error(t('teachers.payrollActionFailed'))
+        } finally {
+            setPayrollSaving(false)
         }
     }
 
@@ -112,7 +146,8 @@ export default function TeacherProfile() {
         )
     }
 
-    const { teacher, occurrences, summary } = sessionData
+    const { teacher, occurrences, summary, payroll } = sessionData
+    const isPayrollValidated = payroll?.status === 'VALIDATED'
 
     // Group occurrences by week for calendar display
     const groupedByWeek: { [key: string]: typeof occurrences } = {}
@@ -133,12 +168,23 @@ export default function TeacherProfile() {
     return (
         <div className="space-y-6 p-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold">{teacher.name}</h1>
                     <p className="text-muted-foreground">{t('teachers.profileAttendance')}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
+                    {isPayrollValidated ? (
+                        <Button variant="outline" onClick={handleReopenPayroll} disabled={payrollSaving}>
+                            {payrollSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Unlock className="mr-2 h-4 w-4" />}
+                            {t('teachers.reopenPayroll')}
+                        </Button>
+                    ) : (
+                        <Button onClick={handleValidatePayroll} disabled={payrollSaving}>
+                            {payrollSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                            {t('teachers.validatePayroll')}
+                        </Button>
+                    )}
                     <Button variant="outline" onClick={handleDownloadPaymentReport}>
                         <FileDown className="mr-2 h-4 w-4" />
                         {t('teachers.paymentReport')}
@@ -149,6 +195,28 @@ export default function TeacherProfile() {
                     </Button>
                 </div>
             </div>
+
+            <Card className={isPayrollValidated ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}>
+                <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-3">
+                        <ReceiptText className={isPayrollValidated ? "h-5 w-5 text-green-700" : "h-5 w-5 text-amber-700"} />
+                        <div>
+                            <p className="font-medium">
+                                {isPayrollValidated ? t('teachers.payrollValidated') : t('teachers.payrollDraft')}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {isPayrollValidated ? t('teachers.payrollLockedHint') : t('teachers.payrollDraftHint')}
+                            </p>
+                        </div>
+                    </div>
+                    {payroll?.expense_id && (
+                        <Badge variant="secondary">
+                            {t('teachers.payrollExpense')} #{payroll.expense_id}
+                            {payroll.expense_status === 'PENDING' ? ` - ${t('teachers.expensePending')}` : ''}
+                        </Badge>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Summary Cards */}
             <div className="w-full grid gap-4 grid-cols-4">
@@ -252,13 +320,13 @@ export default function TeacherProfile() {
                                                             <Checkbox
                                                                 id={`absent-${key}`}
                                                                 checked={session.teacher_is_absent}
-                                                                disabled={isSaving}
+                                                                disabled={isSaving || isPayrollValidated}
                                                                 onCheckedChange={(checked) =>
                                                                     handleAbsenceChange(session.id, session.date, checked as boolean)
                                                                 }
                                                             />
-                                                            <label htmlFor={`absent-${key}`} className="text-sm cursor-pointer">
-                                                                Absent
+                                                            <label htmlFor={`absent-${key}`} className={`text-sm ${isPayrollValidated ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'}`}>
+                                                                {t('teachers.absent')}
                                                             </label>
                                                         </div>
                                                         {isSaving && (
@@ -300,6 +368,47 @@ export default function TeacherProfile() {
                             <p className="text-2xl font-bold text-green-600">{summary.total_expense.toFixed(2)} MAD</p>
                         </div>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t('teachers.salaryHistory')}</CardTitle>
+                    <CardDescription>{t('teachers.salaryHistoryDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {!sessionData.payroll_history?.length ? (
+                        <p className="text-sm text-muted-foreground">{t('teachers.noSalaryHistory')}</p>
+                    ) : (
+                        <div className="rounded-md border">
+                            <div className="grid grid-cols-6 gap-2 border-b px-4 py-2 text-sm font-medium text-muted-foreground">
+                                <span>{t('teachers.month')}</span>
+                                <span>{t('teachers.workedHours')}</span>
+                                <span>{t('teachers.hourlyRate')}</span>
+                                <span>{t('teachers.totalSalary')}</span>
+                                <span>{t('teachers.payrollExpense')}</span>
+                                <span>{t('teachers.validatedBy')}</span>
+                            </div>
+                            {sessionData.payroll_history.map((item: any) => (
+                                <div key={item.id} className="grid grid-cols-6 gap-2 px-4 py-3 text-sm border-b last:border-b-0">
+                                    <span>{item.year}-{String(item.month).padStart(2, '0')}</span>
+                                    <span>{Number(item.worked_hours || 0).toFixed(1)}h</span>
+                                    <span>{Number(item.hourly_rate || 0).toFixed(2)} MAD</span>
+                                    <span>{Number(item.amount || 0).toFixed(2)} MAD</span>
+                                    <span>
+                                        {item.expense_id ? (
+                                            <Badge variant={item.expense_status === 'PAID' ? 'default' : 'secondary'}>
+                                                #{item.expense_id} {item.expense_status}
+                                            </Badge>
+                                        ) : (
+                                            t('teachers.notGenerated')
+                                        )}
+                                    </span>
+                                    <span>{item.validated_by_name || '-'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
