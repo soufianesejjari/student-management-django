@@ -34,6 +34,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
     const [loadingCourse, setLoadingCourse] = useState(false)
     const [suggestingPrice, setSuggestingPrice] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const subscriptionAmount = Number(customPrice || 0) * (subscriptionType === "QUARTERLY" ? 3 : 1)
 
     useEffect(() => {
         if (!open) {
@@ -84,7 +85,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                 })
                 setPricingSuggestion(suggestion)
                 const basePrice = Number(suggestion.suggested_price ?? suggestion.default_price ?? course?.price ?? 0)
-                setCustomPrice(String(subscriptionType === "QUARTERLY" ? basePrice * 3 : basePrice))
+                setCustomPrice(String(basePrice))
             } catch (error) {
                 console.error("Failed to get price suggestion:", error)
                 setPricingSuggestion(null)
@@ -94,7 +95,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
         }
 
         loadSuggestion()
-    }, [courseId, studentId, subscriptionType, course?.price])
+    }, [courseId, studentId, course?.price])
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault()
@@ -209,7 +210,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="custom-price">{t("dialogs.enrollStudent.finalPrice")}</Label>
+                        <Label htmlFor="custom-price">{t("dialogs.enrollStudent.monthlyPrice")}</Label>
                         <Input
                             id="custom-price"
                             type="number"
@@ -219,6 +220,9 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                             onChange={(event) => setCustomPrice(event.target.value)}
                             required
                         />
+                        <p className="text-xs text-muted-foreground">
+                            {t("dialogs.enrollStudent.firstPeriodAmount", { amount: subscriptionAmount.toFixed(2) })}
+                        </p>
                     </div>
 
                     <div className="space-y-2">

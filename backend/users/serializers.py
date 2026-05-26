@@ -1,10 +1,6 @@
-from datetime import date
-
 from rest_framework import serializers
 from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Sum
 from django.utils.text import slugify
 from .models import User, StudentProfile, TeacherProfile, TeacherAvailability, TeacherPreferences
 
@@ -107,38 +103,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         ])
 
     def _payment_summary(self, obj):
-        from academics.models import Enrollment
-        from academics.models import AcademicYear
-        from finances.models import Payment
+        from academics.services import BillingService
 
-        academic_year = AcademicYear.get_active()
-        active_enrollments = Enrollment.objects.filter(
-            student=obj,
-            status='ACTIVE',
-            academic_year=academic_year,
-        ).select_related('course')
-        if not active_enrollments.exists():
-            return 'NONE', 0
-
-        today = date.today()
-        month_payments = Payment.objects.filter(
-            student=obj,
-            date__month=today.month,
-            date__year=today.year,
-        ).filter(
-            Q(subscription__enrollment__academic_year=academic_year) |
-            Q(subscription__isnull=True)
-        )
-
-        total_monthly = sum((enrollment.custom_price or 0) for enrollment in active_enrollments)
-        total_paid = month_payments.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
-        balance = float(total_monthly - total_paid)
-
-        if balance <= 0:
-            return 'PAID', balance
-        if today.day > 7:
-            return 'OVERDUE', balance
-        return 'PENDING', balance
+        summary = BillingService.student_payment_summary(obj)
+        return summary['status'], float(summary['balance'])
 
     def get_payment_status(self, obj):
         return self._payment_summary(obj)[0]
@@ -204,7 +172,6 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
 
     def get_student_count(self, obj):
         # Count total active enrollments in courses where this teacher is the default teacher
-        from django.db.models import Count
         count = 0
         for course in obj.default_courses.all():
             count += course.enrollments.filter(status='ACTIVE').count()

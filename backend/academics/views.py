@@ -11,7 +11,7 @@ from .serializers import (
     EnrollmentCreateSerializer,
     SubscriptionSerializer
 )
-from .services import EnrollmentService
+from .services import BillingService, EnrollmentService
 
 
 class AcademicYearViewSet(viewsets.ModelViewSet):
@@ -135,6 +135,25 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.all().select_related('enrollment__student__user', 'enrollment__course', 'enrollment__academic_year')
     serializer_class = SubscriptionSerializer
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
+
+    def list(self, request, *args, **kwargs):
+        academic_year = self._requested_academic_year()
+        student_id = request.query_params.get('student')
+        BillingService.sync_due_subscriptions(academic_year=academic_year, student_id=student_id)
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        subscription = self.get_object()
+        BillingService.sync_enrollment_subscriptions(subscription.enrollment_id)
+        subscription.refresh_from_db()
+        serializer = self.get_serializer(subscription)
+        return Response(serializer.data)
+
+    def _requested_academic_year(self):
+        academic_year_id = self.request.query_params.get('academic_year')
+        if academic_year_id:
+            return AcademicYear.objects.filter(pk=academic_year_id).first() or AcademicYear.get_active()
+        return AcademicYear.get_active()
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -162,6 +181,19 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(payment_status=payment_status)
         
         return queryset
+
+    @action(detail=False, methods=['post'], url_path='sync-due')
+    def sync_due(self, request):
+        academic_year_id = request.data.get('academic_year') or request.query_params.get('academic_year')
+        student_id = request.data.get('student') or request.data.get('student_id') or request.query_params.get('student')
+        enrollment_id = request.data.get('enrollment') or request.data.get('enrollment_id')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        summary = BillingService.sync_due_subscriptions(
+            academic_year=academic_year,
+            student_id=student_id,
+            enrollment_id=enrollment_id,
+        )
+        return Response(summary)
 
 
 class CourseOfferSettingsViewSet(viewsets.ViewSet):

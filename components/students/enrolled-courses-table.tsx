@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, CreditCard } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
@@ -26,6 +27,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     const [enrollments, setEnrollments] = useState<any[]>([])
     const [subscriptionsByEnrollment, setSubscriptionsByEnrollment] = useState<Record<number, any>>({})
     const [loading, setLoading] = useState(true)
+    const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null)
 
     const fetchEnrollments = async () => {
         try {
@@ -66,10 +68,13 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                 if (!enrollmentId) return acc
 
                 const current = acc[enrollmentId]
+                const isUnpaid = subscription.payment_status !== "PAID" && subscription.payment_status !== "CANCELLED"
+                const currentIsUnpaid = current && current.payment_status !== "PAID" && current.payment_status !== "CANCELLED"
                 const shouldReplace =
                     !current ||
-                    (current.payment_status !== "PENDING" && subscription.payment_status === "PENDING") ||
-                    new Date(subscription.start_date) > new Date(current.start_date)
+                    (isUnpaid && !currentIsUnpaid) ||
+                    (isUnpaid && currentIsUnpaid && new Date(subscription.start_date) < new Date(current.start_date)) ||
+                    (!isUnpaid && !currentIsUnpaid && new Date(subscription.start_date) > new Date(current.start_date))
 
                 if (shouldReplace) {
                     acc[enrollmentId] = subscription
@@ -95,6 +100,18 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
         window.addEventListener("enrollment-updated", handleRefresh)
         return () => window.removeEventListener("enrollment-updated", handleRefresh)
     }, [studentId])
+
+    const updateBillingPlan = async (enrollmentId: number, billingPlan: string) => {
+        setUpdatingPlanId(enrollmentId)
+        try {
+            await api.enrollments.update(enrollmentId, { billing_plan: billingPlan })
+            await fetchEnrollments()
+        } catch (error) {
+            console.error("Failed to update billing plan:", error)
+        } finally {
+            setUpdatingPlanId(null)
+        }
+    }
 
     if (loading) {
         return (
@@ -127,7 +144,10 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                     ) : (
                         enrollments.map((enrollment) => {
                             const subscription = subscriptionsByEnrollment[Number(enrollment.id)]
-                            const amount = subscription?.amount ?? enrollment.custom_price
+                            const amount = subscription?.balance ?? subscription?.amount ?? enrollment.custom_price
+                            const periodLabel = subscription
+                                ? `${format(new Date(subscription.start_date), "MMM d")} - ${format(new Date(subscription.end_date), "MMM d, yyyy")}`
+                                : t('enrolledCourses.noSubscription')
 
                             return (
                                 <TableRow key={enrollment.id}>
@@ -139,12 +159,29 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                         {format(new Date(enrollment.enrolled_at), "MMM d, yyyy")}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={enrollment.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                                            {enrollment.status}
-                                        </Badge>
+                                        <div className="flex flex-col items-start gap-1">
+                                            <Badge variant={enrollment.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                                                {enrollment.status}
+                                            </Badge>
+                                            {subscription && (
+                                                <Badge variant={subscription.payment_status === 'PAID' ? 'secondary' : 'outline'}>
+                                                    {subscription.payment_status}
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </TableCell>
                                     <TableCell>
-                                        {enrollment.custom_price} MAD
+                                        <div className="space-y-1">
+                                            <div>{Number(enrollment.custom_price).toFixed(2)} MAD / {t('enrolledCourses.month')}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {t('enrolledCourses.currentPeriod')}: {periodLabel}
+                                            </div>
+                                            {subscription && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {t('enrolledCourses.periodAmount')}: {Number(subscription.amount).toFixed(2)} MAD
+                                                </div>
+                                            )}
+                                        </div>
                                         {enrollment.is_promotional && (
                                             <Badge variant="outline" className="ml-2 text-xs border-green-500 text-green-600">
                                                 {t('enrolledCourses.promo')}
@@ -152,22 +189,37 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {enrollment.status === 'ACTIVE' && (
-                                            <PaymentDialog
-                                                studentId={studentId}
-                                                subscriptionId={subscription?.id}
-                                                defaultAmount={amount}
-                                                onSuccess={() => {
-                                                    fetchEnrollments()
-                                                    window.dispatchEvent(new Event("payment-updated"))
-                                                }}
+                                        <div className="flex flex-col items-end gap-2">
+                                            <Select
+                                                value={enrollment.billing_plan || "MONTHLY"}
+                                                onValueChange={(value) => updateBillingPlan(Number(enrollment.id), value)}
+                                                disabled={updatingPlanId === Number(enrollment.id)}
                                             >
-                                                <Button variant="outline" size="sm">
-                                                    <CreditCard className="mr-2 h-3 w-3" />
-                                                    {t('enrolledCourses.paySubscription')}
-                                                </Button>
-                                            </PaymentDialog>
-                                        )}
+                                                <SelectTrigger className="h-8 w-[130px]">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="MONTHLY">{t('dialogs.enrollStudent.monthly')}</SelectItem>
+                                                    <SelectItem value="QUARTERLY">{t('dialogs.enrollStudent.quarterly')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            {enrollment.status === 'ACTIVE' && (
+                                                <PaymentDialog
+                                                    studentId={studentId}
+                                                    subscriptionId={subscription?.id}
+                                                    defaultAmount={amount}
+                                                    onSuccess={() => {
+                                                        fetchEnrollments()
+                                                        window.dispatchEvent(new Event("payment-updated"))
+                                                    }}
+                                                >
+                                                    <Button variant="outline" size="sm" disabled={!subscription || Number(amount) <= 0}>
+                                                        <CreditCard className="mr-2 h-3 w-3" />
+                                                        {t('enrolledCourses.paySubscription')}
+                                                    </Button>
+                                                </PaymentDialog>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )

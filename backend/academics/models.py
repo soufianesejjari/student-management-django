@@ -139,6 +139,10 @@ class Enrollment(models.Model):
         ('COMPLETED', 'Completed'),
         ('CANCELLED', 'Cancelled'),
     ]
+    BILLING_PLAN_CHOICES = [
+        ('MONTHLY', 'Monthly'),
+        ('QUARTERLY', 'Quarterly (3 months)'),
+    ]
     
     student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='enrollments')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
@@ -149,6 +153,12 @@ class Enrollment(models.Model):
     )
     enrolled_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
+    billing_plan = models.CharField(
+        max_length=20,
+        choices=BILLING_PLAN_CHOICES,
+        default='MONTHLY',
+        help_text="Plan used for future automatic subscription periods."
+    )
     
     # Flexible pricing fields
     default_price = models.DecimalField(
@@ -234,6 +244,7 @@ class Subscription(models.Model):
     
     class Meta:
         ordering = ['-start_date']
+        unique_together = ('enrollment', 'start_date', 'end_date')
     
     def __str__(self):
         return f"{self.enrollment} - {self.get_subscription_type_display()} ({self.start_date} to {self.end_date})"

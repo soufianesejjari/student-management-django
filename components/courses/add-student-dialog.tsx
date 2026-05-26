@@ -170,16 +170,9 @@ export function AddStudentToCourseDialog({
         loadOfferSettings()
     }, [open, selectedStudentId, course?.id])
 
-    // Update price when subscription type changes
     const subscriptionType = form.watch("subscriptionType")
-    useEffect(() => {
-        const basePrice = pricingSuggestion?.suggested_price ?? course?.price ?? 0
-        if (subscriptionType === "QUARTERLY") {
-            form.setValue("customPrice", (basePrice * 3).toString())
-        } else {
-            form.setValue("customPrice", basePrice.toString())
-        }
-    }, [subscriptionType, pricingSuggestion, course, form])
+    const monthlyPrice = Number(form.watch("customPrice") || 0)
+    const firstPeriodAmount = monthlyPrice * (subscriptionType === "QUARTERLY" ? 3 : 1)
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         const studentId = Number(values.studentId)
@@ -413,12 +406,12 @@ export function AddStudentToCourseDialog({
                             name="customPrice"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Final Price (MAD)</FormLabel>
+                                    <FormLabel>{t('dialogs.enrollStudent.monthlyPrice')}</FormLabel>
                                     <FormControl>
                                         <Input type="number" step="0.01" {...field} />
                                     </FormControl>
                                     <FormDescription>
-                                        You can override the suggested price here.
+                                        {t('dialogs.enrollStudent.overridePriceDesc')} {t('dialogs.enrollStudent.firstPeriodAmount', { amount: firstPeriodAmount.toFixed(2) })}
                                     </FormDescription>
                                     <FormMessage />
                                 </FormItem>

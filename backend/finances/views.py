@@ -6,9 +6,10 @@ from django.db.models import ProtectedError
 from django.db.models import Sum, Q
 from .models import Payment, Expense
 from .serializers import PaymentSerializer, ExpenseSerializer
-from datetime import datetime, timedelta, date
+from datetime import datetime
 from users.models import StudentProfile
 from academics.models import AcademicYear
+from academics.services import BillingService
 
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all().select_related('student__user', 'subscription__enrollment__course')
@@ -52,6 +53,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(subscription_id=subscription_id)
             
         return queryset
+
+    def perform_destroy(self, instance):
+        subscription = instance.subscription
+        super().perform_destroy(instance)
+        if subscription:
+            BillingService.sync_subscription_payment_status(subscription)
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.all().select_related(
@@ -169,64 +176,32 @@ class PaymentStatusView(views.APIView):
     permission_classes = [make_module_permission('finances'), StrictDjangoModelPermissions]
 
     def get(self, request):
-        from academics.models import Enrollment
         academic_year_id = request.query_params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        BillingService.sync_due_subscriptions(academic_year=academic_year)
         
         students = StudentProfile.objects.filter(status='ACTIVE').select_related('user')
-        today = date.today()
-        current_month = today.month
-        current_year = today.year
         
         students_data = []
         
         for student in students:
-            # Get active enrollments
-            enrollments = Enrollment.objects.filter(
-                student=student,
-                academic_year=academic_year,
-                status='ACTIVE'
-            ).select_related('course')
-            
-            # Calculate total monthly amount from all enrollments
-            total_monthly = sum(e.custom_price for e in enrollments)
-            
-            # Get all payments for this month
-            month_payments = Payment.objects.filter(
-                student=student,
-                date__month=current_month,
-                date__year=current_year
-            ).filter(
-                Q(subscription__enrollment__academic_year=academic_year) |
-                Q(subscription__isnull=True)
+            summary = BillingService.student_payment_summary(student, academic_year=academic_year, sync=False)
+            last_payment = (
+                Payment.objects
+                .filter(student=student, status='PAID', subscription__enrollment__academic_year=academic_year)
+                .order_by('-date')
+                .first()
             )
-            
-            paid_month_payments = month_payments.filter(status='PAID')
-            total_paid = paid_month_payments.aggregate(Sum('amount'))['amount__sum'] or 0
-            balance = total_monthly - total_paid
-            
-            # Get last payment
-            last_payment = paid_month_payments.order_by('-date').first()
-            
-            # Determine status
-            if balance <= 0:
-                payment_status = 'PAID'
-            elif today.day > 7:  # Give 7 days grace period
-                days_overdue = (today - date(current_year, current_month, 8)).days
-                payment_status = 'OVERDUE'
-            else:
-                days_overdue = None
-                payment_status = 'PENDING'
             
             students_data.append({
                 'student_id': student.id,
                 'student_name': f"{student.user.first_name} {student.user.last_name}",
-                'total_due': float(total_monthly),
-                'total_paid': float(total_paid),
-                'balance': float(balance),
-                'status': payment_status,
+                'total_due': float(summary['total_due']),
+                'total_paid': float(summary['total_paid']),
+                'balance': float(summary['balance']),
+                'status': summary['status'],
                 'last_payment_date': last_payment.date if last_payment else None,
-                'days_overdue': days_overdue if payment_status == 'OVERDUE' else None
+                'days_overdue': summary['days_overdue']
             })
         
         return Response(students_data)

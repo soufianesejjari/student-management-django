@@ -18,22 +18,42 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         import uuid
+        from academics.services import BillingService
         
         # Auto-generate receipt number if not provided
         if 'invoice_ref' not in validated_data or not validated_data['invoice_ref']:
             validated_data['invoice_ref'] = f"INV-{uuid.uuid4().hex[:8].upper()}"
         
+        subscription = validated_data.get('subscription')
+        student = validated_data.get('student')
+        if subscription and subscription.enrollment.student_id != student.id:
+            raise serializers.ValidationError("Subscription does not belong to this student.")
+
         payment = super().create(validated_data)
         
-        # Update subscription status if fully paid
-        if payment.subscription and payment.status == 'PAID':
-            subscription = payment.subscription
-            # Logic: If payment covers the subscription amount, mark subscription as PAID
-            # For now, simple logic: if payment is linked, mark subscription as paid
-            # You might want to sum up all payments for this subscription later
-            subscription.payment_status = 'PAID'
-            subscription.save()
+        if payment.subscription:
+            BillingService.sync_subscription_payment_status(payment.subscription)
             
+        return payment
+
+    def update(self, instance, validated_data):
+        from academics.services import BillingService
+        from academics.models import Subscription
+
+        previous_subscription_id = instance.subscription_id
+        subscription = validated_data.get('subscription', instance.subscription)
+        student = validated_data.get('student', instance.student)
+        if subscription and subscription.enrollment.student_id != student.id:
+            raise serializers.ValidationError("Subscription does not belong to this student.")
+
+        payment = super().update(instance, validated_data)
+
+        subscription_ids = {previous_subscription_id, payment.subscription_id}
+        for subscription_id in filter(None, subscription_ids):
+            subscription_obj = Subscription.objects.filter(pk=subscription_id).first()
+            if subscription_obj:
+                BillingService.sync_subscription_payment_status(subscription_obj)
+
         return payment
 
 class ExpenseSerializer(serializers.ModelSerializer):

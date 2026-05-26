@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import AcademicYear, Subject, Course, Enrollment, Subscription
 from users.models import StudentProfile
-from django.db.models import Count
+from django.db.models import Sum
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,7 +70,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'student_phone', 'academic_year', 'academic_year_name',
             'course', 'course_name', 'course_subject',
-            'enrolled_at', 'status', 'default_price', 'custom_price',
+            'enrolled_at', 'status', 'billing_plan', 'default_price', 'custom_price',
             'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price',
             'is_active'
         ]
@@ -138,9 +138,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        from .services import EnrollmentService
-        from datetime import timedelta
-        from dateutil.relativedelta import relativedelta
+        from .services import BillingService, EnrollmentService
         
         subscription_type = validated_data.pop('subscription_type')
         subscription_start_date = validated_data.pop('subscription_start_date')
@@ -167,6 +165,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             student=student,
             course=course,
             academic_year=academic_year,
+            billing_plan=subscription_type,
             default_price=pricing['default_price'],
             custom_price=effective_custom_price,
             is_promotional=effective_is_promotional,
@@ -175,19 +174,10 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             notes=validated_data.get('notes', '')
         )
         
-        # Calculate subscription end date
-        if subscription_type == 'MONTHLY':
-            end_date = subscription_start_date + relativedelta(months=1) - timedelta(days=1)
-        else:  # QUARTERLY
-            end_date = subscription_start_date + relativedelta(months=3) - timedelta(days=1)
-        
-        # Create initial subscription
-        Subscription.objects.create(
+        BillingService.create_subscription_for_period(
             enrollment=enrollment,
             subscription_type=subscription_type,
             start_date=subscription_start_date,
-            end_date=end_date,
-            amount=enrollment.custom_price
         )
         
         return enrollment
@@ -196,16 +186,20 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     enrollment_details = EnrollmentSerializer(source='enrollment', read_only=True)
     student_name = serializers.SerializerMethodField()
     course_name = serializers.SerializerMethodField()
+    course_id = serializers.IntegerField(source='enrollment.course_id', read_only=True)
+    student_id = serializers.IntegerField(source='enrollment.student_id', read_only=True)
     academic_year = serializers.IntegerField(source='enrollment.academic_year_id', read_only=True)
     academic_year_name = serializers.CharField(source='enrollment.academic_year.name', read_only=True)
+    amount_paid = serializers.SerializerMethodField()
+    balance = serializers.SerializerMethodField()
     
     class Meta:
         model = Subscription
         fields = [
             'id', 'enrollment', 'enrollment_details', 'student_name', 'course_name',
-            'academic_year', 'academic_year_name',
+            'course_id', 'student_id', 'academic_year', 'academic_year_name',
             'subscription_type', 'start_date', 'end_date', 'amount',
-            'payment_status', 'created_at'
+            'payment_status', 'amount_paid', 'balance', 'created_at'
         ]
         read_only_fields = ['created_at']
     
@@ -214,3 +208,11 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     
     def get_course_name(self, obj):
         return obj.enrollment.course.name
+
+    def get_amount_paid(self, obj):
+        paid = obj.payments.filter(status='PAID').aggregate(total=Sum('amount'))['total'] or 0
+        return float(paid)
+
+    def get_balance(self, obj):
+        paid = obj.payments.filter(status='PAID').aggregate(total=Sum('amount'))['total'] or 0
+        return float(max(obj.amount - paid, 0))

@@ -113,6 +113,7 @@ export const api = {
         list: (params?: any) => axiosInstance.get('/academics/enrollments/', { params }).then(res => res.data),
         create: (data: any) => axiosInstance.post('/academics/enrollments/', data).then(res => res.data),
         get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
+        update: (id: string | number, data: any) => axiosInstance.patch(`/academics/enrollments/${id}/`, data).then(res => res.data),
         offerSettings: (student_id?: number) =>
             axiosInstance.get('/academics/offer-settings/', { params: student_id ? { student_id } : {} }).then(res => res.data),
         updateOfferSettings: (data: {
@@ -127,6 +128,7 @@ export const api = {
     },
     subscriptions: {
         list: (params?: any) => axiosInstance.get('/academics/subscriptions/', { params }).then(res => res.data),
+        syncDue: (data?: any) => axiosInstance.post('/academics/subscriptions/sync-due/', data || {}).then(res => res.data),
     },
     payments: {
         list: (params?: any) => axiosInstance.get('/finances/payments/', { params }).then(res => res.data),
