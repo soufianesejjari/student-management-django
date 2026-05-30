@@ -68,6 +68,41 @@ NEXT_PUBLIC_API_URL=https://yourdomain.com/api
 docker build -t musical-academy-backend:production ./backend
 ```
 
+### CapRover / Single Image Process
+
+The backend image starts `PROCESS_TYPE=all` by default, so a CapRover app with no custom command runs:
+- Django web server on port `8000`
+- Celery worker
+- Celery beat scheduler
+- DB migrations before the web process starts
+
+For this simple single-container mode, keep the backend app replica count at `1` to avoid multiple beat schedulers.
+
+If you later want cleaner separated processes, create three CapRover apps from the same backend image:
+```bash
+PROCESS_TYPE=web
+PROCESS_TYPE=worker
+PROCESS_TYPE=beat
+```
+
+Recommended production env vars:
+```
+DEBUG=False
+SECRET_KEY=<secure-secret>
+ALLOWED_HOSTS=api.yourdomain.com
+FRONTEND_URL=https://app.tma.ma
+DB_ENGINE=postgresql
+DB_NAME=<database>
+DB_USER=<user>
+DB_PASSWORD=<password>
+DB_HOST=<host>
+DB_PORT=5432
+RUN_MIGRATIONS=true
+PROCESS_TYPE=all
+```
+
+Celery uses the same PostgreSQL database by default through a SQLAlchemy broker URL and `django-db` results backend. Override `CELERY_BROKER_URL` only if needed.
+
 ### Docker Network
 
 All services use the default docker-compose network. They communicate using service names:

@@ -42,6 +42,7 @@ COPY . .
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && \
+    chmod +x /app/docker-entrypoint.sh && \
     chown -R appuser:appuser /app
 
 USER appuser
@@ -56,5 +57,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/api/health/', timeout=5)"
 
-# Default command
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "musical_academy.wsgi:application"]
+# Default process for simple CapRover/Docker deployments.
+# Override PROCESS_TYPE=web|worker|beat when running separated processes.
+CMD ["/app/docker-entrypoint.sh"]
