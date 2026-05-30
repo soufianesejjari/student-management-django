@@ -29,6 +29,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def env_bool(name, default=False):
     return os.getenv(name, str(default)).strip().lower() in ('1', 'true', 'yes', 'on')
 
+
+def env_list(name, default=''):
+    return [
+        item.strip().rstrip('/')
+        for item in os.getenv(name, default).split(',')
+        if item.strip()
+    ]
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', False)
 
@@ -37,18 +45,18 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-2+zeyp+_=28(&erw05lw%)a_7f
 if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
     raise ImproperlyConfigured('Set a strong SECRET_KEY when DEBUG=False.')
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()]
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0')
 
-# CORS Configuration - Allow frontend domain
-CORS_ALLOWED_ORIGINS = [
+# CORS Configuration - accepts comma-separated origins:
+# FRONTEND_URL=https://app.tma.ma,https://statuesque-cajeta-aed5c5.netlify.app
+_frontend_origins = env_list('FRONTEND_URL') + env_list('FRONTEND_URLS')
+_cors_origins = env_list('CORS_ALLOWED_ORIGINS')
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys([
     'http://localhost:3000',
-    os.getenv('FRONTEND_URL', ''),
-] if os.getenv('FRONTEND_URL') else [
-    'http://localhost:3000',
-]
-
-# Remove empty strings from CORS list
-CORS_ALLOWED_ORIGINS = [url for url in CORS_ALLOWED_ORIGINS if url]
+    *_frontend_origins,
+    *_cors_origins,
+]))
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS') or CORS_ALLOWED_ORIGINS
 
 # Allow credentials for cross-origin requests
 CORS_ALLOW_CREDENTIALS = True
