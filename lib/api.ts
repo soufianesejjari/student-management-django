@@ -121,6 +121,7 @@ export const api = {
             free_course_id?: number | null;
             max_times?: number;
             school?: Record<string, string>;
+            student_fees?: { registration_fee?: number | string; insurance_fee?: number | string };
         }) =>
             axiosInstance.patch('/academics/offer-settings/update/', data).then(res => res.data),
         suggestPrice: (data: { student_id: number, course_id: number }) =>
@@ -129,6 +130,10 @@ export const api = {
     subscriptions: {
         list: (params?: any) => axiosInstance.get('/academics/subscriptions/', { params }).then(res => res.data),
         syncDue: (data?: any) => axiosInstance.post('/academics/subscriptions/sync-due/', data || {}).then(res => res.data),
+    },
+    studentFees: {
+        list: (params?: any) => axiosInstance.get('/academics/student-fees/', { params }).then(res => res.data),
+        update: (id: string | number, data: any) => axiosInstance.patch(`/academics/student-fees/${id}/`, data).then(res => res.data),
     },
     payments: {
         list: (params?: any) => axiosInstance.get('/finances/payments/', { params }).then(res => res.data),

@@ -39,6 +39,10 @@ export default function SettingsPage() {
     country: "",
     tax_id: "",
   })
+  const [studentFeeSettings, setStudentFeeSettings] = useState({
+    registration_fee: "",
+    insurance_fee: "",
+  })
   const [academicYears, setAcademicYears] = useState<any[]>([])
   const [loadingYears, setLoadingYears] = useState(true)
   const [savingYear, setSavingYear] = useState(false)
@@ -56,6 +60,12 @@ export default function SettingsPage() {
         setOfferMaxTimes(data.max_times ?? 1)
         if (data.school) {
           setSchoolSettings((current) => ({ ...current, ...data.school }))
+        }
+        if (data.student_fees) {
+          setStudentFeeSettings({
+            registration_fee: String(data.student_fees.registration_fee ?? ""),
+            insurance_fee: String(data.student_fees.insurance_fee ?? ""),
+          })
         }
       })
       .catch(() => { toast.error(t('settings.loadError') || 'Erreur lors du chargement des paramètres') })
@@ -142,6 +152,29 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveStudentFees = async () => {
+    setSavingSchool(true)
+    try {
+      const data = await api.enrollments.updateOfferSettings({
+        student_fees: {
+          registration_fee: studentFeeSettings.registration_fee || 0,
+          insurance_fee: studentFeeSettings.insurance_fee || 0,
+        },
+      })
+      if (data.student_fees) {
+        setStudentFeeSettings({
+          registration_fee: String(data.student_fees.registration_fee ?? ""),
+          insurance_fee: String(data.student_fees.insurance_fee ?? ""),
+        })
+      }
+      toast.success(t('settings.studentFeesSavedSuccess'))
+    } catch {
+      toast.error(t('settings.studentFeesSavedError'))
+    } finally {
+      setSavingSchool(false)
+    }
+  }
+
   const updateSchoolField = (field: string, value: string) => {
     setSchoolSettings((current) => ({ ...current, [field]: value }))
   }
@@ -154,6 +187,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
           <TabsTrigger value="academic-year">{t('settings.academicYear')}</TabsTrigger>
           <TabsTrigger value="subjects">{t('settings.subjects')}</TabsTrigger>
+          <TabsTrigger value="student-fees">{t('settings.studentFees')}</TabsTrigger>
           <TabsTrigger value="offer">{t('settings.offer')}</TabsTrigger>
         </TabsList>
         <TabsContent value="general" className="space-y-4">
@@ -219,6 +253,47 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="subjects" className="space-y-4">
           <SubjectsManagement />
+        </TabsContent>
+
+        <TabsContent value="student-fees" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.studentFees')}</CardTitle>
+              <CardDescription>{t('settings.studentFeesDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="default-registration-fee">{t('students.registrationFee')}</Label>
+                <Input
+                  id="default-registration-fee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={studentFeeSettings.registration_fee}
+                  disabled={loadingOffer}
+                  onChange={(event) => setStudentFeeSettings((current) => ({ ...current, registration_fee: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="default-insurance-fee">{t('students.insuranceFee')}</Label>
+                <Input
+                  id="default-insurance-fee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={studentFeeSettings.insurance_fee}
+                  disabled={loadingOffer}
+                  onChange={(event) => setStudentFeeSettings((current) => ({ ...current, insurance_fee: event.target.value }))}
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleSaveStudentFees} disabled={savingSchool || loadingOffer}>
+                {savingSchool && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('settings.saveChanges')}
+              </Button>
+            </CardFooter>
+          </Card>
         </TabsContent>
 
         <TabsContent value="academic-year" className="space-y-4">

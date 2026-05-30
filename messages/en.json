@@ -176,8 +176,15 @@
     "joined": "Joined",
     "registrationDate": "Registration Date",
     "coursesSubscriptions": "Courses & Subscriptions",
+    "studentFees": "Student fees",
     "paymentsHistory": "Payments History",
     "enrollInCourse": "Enroll in Course",
+    "defaultFees": "Default fees",
+    "registrationFee": "Registration fee",
+    "insuranceFee": "Insurance",
+    "feePending": "Pending",
+    "feePaid": "Paid",
+    "feeExempt": "Exempt",
     "notFound": "Student not found",
     "scheduleDownloaded": "Schedule downloaded",
     "scheduleFailed": "Failed to download schedule",
@@ -566,6 +573,8 @@
     "security": "Security",
     "billing": "Billing",
     "offer": "Enrollment Offer",
+    "studentFees": "Student fees",
+    "studentFeesDescription": "Define default amounts automatically created when a student is added.",
     "academicYear": "Academic Year",
     "academicYearDescription": "Define the active school year. Enrollments, subscriptions, payments and schedules use this year by default.",
     "academicYearName": "Year name",
@@ -651,7 +660,9 @@
     "offerSavedError": "Failed to save offer settings.",
     "offerWarningNoFreeCourse": "Warning: offer is enabled but no free course is selected. Offer will have no effect.",
     "schoolSavedSuccess": "School information saved",
-    "schoolSavedError": "Unable to save school information"
+    "schoolSavedError": "Unable to save school information",
+    "studentFeesSavedSuccess": "Student fees saved",
+    "studentFeesSavedError": "Unable to save student fees"
   },
   "common": {
     "on": "on",
@@ -911,6 +922,16 @@
     "viewStudent": "View Student Details",
     "suspend": "Suspend Enrollment",
     "cancel": "Cancel Enrollment"
+  },
+  "studentFees": {
+    "type": "Type",
+    "amount": "Amount",
+    "paid": "Paid",
+    "balance": "Balance",
+    "status": "Status",
+    "empty": "No student fees.",
+    "pay": "Pay",
+    "exempt": "Exempt"
   },
   "paymentsTable": {
     "ref": "Ref",

@@ -2,14 +2,16 @@ from rest_framework import viewsets, permissions, filters, status
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import AcademicYear, Subject, Course, Enrollment, Subscription, AcademySettings
+from decimal import Decimal, InvalidOperation
+from .models import AcademicYear, Subject, Course, Enrollment, Subscription, StudentFee, AcademySettings
 from .serializers import (
     AcademicYearSerializer,
     SubjectSerializer,
     CourseSerializer,
     EnrollmentSerializer,
     EnrollmentCreateSerializer,
-    SubscriptionSerializer
+    SubscriptionSerializer,
+    StudentFeeSerializer,
 )
 from .services import BillingService, EnrollmentService
 
@@ -196,6 +198,53 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         return Response(summary)
 
 
+class StudentFeeViewSet(viewsets.ModelViewSet):
+    queryset = StudentFee.objects.all().select_related('student__user', 'academic_year')
+    serializer_class = StudentFeeSerializer
+    permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        academic_year = self.request.query_params.get('academic_year')
+        all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
+
+        if academic_year:
+            queryset = queryset.filter(academic_year_id=academic_year)
+        elif not all_years:
+            queryset = queryset.filter(academic_year=AcademicYear.get_active())
+
+        student_id = self.request.query_params.get('student') or self.request.query_params.get('student_id')
+        if student_id:
+            queryset = queryset.filter(student_id=student_id)
+
+        fee_type = self.request.query_params.get('fee_type')
+        if fee_type:
+            queryset = queryset.filter(fee_type=fee_type)
+
+        fee_status = self.request.query_params.get('status')
+        if fee_status:
+            queryset = queryset.filter(status=fee_status)
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        academic_year_id = request.query_params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        student_id = request.query_params.get('student') or request.query_params.get('student_id')
+        if student_id:
+            from users.models import StudentProfile
+            student = StudentProfile.objects.filter(pk=student_id).first()
+            if student:
+                BillingService.sync_student_fees(student=student, academic_year=academic_year)
+        else:
+            BillingService.sync_student_fees(academic_year=academic_year)
+        return super().list(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        BillingService.sync_student_fee_status(instance)
+
+
 class CourseOfferSettingsViewSet(viewsets.ViewSet):
     """
     GET  /api/academics/offer-settings/          – full settings + optional student eligibility
@@ -230,6 +279,10 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
                 'description': s.school_description,
                 'country': s.school_country,
                 'tax_id': s.school_tax_id,
+            },
+            'student_fees': {
+                'registration_fee': s.default_registration_fee,
+                'insurance_fee': s.default_insurance_fee,
             },
             'enabled': s.offer_enabled,
             'free_course_id': s.free_course_id,
@@ -323,6 +376,21 @@ class CourseOfferSettingsViewSet(viewsets.ViewSet):
             for payload_key, model_field in mapping.items():
                 if payload_key in school:
                     setattr(s, model_field, school[payload_key] or '')
+
+        if 'student_fees' in data and isinstance(data['student_fees'], dict):
+            student_fees = data['student_fees']
+            for payload_key, model_field in {
+                'registration_fee': 'default_registration_fee',
+                'insurance_fee': 'default_insurance_fee',
+            }.items():
+                if payload_key in student_fees:
+                    try:
+                        setattr(s, model_field, Decimal(str(student_fees[payload_key] or 0)))
+                    except (InvalidOperation, TypeError, ValueError):
+                        return Response(
+                            {'error': f'{payload_key} must be a valid amount'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
         if 'enabled' in data:
             s.offer_enabled = bool(data['enabled'])

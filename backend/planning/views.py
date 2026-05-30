@@ -8,6 +8,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from datetime import datetime, timedelta, time, date
 from calendar import monthrange
+import copy
 from .models import Room, ClassSession, SessionInstance, TeacherMonthlyPayroll
 from .serializers import (
     RoomSerializer, 
@@ -24,9 +25,12 @@ from .services import (
     get_teacher_monthly_occurrences,
     get_teacher_payroll_summary,
     get_teacher_monthly_payroll,
+    get_validated_payroll_conflicts_for_dates,
+    get_validated_payroll_conflicts_for_session,
     is_before_payroll_validation_day,
     reopen_teacher_monthly_payroll,
     serialize_teacher_payroll,
+    serialize_payroll_lock_conflicts,
     validate_all_teacher_monthly_payrolls,
     validate_teacher_monthly_payroll,
 )
@@ -60,12 +64,31 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(course_id=course_id)
         return queryset
 
+    @staticmethod
+    def _payroll_locked_response(payrolls):
+        return Response({
+            "detail": "Teacher payroll for this month is validated. Reopen the month before changing planning.",
+            "payroll_locked": True,
+            "conflicts": serialize_payroll_lock_conflicts(payrolls),
+        }, status=status.HTTP_409_CONFLICT)
+
+    @staticmethod
+    def _candidate_session(instance, validated_data):
+        candidate = copy.copy(instance)
+        for field, value in validated_data.items():
+            setattr(candidate, field, value)
+        return candidate
+
     def create(self, request, *args, **kwargs):
         """
         Create a new class session with custom conflict validation.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        candidate = ClassSession(**serializer.validated_data)
+        payroll_conflicts = get_validated_payroll_conflicts_for_session(candidate)
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
         
         force_conflicts = request.data.get('force_conflicts', False)
         
@@ -102,6 +125,30 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
              return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        old_conflicts = get_validated_payroll_conflicts_for_session(instance)
+        new_conflicts = get_validated_payroll_conflicts_for_session(
+            self._candidate_session(instance, serializer.validated_data)
+        )
+        payroll_conflicts = old_conflicts or new_conflicts
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
+
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        payroll_conflicts = get_validated_payroll_conflicts_for_session(instance)
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['post']) 
     def check_conflicts(self, request):
@@ -153,6 +200,22 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         new_start = data.get('new_start_time')
         new_end = data.get('new_end_time')
         notes = data.get('notes', '')
+        dates_to_check = []
+        try:
+            if original_date:
+                dates_to_check.append(datetime.strptime(original_date, '%Y-%m-%d').date())
+            if new_date:
+                dates_to_check.append(datetime.strptime(new_date, '%Y-%m-%d').date())
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid original_date and new_date are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payroll_conflicts = get_validated_payroll_conflicts_for_dates(
+            session.teacher_id,
+            session.academic_year,
+            dates_to_check,
+        )
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
         
         # Create Instance
         instance, created = SessionInstance.objects.update_or_create(
@@ -177,6 +240,18 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         date_str = request.data.get('original_date')
         notes = request.data.get('notes', '')
+        try:
+            occurrence_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            return Response({"detail": "Valid original_date is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payroll_conflicts = get_validated_payroll_conflicts_for_dates(
+            session.teacher_id,
+            session.academic_year,
+            [occurrence_date],
+        )
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
         
         instance, created = SessionInstance.objects.update_or_create(
             class_session=session,

@@ -28,6 +28,14 @@ class Payment(models.Model):
         blank=True,
         help_text="Link to subscription (if applicable)"
     )
+    student_fee = models.ForeignKey(
+        'academics.StudentFee',
+        on_delete=models.CASCADE,
+        related_name='payments',
+        null=True,
+        blank=True,
+        help_text="Link to one-time student fee (if applicable)"
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()
     method = models.CharField(max_length=20, choices=METHOD_CHOICES)

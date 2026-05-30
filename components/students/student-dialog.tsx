@@ -34,6 +34,8 @@ const studentSchema = z.object({
     address: z.string().min(1, "Address is required"),
     date_of_birth: z.string().optional(),
     age_group: z.enum(["2-5ans", "6-12ans", "Adulte"]).default("6-12ans"),
+    registration_fee_status: z.enum(["PENDING", "PAID", "EXEMPT"]).default("PENDING"),
+    insurance_fee_status: z.enum(["PENDING", "PAID", "EXEMPT"]).default("PENDING"),
 })
 
 type StudentFormValues = z.infer<typeof studentSchema>
@@ -62,6 +64,8 @@ export function StudentDialog({
             address: "",
             date_of_birth: "",
             age_group: "6-12ans",
+            registration_fee_status: "PENDING",
+            insurance_fee_status: "PENDING",
         },
     })
 
@@ -75,6 +79,8 @@ export function StudentDialog({
                 address: student.address || "",
                 date_of_birth: student.date_of_birth || "",
                 age_group: student.age_group || "6-12ans",
+                registration_fee_status: "PENDING",
+                insurance_fee_status: "PENDING",
             })
         } else {
             form.reset({
@@ -85,6 +91,8 @@ export function StudentDialog({
                 address: "",
                 date_of_birth: "",
                 age_group: "6-12ans",
+                registration_fee_status: "PENDING",
+                insurance_fee_status: "PENDING",
             })
         }
     }, [student, form, open])
@@ -210,6 +218,55 @@ export function StudentDialog({
                                 </FormItem>
                             )}
                         />
+                        {!student && (
+                            <div className="grid grid-cols-1 gap-4 rounded-md border p-3">
+                                <p className="text-sm font-medium">{t('students.defaultFees')}</p>
+                                <FormField
+                                    control={form.control}
+                                    name="registration_fee_status"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>{t('students.registrationFee')}</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="PENDING">{t('students.feePending')}</SelectItem>
+                                                    <SelectItem value="PAID">{t('students.feePaid')}</SelectItem>
+                                                    <SelectItem value="EXEMPT">{t('students.feeExempt')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="insurance_fee_status"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>{t('students.insuranceFee')}</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="PENDING">{t('students.feePending')}</SelectItem>
+                                                    <SelectItem value="PAID">{t('students.feePaid')}</SelectItem>
+                                                    <SelectItem value="EXEMPT">{t('students.feeExempt')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        )}
                         <DialogFooter>
                             <Button type="submit">
                                 {student ? t('common.saveChanges') : t('students.addStudent')}

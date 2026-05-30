@@ -7,6 +7,68 @@ from django.utils import timezone
 from .models import ClassSession, SessionInstance, TeacherMonthlyPayroll
 from finances.models import Expense
 
+
+def _month_keys_for_session(session):
+    academic_year = session.academic_year
+    start = session.start_date
+    end = session.end_date or academic_year.end_date
+    if not start or not end or start > end:
+        return set()
+
+    current_day = start
+    days_to_add = (session.day_of_week - current_day.weekday()) % 7
+    current_day += timedelta(days=days_to_add)
+
+    month_keys = set()
+    guard = 0
+    while current_day <= end and guard < 370:
+        month_keys.add((current_day.year, current_day.month))
+        current_day += timedelta(days=7)
+        guard += 1
+
+    return month_keys
+
+
+def _validated_payrolls_for_month_keys(teacher_id, academic_year, month_keys):
+    if not month_keys:
+        return TeacherMonthlyPayroll.objects.none()
+
+    month_filter = Q()
+    for year, month in month_keys:
+        month_filter |= Q(year=year, month=month)
+
+    return TeacherMonthlyPayroll.objects.filter(
+        teacher_id=teacher_id,
+        academic_year=academic_year,
+        status='VALIDATED',
+    ).filter(month_filter).select_related('teacher__user', 'academic_year')
+
+
+def get_validated_payroll_conflicts_for_session(session):
+    return list(_validated_payrolls_for_month_keys(
+        session.teacher_id or getattr(session.teacher, 'id', None),
+        session.academic_year,
+        _month_keys_for_session(session),
+    ))
+
+
+def get_validated_payroll_conflicts_for_dates(teacher_id, academic_year, dates):
+    month_keys = {(day.year, day.month) for day in dates if day}
+    return list(_validated_payrolls_for_month_keys(teacher_id, academic_year, month_keys))
+
+
+def serialize_payroll_lock_conflicts(payrolls):
+    return [
+        {
+            'payroll_id': payroll.id,
+            'teacher_id': payroll.teacher_id,
+            'teacher_name': payroll.teacher.user.get_full_name() or payroll.teacher.user.username,
+            'year': payroll.year,
+            'month': payroll.month,
+        }
+        for payroll in payrolls
+    ]
+
 def get_teacher_monthly_occurrences(teacher, year, month, academic_year=None):
     first_day = date(year, month, 1)
     last_day = date(year, month, monthrange(year, month)[1])

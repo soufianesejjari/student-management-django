@@ -250,6 +250,38 @@ class Subscription(models.Model):
         return f"{self.enrollment} - {self.get_subscription_type_display()} ({self.start_date} to {self.end_date})"
 
 
+class StudentFee(models.Model):
+    """One-time student fees such as registration and insurance."""
+
+    FEE_TYPE_CHOICES = [
+        ('REGISTRATION', 'Registration fee'),
+        ('INSURANCE', 'Insurance'),
+    ]
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PAID', 'Paid'),
+        ('OVERDUE', 'Overdue'),
+        ('EXEMPT', 'Exempt'),
+    ]
+
+    student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='fees')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, related_name='student_fees')
+    fee_type = models.CharField(max_length=20, choices=FEE_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    due_date = models.DateField()
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('student', 'academic_year', 'fee_type')
+        ordering = ['due_date', 'fee_type']
+
+    def __str__(self):
+        return f"{self.student} - {self.get_fee_type_display()} - {self.amount}"
+
+
 class AcademySettings(models.Model):
     """
     Singleton model – only one row ever exists (pk=1).
@@ -267,6 +299,8 @@ class AcademySettings(models.Model):
     school_description = models.TextField(blank=True, default="The Musical Academy est une école de musique proposant des cours pour tous les niveaux et tous les âges.")
     school_country = models.CharField(max_length=100, blank=True, default="Maroc")
     school_tax_id = models.CharField(max_length=100, blank=True, default="")
+    default_registration_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    default_insurance_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     offer_enabled = models.BooleanField(
         default=False,
@@ -302,3 +336,52 @@ class AcademySettings(models.Model):
         """Return the singleton instance, creating it with defaults if it doesn't exist."""
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class BillingAutomationState(models.Model):
+    """Persistent state for the DB-backed billing scheduler."""
+
+    job_name = models.CharField(max_length=100, unique=True)
+    is_running = models.BooleanField(default=False)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_finished_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    last_result = models.JSONField(default=dict, blank=True)
+    run_count = models.PositiveIntegerField(default=0)
+    success_count = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['job_name']
+
+    def __str__(self):
+        return self.job_name
+
+
+class BillingAutomationRun(models.Model):
+    """Execution log for automatic billing jobs."""
+
+    STATUS_CHOICES = [
+        ('SUCCESS', 'Success'),
+        ('ERROR', 'Error'),
+        ('SKIPPED', 'Skipped'),
+    ]
+
+    job_name = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField(null=True, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['job_name', '-started_at']),
+            models.Index(fields=['status', '-started_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.job_name} - {self.status} - {self.started_at:%Y-%m-%d %H:%M:%S}"

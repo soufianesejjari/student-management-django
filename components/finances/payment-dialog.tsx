@@ -18,11 +18,12 @@ interface PaymentDialogProps {
     onSuccess?: () => void
     studentId?: number
     subscriptionId?: number | null
+    studentFeeId?: number | null
     defaultAmount?: string | number
     children?: ReactNode
 }
 
-export function PaymentDialog({ onSuccess, studentId, subscriptionId, defaultAmount, children }: PaymentDialogProps) {
+export function PaymentDialog({ onSuccess, studentId, subscriptionId, studentFeeId, defaultAmount, children }: PaymentDialogProps) {
     const t = useTranslations()
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -62,6 +63,7 @@ export function PaymentDialog({ onSuccess, studentId, subscriptionId, defaultAmo
             await api.post("/finances/payments/", {
                 student: formData.student,
                 subscription: subscriptionId || null,
+                student_fee: studentFeeId || null,
                 amount: parseFloat(formData.amount),
                 method: formData.method,
                 date: formData.date,

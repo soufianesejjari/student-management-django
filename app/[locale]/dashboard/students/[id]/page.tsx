@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { EnrolledCoursesTable } from "@/components/students/enrolled-courses-table"
 import { PaymentsTable } from "@/components/students/payments-table"
+import { StudentFeesTable } from "@/components/students/student-fees-table"
 import { EnrollCourseDialog } from "@/components/students/enroll-course-dialog"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
@@ -116,6 +117,7 @@ export default function StudentDetailPage() {
             <Tabs defaultValue="courses" className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="courses">{t('students.coursesSubscriptions')}</TabsTrigger>
+                    <TabsTrigger value="fees">{t('students.studentFees')}</TabsTrigger>
                     <TabsTrigger value="payments">{t('students.paymentsHistory')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="courses" className="space-y-4">
@@ -128,6 +130,9 @@ export default function StudentDetailPage() {
                 </TabsContent>
                 <TabsContent value="payments" className="space-y-4">
                     <PaymentsTable studentId={student.id} />
+                </TabsContent>
+                <TabsContent value="fees" className="space-y-4">
+                    <StudentFeesTable studentId={student.id} />
                 </TabsContent>
             </Tabs>
 

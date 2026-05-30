@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AcademicYear, Subject, Course, Enrollment, Subscription
+from .models import AcademicYear, Subject, Course, Enrollment, Subscription, StudentFee
 from users.models import StudentProfile
 from django.db.models import Sum
 
@@ -208,6 +208,33 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     
     def get_course_name(self, obj):
         return obj.enrollment.course.name
+
+    def get_amount_paid(self, obj):
+        paid = obj.payments.filter(status='PAID').aggregate(total=Sum('amount'))['total'] or 0
+        return float(paid)
+
+    def get_balance(self, obj):
+        paid = obj.payments.filter(status='PAID').aggregate(total=Sum('amount'))['total'] or 0
+        return float(max(obj.amount - paid, 0))
+
+
+class StudentFeeSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
+    amount_paid = serializers.SerializerMethodField()
+    balance = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentFee
+        fields = [
+            'id', 'student', 'student_name', 'academic_year', 'academic_year_name',
+            'fee_type', 'amount', 'status', 'due_date', 'amount_paid', 'balance',
+            'notes', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'amount_paid', 'balance']
+
+    def get_student_name(self, obj):
+        return obj.student.user.get_full_name() or obj.student.user.username
 
     def get_amount_paid(self, obj):
         paid = obj.payments.filter(status='PAID').aggregate(total=Sum('amount'))['total'] or 0

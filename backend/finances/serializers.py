@@ -1,15 +1,21 @@
 from rest_framework import serializers
 from .models import Payment, Expense
-from academics.serializers import SubscriptionSerializer
+from academics.serializers import SubscriptionSerializer, StudentFeeSerializer
 
 class PaymentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     student_username = serializers.CharField(source='student.user.username', read_only=True)
     subscription_details = SubscriptionSerializer(source='subscription', read_only=True)
+    student_fee_details = StudentFeeSerializer(source='student_fee', read_only=True)
 
     class Meta:
         model = Payment
-        fields = ['id', 'student', 'student_name', 'student_username', 'subscription', 'subscription_details', 'amount', 'date', 'method', 'status', 'invoice_ref', 'notes', 'created_at']
+        fields = [
+            'id', 'student', 'student_name', 'student_username',
+            'subscription', 'subscription_details',
+            'student_fee', 'student_fee_details',
+            'amount', 'date', 'method', 'status', 'invoice_ref', 'notes', 'created_at',
+        ]
         read_only_fields = ['created_at']
 
     def get_student_name(self, obj):
@@ -25,26 +31,39 @@ class PaymentSerializer(serializers.ModelSerializer):
             validated_data['invoice_ref'] = f"INV-{uuid.uuid4().hex[:8].upper()}"
         
         subscription = validated_data.get('subscription')
+        student_fee = validated_data.get('student_fee')
         student = validated_data.get('student')
+        if subscription and student_fee:
+            raise serializers.ValidationError("Payment can be linked to either a subscription or a student fee, not both.")
         if subscription and subscription.enrollment.student_id != student.id:
             raise serializers.ValidationError("Subscription does not belong to this student.")
+        if student_fee and student_fee.student_id != student.id:
+            raise serializers.ValidationError("Student fee does not belong to this student.")
 
         payment = super().create(validated_data)
         
         if payment.subscription:
             BillingService.sync_subscription_payment_status(payment.subscription)
+        if payment.student_fee:
+            BillingService.sync_student_fee_status(payment.student_fee)
             
         return payment
 
     def update(self, instance, validated_data):
         from academics.services import BillingService
-        from academics.models import Subscription
+        from academics.models import Subscription, StudentFee
 
         previous_subscription_id = instance.subscription_id
+        previous_student_fee_id = instance.student_fee_id
         subscription = validated_data.get('subscription', instance.subscription)
+        student_fee = validated_data.get('student_fee', instance.student_fee)
         student = validated_data.get('student', instance.student)
+        if subscription and student_fee:
+            raise serializers.ValidationError("Payment can be linked to either a subscription or a student fee, not both.")
         if subscription and subscription.enrollment.student_id != student.id:
             raise serializers.ValidationError("Subscription does not belong to this student.")
+        if student_fee and student_fee.student_id != student.id:
+            raise serializers.ValidationError("Student fee does not belong to this student.")
 
         payment = super().update(instance, validated_data)
 
@@ -53,6 +72,12 @@ class PaymentSerializer(serializers.ModelSerializer):
             subscription_obj = Subscription.objects.filter(pk=subscription_id).first()
             if subscription_obj:
                 BillingService.sync_subscription_payment_status(subscription_obj)
+
+        fee_ids = {previous_student_fee_id, payment.student_fee_id}
+        for fee_id in filter(None, fee_ids):
+            fee_obj = StudentFee.objects.filter(pk=fee_id).first()
+            if fee_obj:
+                BillingService.sync_student_fee_status(fee_obj)
 
         return payment
 

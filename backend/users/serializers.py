@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from django.utils.text import slugify
 from .models import User, StudentProfile, TeacherProfile, TeacherAvailability, TeacherPreferences
 
@@ -82,6 +83,18 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(write_only=True)
     last_name = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True, required=False, allow_blank=True)
+    registration_fee_status = serializers.ChoiceField(
+        choices=('PENDING', 'PAID', 'EXEMPT'),
+        write_only=True,
+        required=False,
+        default='PENDING',
+    )
+    insurance_fee_status = serializers.ChoiceField(
+        choices=('PENDING', 'PAID', 'EXEMPT'),
+        write_only=True,
+        required=False,
+        default='PENDING',
+    )
     courses = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payment_balance = serializers.SerializerMethodField()
@@ -91,7 +104,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status',
             'courses', 'payment_status', 'payment_balance', 'first_name', 'last_name',
-            'email', 'address', 'phone', 'date_of_birth', 'age_group',
+            'email', 'registration_fee_status', 'insurance_fee_status',
+            'address', 'phone', 'date_of_birth', 'age_group',
         ]
 
     def get_courses(self, obj):
@@ -114,10 +128,15 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     def get_payment_balance(self, obj):
         return self._payment_summary(obj)[1]
     
+    @transaction.atomic
     def create(self, validated_data):
+        from academics.services import BillingService
+
         first_name = validated_data.pop('first_name')
         last_name = validated_data.pop('last_name')
         email = validated_data.pop('email', '')
+        registration_fee_status = validated_data.pop('registration_fee_status', 'PENDING')
+        insurance_fee_status = validated_data.pop('insurance_fee_status', 'PENDING')
         user_data = {
             'first_name': first_name,
             'last_name': last_name,
@@ -128,7 +147,13 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         user.set_unusable_password()
         user.save(update_fields=['password'])
         validated_data['user'] = user
-        return super().create(validated_data)
+        student = super().create(validated_data)
+        BillingService.create_default_student_fees(
+            student,
+            registration_status=registration_fee_status,
+            insurance_status=insurance_fee_status,
+        )
+        return student
 
     def update(self, instance, validated_data):
         # Update user fields if present

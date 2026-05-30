@@ -41,9 +41,9 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
             toast.success(t('cancelSessionSuccess'))
             onUpdate?.()
             onOpenChange(false)
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            toast.error(t('cancelSessionError'))
+            toast.error(error.response?.data?.detail || t('cancelSessionError'))
         } finally {
             setLoading(false)
         }
@@ -67,9 +67,9 @@ export function SessionDetailsDialog({ open, onOpenChange, session, date, onUpda
             toast.success(t('rescheduleSuccess'))
             onUpdate?.()
             onOpenChange(false)
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            toast.error(t('rescheduleError'))
+            toast.error(error.response?.data?.detail || t('rescheduleError'))
         } finally {
             setLoading(false)
         }

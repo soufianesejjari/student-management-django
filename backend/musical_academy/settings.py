@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 
 import os
+from urllib.parse import quote_plus
+
 from dotenv import load_dotenv
 from django.core.exceptions import ImproperlyConfigured
 
@@ -88,6 +90,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'django_celery_results',
+    'django_celery_beat',
     'users',
     'academics',
     'enrollments',
@@ -210,4 +214,49 @@ COURSE_OFFER_FALLBACK = {
     'enabled': False,
     'free_course_id': None,
     'max_times': 1,
+}
+
+def build_celery_sql_broker_url():
+    """
+    Use the same database as Celery broker when CELERY_BROKER_URL is not set.
+    PostgreSQL is recommended for this mode; SQLite is only acceptable locally.
+    """
+    database = DATABASES['default']
+    engine = database['ENGINE']
+    if engine == 'django.db.backends.sqlite3':
+        return f"sqla+sqlite:///{database['NAME']}"
+    if engine == 'django.db.backends.postgresql':
+        name = quote_plus(str(database['NAME']))
+        user = quote_plus(str(database.get('USER') or ''))
+        password = quote_plus(str(database.get('PASSWORD') or ''))
+        host = str(database.get('HOST') or 'localhost')
+        port = str(database.get('PORT') or '5432')
+        auth = user
+        if password:
+            auth = f"{auth}:{password}"
+        return f"sqla+postgresql://{auth}@{host}:{port}/{name}"
+    return 'sqla+sqlite:///celery-broker.sqlite3'
+
+
+# Redis-free Celery: SQLAlchemy broker queue + Django DB result backend.
+# Run with:
+#   celery -A musical_academy worker -l info
+#   celery -A musical_academy beat -l info
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', build_celery_sql_broker_url())
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'django-db')
+CELERY_CACHE_BACKEND = 'default'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = USE_TZ
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT', '1800'))
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'billing-daily-sync': {
+        'task': 'academics.tasks.run_billing_automation',
+        'schedule': 3600.0,
+        'options': {'expires': 1800},
+    },
 }

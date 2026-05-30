@@ -176,8 +176,15 @@
     "joined": "Inscrit le",
     "registrationDate": "Date d'inscription",
     "coursesSubscriptions": "Cours & Abonnements",
+    "studentFees": "Frais étudiant",
     "paymentsHistory": "Historique des paiements",
     "enrollInCourse": "Inscrire à un cours",
+    "defaultFees": "Frais par défaut",
+    "registrationFee": "Frais d'inscription",
+    "insuranceFee": "Assurance",
+    "feePending": "En attente",
+    "feePaid": "Payé",
+    "feeExempt": "Exonéré",
     "notFound": "Étudiant non trouvé",
     "scheduleDownloaded": "Planning téléchargé",
     "scheduleFailed": "Erreur lors du téléchargement du planning",
@@ -566,6 +573,8 @@
     "security": "Sécurité",
     "billing": "Facturation",
     "offer": "Offre d'inscription",
+    "studentFees": "Frais étudiant",
+    "studentFeesDescription": "Définissez les montants par défaut créés automatiquement à l'ajout d'un étudiant.",
     "academicYear": "Année scolaire",
     "academicYearDescription": "Définissez l'année scolaire active. Les inscriptions, abonnements, paiements et emplois du temps utilisent cette année par défaut.",
     "academicYearName": "Nom de l'année",
@@ -651,7 +660,9 @@
     "offerSavedError": "Échec de l'enregistrement des paramètres.",
     "offerWarningNoFreeCourse": "Attention : l'offre est activée mais aucun cours gratuit n'est sélectionné. L'offre sera inactive.",
     "schoolSavedSuccess": "Informations de l'école enregistrées",
-    "schoolSavedError": "Erreur lors de l'enregistrement des informations de l'école"
+    "schoolSavedError": "Erreur lors de l'enregistrement des informations de l'école",
+    "studentFeesSavedSuccess": "Frais étudiant enregistrés",
+    "studentFeesSavedError": "Erreur lors de l'enregistrement des frais étudiant"
   },
   "common": {
     "on": "sur",
@@ -911,6 +922,16 @@
     "viewStudent": "Voir la fiche étudiant",
     "suspend": "Suspendre l'inscription",
     "cancel": "Annuler l'inscription"
+  },
+  "studentFees": {
+    "type": "Type",
+    "amount": "Montant",
+    "paid": "Payé",
+    "balance": "Solde",
+    "status": "Statut",
+    "empty": "Aucun frais étudiant.",
+    "pay": "Payer",
+    "exempt": "Exonérer"
   },
   "paymentsTable": {
     "ref": "Réf.",
