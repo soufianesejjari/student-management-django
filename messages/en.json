@@ -188,7 +188,14 @@
     "notFound": "Student not found",
     "scheduleDownloaded": "Schedule downloaded",
     "scheduleFailed": "Failed to download schedule",
-    "failedLoad": "Failed to load student details"
+    "failedLoad": "Failed to load student details",
+    "sendSchedule": "Send schedule",
+    "sendToAll": "Send to all",
+    "sendSelected": "Send selected ({count})",
+    "scheduleSentSuccess": "{count} email(s) queued successfully",
+    "scheduleSentPartial": "{count} email(s) queued, {skipped} skipped (no email address)",
+    "scheduleSentError": "Failed to send schedules",
+    "noSelection": "Select at least one student to send"
   },
   "teachers": {
     "title": "Teachers",
@@ -277,7 +284,14 @@
     "paymentReportDownloaded": "Payment report downloaded",
     "paymentReportFailed": "Failed to download payment report",
     "scheduleDownloaded": "Schedule downloaded",
-    "scheduleFailed": "Failed to download schedule"
+    "scheduleFailed": "Failed to download schedule",
+    "sendSchedule": "Send schedule",
+    "sendToAll": "Send to all",
+    "sendSelected": "Send selected ({count})",
+    "scheduleSentSuccess": "{count} email(s) queued successfully",
+    "scheduleSentPartial": "{count} email(s) queued, {skipped} skipped (no email address)",
+    "scheduleSentError": "Failed to send schedules",
+    "noSelection": "Select at least one teacher to send"
   },
   "courses": {
     "title": "Courses",

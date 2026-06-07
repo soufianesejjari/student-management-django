@@ -188,7 +188,14 @@
     "notFound": "Étudiant non trouvé",
     "scheduleDownloaded": "Planning téléchargé",
     "scheduleFailed": "Erreur lors du téléchargement du planning",
-    "failedLoad": "Erreur lors du chargement des détails"
+    "failedLoad": "Erreur lors du chargement des détails",
+    "sendSchedule": "Envoyer le planning",
+    "sendToAll": "Envoyer à tous",
+    "sendSelected": "Envoyer la sélection ({count})",
+    "scheduleSentSuccess": "{count} e-mail(s) mis en file d'attente",
+    "scheduleSentPartial": "{count} e-mail(s) envoyés, {skipped} ignorés (pas d'adresse email)",
+    "scheduleSentError": "Échec de l'envoi du planning",
+    "noSelection": "Sélectionnez au moins un étudiant"
   },
   "teachers": {
     "title": "Professeurs",
@@ -277,7 +284,14 @@
     "paymentReportDownloaded": "Rapport de paiement téléchargé",
     "paymentReportFailed": "Erreur lors du téléchargement du rapport",
     "scheduleDownloaded": "Planning téléchargé",
-    "scheduleFailed": "Erreur lors du téléchargement du planning"
+    "scheduleFailed": "Erreur lors du téléchargement du planning",
+    "sendSchedule": "Envoyer le planning",
+    "sendToAll": "Envoyer à tous",
+    "sendSelected": "Envoyer la sélection ({count})",
+    "scheduleSentSuccess": "{count} e-mail(s) mis en file d'attente",
+    "scheduleSentPartial": "{count} e-mail(s) envoyés, {skipped} ignorés (pas d'adresse email)",
+    "scheduleSentError": "Échec de l'envoi du planning",
+    "noSelection": "Sélectionnez au moins un professeur"
   },
   "courses": {
     "title": "Cours",

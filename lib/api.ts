@@ -187,6 +187,12 @@ export const api = {
         /** Full catalogue of delegatable Django permissions, grouped by app */
         available: () => axiosInstance.get('/users/available-permissions/').then(res => res.data),
     },
+    notifications: {
+        sendStudentSchedules: (ids?: number[]) =>
+            axiosInstance.post('/notifications/students/send-schedule/', ids ? { ids } : {}).then(res => res.data),
+        sendTeacherSchedules: (ids?: number[]) =>
+            axiosInstance.post('/notifications/teachers/send-schedule/', ids ? { ids } : {}).then(res => res.data),
+    },
 };
 
 export default api;

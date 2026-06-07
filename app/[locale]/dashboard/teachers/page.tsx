@@ -1,10 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CalendarCheck, ChevronLeft, ChevronRight, Plus, Search, Pencil, Trash2, Eye } from "lucide-react"
+import { CalendarCheck, ChevronLeft, ChevronRight, Mail, Plus, Search, Pencil, Trash2, Eye, Loader2 } from "lucide-react"
 import { useTeachers, createTeacher, updateTeacher, deleteTeacher } from "@/hooks/useTeachers"
 import { validateMonthlyTeacherPayrolls } from "@/hooks/useTeacherSessions"
 import { useState } from "react"
@@ -24,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { api } from "@/lib/api"
 
 export default function TeachersPage() {
   const t = useTranslations()
@@ -31,8 +33,9 @@ export default function TeachersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null)
   const [payrollBatchLoading, setPayrollBatchLoading] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isSending, setIsSending] = useState(false)
 
-  // Delete Dialog State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [teacherToDelete, setTeacherToDelete] = useState<any>(null)
 
@@ -42,7 +45,7 @@ export default function TeachersPage() {
     try {
       await createTeacher(data)
       toast.success(t('teachers.createSuccess'))
-      mutate() // Refresh list
+      mutate()
     } catch (error) {
       toast.error(t('teachers.createError'))
       console.error(error)
@@ -111,6 +114,41 @@ export default function TeachersPage() {
     }
   }
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (!teachers) return
+    const allIds = teachers.map((t: any) => t.id)
+    const allSelected = allIds.every((id: number) => selectedIds.has(id))
+    setSelectedIds(allSelected ? new Set() : new Set(allIds))
+  }
+
+  const handleSendSchedules = async (ids?: number[]) => {
+    setIsSending(true)
+    try {
+      const result = await api.notifications.sendTeacherSchedules(ids)
+      const skipped = result.skipped?.length ?? 0
+      if (skipped > 0) {
+        toast.success(t('teachers.scheduleSentPartial', { count: result.queued, skipped }))
+      } else {
+        toast.success(t('teachers.scheduleSentSuccess', { count: result.queued }))
+      }
+      setSelectedIds(new Set())
+    } catch {
+      toast.error(t('teachers.scheduleSentError'))
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const allOnPageSelected = teachers?.length > 0 && teachers?.every((t: any) => selectedIds.has(t.id))
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -133,7 +171,7 @@ export default function TeachersPage() {
           <CardDescription>{t('teachers.description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className="flex items-center gap-2 w-full max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -143,11 +181,40 @@ export default function TeachersPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSending}
+                  onClick={() => handleSendSchedules(Array.from(selectedIds))}
+                >
+                  {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                  {t('teachers.sendSelected', { count: selectedIds.size })}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isSending}
+                onClick={() => handleSendSchedules()}
+              >
+                {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                {t('teachers.sendToAll')}
+              </Button>
+            </div>
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allOnPageSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all on page"
+                    />
+                  </TableHead>
                   <TableHead>{t('teachers.name')}</TableHead>
                   <TableHead>{t('teachers.email')}</TableHead>
                   <TableHead>{t('teachers.specialty')}</TableHead>
@@ -159,15 +226,22 @@ export default function TeachersPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">{t('common.loading')}</TableCell>
                   </TableRow>
                 ) : teachers?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">{t('teachers.noTeachers')}</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">{t('teachers.noTeachers')}</TableCell>
                   </TableRow>
                 ) : (
                   teachers?.map((teacher: any) => (
-                    <TableRow key={teacher.id}>
+                    <TableRow key={teacher.id} data-state={selectedIds.has(teacher.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(teacher.id)}
+                          onCheckedChange={() => toggleSelect(teacher.id)}
+                          aria-label={`Select ${teacher.user.first_name}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         {teacher.user.first_name} {teacher.user.last_name}
                       </TableCell>

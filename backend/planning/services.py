@@ -397,3 +397,79 @@ def reopen_teacher_monthly_payroll(teacher, year, month, academic_year, user=Non
         payroll.reopened_by = user
     payroll.save(update_fields=['status', 'reopened_at', 'reopened_by', 'updated_at'])
     return payroll
+
+
+# ---------------------------------------------------------------------------
+# Schedule PDF data builders (shared by HTTP views and Celery tasks)
+# ---------------------------------------------------------------------------
+
+def build_student_schedule_pdf_data(student, start_date, end_date, academic_year=None):
+    """Return (student_data, enrollments_data) ready for PDFReportGenerator."""
+    from academics.models import AcademicYear, Enrollment
+
+    if academic_year is None:
+        academic_year = AcademicYear.get_active()
+
+    enrolled_courses = Enrollment.objects.filter(
+        student=student,
+        academic_year=academic_year,
+        status='ACTIVE',
+    ).values_list('course_id', flat=True)
+
+    sessions = ClassSession.objects.filter(
+        academic_year=academic_year,
+        course_id__in=enrolled_courses,
+    ).filter(
+        Q(start_date__lte=end_date) &
+        (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
+    ).select_related('course', 'room', 'teacher__user').distinct()
+
+    courses_dict = {}
+    for session in sessions:
+        key = session.course.id
+        if key not in courses_dict:
+            courses_dict[key] = {
+                'course_name': session.course.name,
+                'teacher_name': session.teacher.user.get_full_name() or session.teacher.user.username,
+                'sessions': [],
+            }
+        courses_dict[key]['sessions'].append({
+            'day_of_week': session.day_of_week,
+            'course_name': session.course.name,
+            'start_time': session.start_time.isoformat(),
+            'end_time': session.end_time.isoformat(),
+            'room_name': session.room.name,
+        })
+
+    student_data = {'name': student.user.get_full_name() or student.user.username}
+    return student_data, list(courses_dict.values())
+
+
+def build_teacher_schedule_pdf_data(teacher, start_date, end_date, academic_year=None):
+    """Return (teacher_data, sessions_data) ready for PDFReportGenerator."""
+    from academics.models import AcademicYear
+
+    if academic_year is None:
+        academic_year = AcademicYear.get_active()
+
+    sessions = ClassSession.objects.filter(
+        academic_year=academic_year,
+        teacher=teacher,
+    ).filter(
+        Q(start_date__lte=end_date) &
+        (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
+    ).select_related('course', 'room')
+
+    occurrences = [
+        {
+            'day_of_week': s.day_of_week,
+            'course': s.course.name,
+            'start_time': s.start_time.isoformat(),
+            'end_time': s.end_time.isoformat(),
+            'room': s.room.name,
+        }
+        for s in sessions
+    ]
+
+    teacher_data = {'name': teacher.user.get_full_name() or teacher.user.username}
+    return teacher_data, {'occurrences': occurrences}

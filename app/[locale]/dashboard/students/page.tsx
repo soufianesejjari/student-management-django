@@ -1,10 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Plus, Search, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Mail, Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { useStudents, createStudent, updateStudent, deleteStudent } from "@/hooks/useStudents"
 import { useState } from "react"
 import { usePageSearch } from "@/hooks/usePageSearch"
@@ -12,7 +13,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import Link from "next/link"
 import { StudentDialog } from "@/components/students/student-dialog"
 import { toast } from "sonner"
- import { usePermissions } from "@/hooks/usePermissions"
+import { usePermissions } from "@/hooks/usePermissions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ import {
 import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { api } from "@/lib/api"
 
 function StudentsContent() {
   const t = useTranslations()
@@ -34,8 +36,9 @@ function StudentsContent() {
   const { page, search, setSearch, setPage } = usePageSearch()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<any>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isSending, setIsSending] = useState(false)
 
-  // Delete Dialog State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState<any>(null)
 
@@ -45,7 +48,7 @@ function StudentsContent() {
     try {
       await createStudent(data)
       toast.success(t('students.createSuccess'))
-      mutate() // Refresh list
+      mutate()
     } catch (error) {
       toast.error(t('students.createError'))
       console.error(error)
@@ -94,6 +97,41 @@ function StudentsContent() {
     setIsDeleteDialogOpen(true)
   }
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (!students) return
+    const allIds = students.map((s: any) => s.id)
+    const allSelected = allIds.every((id: number) => selectedIds.has(id))
+    setSelectedIds(allSelected ? new Set() : new Set(allIds))
+  }
+
+  const handleSendSchedules = async (ids?: number[]) => {
+    setIsSending(true)
+    try {
+      const result = await api.notifications.sendStudentSchedules(ids)
+      const skipped = result.skipped?.length ?? 0
+      if (skipped > 0) {
+        toast.success(t('students.scheduleSentPartial', { count: result.queued, skipped }))
+      } else {
+        toast.success(t('students.scheduleSentSuccess', { count: result.queued }))
+      }
+      setSelectedIds(new Set())
+    } catch {
+      toast.error(t('students.scheduleSentError'))
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  const allOnPageSelected = students?.length > 0 && students?.every((s: any) => selectedIds.has(s.id))
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -112,7 +150,7 @@ function StudentsContent() {
           <CardDescription>{t('students.description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className="flex items-center gap-2 w-full max-w-sm">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -122,11 +160,40 @@ function StudentsContent() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSending}
+                  onClick={() => handleSendSchedules(Array.from(selectedIds))}
+                >
+                  {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                  {t('students.sendSelected', { count: selectedIds.size })}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isSending}
+                onClick={() => handleSendSchedules()}
+              >
+                {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                {t('students.sendToAll')}
+              </Button>
+            </div>
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allOnPageSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all on page"
+                    />
+                  </TableHead>
                   <TableHead>{t('students.fullName')}</TableHead>
                   <TableHead>{t('students.phoneNumber')}</TableHead>
                   <TableHead>{t('students.courses')}</TableHead>
@@ -138,15 +205,22 @@ function StudentsContent() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">{t('common.loading')}</TableCell>
                   </TableRow>
                 ) : students?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">{t('students.noStudents')}</TableCell>
+                    <TableCell colSpan={7} className="text-center h-24">{t('students.noStudents')}</TableCell>
                   </TableRow>
                 ) : (
                   students?.map((student: any) => (
-                    <TableRow key={student.id}>
+                    <TableRow key={student.id} data-state={selectedIds.has(student.id) ? "selected" : undefined}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(student.id)}
+                          onCheckedChange={() => toggleSelect(student.id)}
+                          aria-label={`Select ${student.user.first_name}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         <Link href={`/dashboard/students/${student.id}`} className="hover:underline text-primary">
                           {student.user.first_name} {student.user.last_name}
