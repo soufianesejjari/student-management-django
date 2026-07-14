@@ -188,7 +188,7 @@ function CoursesContent() {
             <div className="flex-1 text-sm text-muted-foreground">
               {totalCount > 0 ? (
                 <>
-                  {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.items')})
+                  {t('common.page', { current: page, total: Math.ceil(totalCount / 50) })} ({totalCount} {t('common.items')})
                 </>
               ) : null}
             </div>

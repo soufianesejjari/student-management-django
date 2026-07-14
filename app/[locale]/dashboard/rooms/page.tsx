@@ -148,7 +148,7 @@ export default function RoomsPage() {
           {totalCount > 0 && (
             <div className="flex items-center justify-end space-x-2 py-4">
               <div className="flex-1 text-sm text-muted-foreground">
-                {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.total')})
+                {t('common.page', { current: page, total: Math.ceil(totalCount / 50) })} ({totalCount} {t('common.total')})
               </div>
               <Button
                 variant="outline"

@@ -8,6 +8,7 @@ from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from django.http import HttpResponse
 
 
 def decimal_to_float(value):
@@ -238,3 +239,72 @@ class ReportsView(views.APIView):
             'retention': retention,
             'room_usage': room_usage,
         })
+
+
+class ReportsExcelExportView(views.APIView):
+    """Export the academy's finance report in an editable Excel workbook."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+        from planning.models import TeacherMonthlyPayroll
+
+        academic_year = AcademicYear.get_active()
+        start, end = academic_year.start_date, academic_year.end_date
+        paid_payments = Payment.objects.filter(status='PAID', date__range=(start, end)).select_related('student__user')
+        payrolls = TeacherMonthlyPayroll.objects.filter(academic_year=academic_year).select_related('teacher__user', 'expense')
+
+        workbook = Workbook()
+        summary = workbook.active
+        summary.title = 'Synthèse'
+        student_sheet = workbook.create_sheet('Paiements élèves')
+        salary_sheet = workbook.create_sheet('Salaires professeurs')
+
+        header_fill = PatternFill('solid', fgColor='D8262B')
+        header_font = Font(color='FFFFFF', bold=True)
+
+        def write_header(sheet, columns):
+            sheet.append(columns)
+            for cell in sheet[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center')
+            sheet.freeze_panes = 'A2'
+            sheet.auto_filter.ref = sheet.dimensions
+
+        income = paid_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        expenses = Expense.objects.filter(status='PAID', date__range=(start, end)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        write_header(summary, ['Année académique', 'Date début', 'Date fin', 'Encaissements (MAD)', 'Dépenses (MAD)', 'Résultat net (MAD)'])
+        summary.append([academic_year.name, start, end, float(income), float(expenses), float(income - expenses)])
+
+        write_header(student_sheet, ['Élève', 'Mois', 'Nombre de paiements', 'Montant payé (MAD)'])
+        student_rows = paid_payments.values(
+            'student__user__first_name', 'student__user__last_name', 'student__user__username', 'date__year', 'date__month'
+        ).annotate(payment_count=Count('id'), amount=Sum('amount')).order_by(
+            'student__user__last_name', 'student__user__first_name', 'date__year', 'date__month'
+        )
+        for row in student_rows:
+            name = f"{row['student__user__first_name']} {row['student__user__last_name']}".strip() or row['student__user__username']
+            student_sheet.append([name, f"{row['date__year']}-{row['date__month']:02d}", row['payment_count'], float(row['amount'])])
+
+        write_header(salary_sheet, ['Professeur', 'Mois', 'Statut', 'Heures travaillées', 'Taux horaire (MAD)', 'Salaire (MAD)', 'Dépense payée'])
+        for payroll in payrolls:
+            teacher = payroll.teacher.user.get_full_name().strip() or payroll.teacher.user.username
+            salary_sheet.append([
+                teacher, f'{payroll.year}-{payroll.month:02d}', payroll.status, float(payroll.worked_hours),
+                float(payroll.hourly_rate), float(payroll.amount), payroll.expense.status if payroll.expense_id else 'NON CRÉÉE',
+            ])
+
+        for sheet in workbook.worksheets:
+            for column_cells in sheet.columns:
+                sheet.column_dimensions[column_cells[0].column_letter].width = min(max(len(str(cell.value or '')) for cell in column_cells) + 2, 32)
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    if isinstance(cell.value, (int, float)):
+                        cell.number_format = '#,##0.00'
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="rapport-financier-{academic_year.name}.xlsx"'
+        workbook.save(response)
+        return response

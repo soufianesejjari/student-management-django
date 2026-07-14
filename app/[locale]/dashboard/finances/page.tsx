@@ -229,7 +229,7 @@ function FinancesContent() {
               </div>
               <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                  {paymentsTotal > 0 ? t('common.page', { current: paymentsPage, total: Math.ceil(paymentsTotal / 10) }) : null}
+                  {paymentsTotal > 0 ? t('common.page', { current: paymentsPage, total: Math.ceil(paymentsTotal / 50) }) : null}
                 </div>
                 <Button
                   variant="outline"
@@ -443,7 +443,7 @@ function FinancesContent() {
               </div>
               <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                  {expensesTotal > 0 ? t('common.page', { current: expensesPage, total: Math.ceil(expensesTotal / 10) }) : null}
+                  {expensesTotal > 0 ? t('common.page', { current: expensesPage, total: Math.ceil(expensesTotal / 50) }) : null}
                 </div>
                 <Button
                   variant="outline"

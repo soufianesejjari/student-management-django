@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Mail, Plus, Search, Pencil, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Mail, Plus, Search, Pencil, Trash2 } from "lucide-react"
 import { useStudents, createStudent, updateStudent, deleteStudent } from "@/hooks/useStudents"
 import { useState } from "react"
 import { usePageSearch } from "@/hooks/usePageSearch"
@@ -46,12 +46,30 @@ function StudentsContent() {
 
   const handleCreate = async (data: any) => {
     try {
-      await createStudent(data)
+      const response = await createStudent(data)
       toast.success(t('students.createSuccess'))
       mutate()
+      await downloadRegistrationForm(response.data.id, response.data.user)
     } catch (error) {
       toast.error(t('students.createError'))
       console.error(error)
+    }
+  }
+
+  const downloadRegistrationForm = async (studentId: number, user?: { first_name?: string, last_name?: string }) => {
+    try {
+      const response = await api.get(`/users/students/${studentId}/registration-form/`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `fiche-inscription-${user?.last_name || studentId}-${user?.first_name || ''}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error(error)
+      toast.error("La fiche d'inscription n'a pas pu être téléchargée.")
     }
   }
 
@@ -259,6 +277,9 @@ function StudentsContent() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" title="Télécharger la fiche d'inscription" onClick={() => downloadRegistrationForm(student.id, student.user)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
                         {hasPermission("users.change_studentprofile") && (
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(student)}>
                             <Pencil className="h-4 w-4" />
@@ -280,7 +301,7 @@ function StudentsContent() {
             <div className="flex-1 text-sm text-muted-foreground">
               {totalCount > 0 ? (
                 <>
-                  {t('common.page', { current: page, total: Math.ceil(totalCount / 10) })} ({totalCount} {t('common.items')})
+                  {t('common.page', { current: page, total: Math.ceil(totalCount / 50) })} ({totalCount} {t('common.items')})
                 </>
               ) : null}
             </div>

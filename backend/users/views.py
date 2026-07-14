@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status, filters
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.http import FileResponse
 from rest_framework.views import APIView
 from django.contrib.auth.models import Permission
 
@@ -55,6 +56,15 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__username', 'phone', 'parent_phone', 'address', 'age_group', 'status']
+
+    @action(detail=True, methods=['get'], url_path='registration-form')
+    def registration_form(self, request, pk=None):
+        """A printable registration form immediately available after creation."""
+        from .registration_pdf import build_registration_form
+
+        student = self.get_object()
+        filename = f"fiche-inscription-{student.id}.pdf"
+        return FileResponse(build_registration_form(student), as_attachment=True, filename=filename)
 
 
 class TeacherProfileViewSet(viewsets.ModelViewSet):

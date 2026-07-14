@@ -76,7 +76,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    # Keep the list views practical for the academy office: 50 records per page.
+    'PAGE_SIZE': 50,
 }
 
 from datetime import timedelta
@@ -198,7 +199,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Academy operating time.  Africa/Casablanca also handles Morocco's official
+# Ramadan offset changes instead of applying a fixed offset incorrectly.
+TIME_ZONE = 'Africa/Casablanca'
 
 USE_I18N = True
 

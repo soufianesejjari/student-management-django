@@ -148,14 +148,17 @@ export default function ReportsPage() {
     expenses: t('reports.expenses'),
   }
 
-  const exportReports = () => {
+  const exportReports = async () => {
     if (!reports) return
-    const blob = new Blob([JSON.stringify(reports, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
+    const { api } = await import('@/lib/api')
+    const response = await api.get('/dashboard/reports/export/', { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
     const link = document.createElement('a')
     link.href = url
-    link.download = `reports-${reports.academic_year.name}.json`
+    link.download = `rapport-financier-${reports.academic_year.name}.xlsx`
+    document.body.appendChild(link)
     link.click()
+    link.remove()
     URL.revokeObjectURL(url)
   }
 
