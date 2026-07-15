@@ -57,6 +57,23 @@ export default function StudentDetailPage() {
         }
     }
 
+    const handleExportPayments = async () => {
+        try {
+            const response = await api.get(`/dashboard/students/${params.id}/payments/export/`, { responseType: 'blob' })
+            const url = URL.createObjectURL(response.data)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `historique-paiements-${student.user?.username || params.id}.xlsx`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(url)
+        } catch (error) {
+            console.error(error)
+            toast.error("L'export Excel des paiements a échoué.")
+        }
+    }
+
     useEffect(() => {
         if (params.id) {
             fetchStudent()
@@ -95,6 +112,10 @@ export default function StudentDetailPage() {
                     <Button variant="outline" onClick={handleDownloadSchedule}>
                         <FileDown className="mr-2 h-4 w-4" />
                         {t('students.downloadSchedule')}
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPayments}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exporter paiements Excel
                     </Button>
                 </div>
             </div>

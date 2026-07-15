@@ -110,6 +110,24 @@ export default function TeacherProfile() {
         }
     }
 
+    const handleExportPayrollHistory = async () => {
+        try {
+            const response = await api.get(`/dashboard/teachers/${teacherId}/payrolls/export/`, { responseType: 'blob' })
+            const url = URL.createObjectURL(response.data)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `historique-salaires-professeur-${teacherId}.xlsx`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(url)
+            toast.success('Export Excel téléchargé')
+        } catch (error) {
+            console.error(error)
+            toast.error("L'export Excel des salaires a échoué.")
+        }
+    }
+
     const handleDownloadSchedule = async () => {
         try {
             const response = await api.get(`/planning/teacher/${teacherId}/schedule-pdf/`, {
@@ -188,6 +206,10 @@ export default function TeacherProfile() {
                     <Button variant="outline" onClick={handleDownloadPaymentReport}>
                         <FileDown className="mr-2 h-4 w-4" />
                         {t('teachers.paymentReport')}
+                    </Button>
+                    <Button variant="outline" onClick={handleExportPayrollHistory}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exporter salaires Excel
                     </Button>
                     <Button variant="outline" onClick={handleDownloadSchedule}>
                         <Calendar className="mr-2 h-4 w-4" />

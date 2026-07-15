@@ -308,3 +308,94 @@ class ReportsExcelExportView(views.APIView):
         response['Content-Disposition'] = f'attachment; filename="rapport-financier-{academic_year.name}.xlsx"'
         workbook.save(response)
         return response
+
+
+class ExcelExportMixin:
+    permission_classes = [permissions.IsAuthenticated]
+
+    @staticmethod
+    def workbook_with_header(title, columns):
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font, PatternFill
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = title
+        sheet.append(columns)
+        for cell in sheet[1]:
+            cell.fill = PatternFill('solid', fgColor='D8262B')
+            cell.font = Font(color='FFFFFF', bold=True)
+            cell.alignment = Alignment(horizontal='center')
+        sheet.freeze_panes = 'A2'
+        return workbook, sheet
+
+    @staticmethod
+    def excel_response(workbook, filename):
+        for sheet in workbook.worksheets:
+            sheet.auto_filter.ref = sheet.dimensions
+            for column_cells in sheet.columns:
+                sheet.column_dimensions[column_cells[0].column_letter].width = min(
+                    max(len(str(cell.value or '')) for cell in column_cells) + 2, 36
+                )
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+        workbook.save(response)
+        return response
+
+
+class StudentPaymentsExcelExportView(ExcelExportMixin, views.APIView):
+    """Full payment history for one student, including fees and subscriptions."""
+
+    def get(self, request, student_id):
+        student = StudentProfile.objects.select_related('user').get(pk=student_id)
+        payments = Payment.objects.filter(student=student).select_related(
+            'subscription__enrollment__course', 'student_fee'
+        ).order_by('-date', '-id')
+        workbook, sheet = self.workbook_with_header('Historique paiements', [
+            'Élève', 'Date', 'Type', 'Cours / frais', 'Référence', 'Montant (MAD)', 'Méthode', 'Statut', 'Notes',
+        ])
+        student_name = student.user.get_full_name().strip() or student.user.username
+        for payment in payments:
+            if payment.subscription_id:
+                payment_type = 'Abonnement'
+                subject = payment.subscription.enrollment.course.name
+            elif payment.student_fee_id:
+                payment_type = 'Frais'
+                subject = payment.student_fee.get_fee_type_display()
+            else:
+                payment_type = 'Paiement manuel'
+                subject = ''
+            sheet.append([
+                student_name, payment.date, payment_type, subject, payment.invoice_ref or '', float(payment.amount),
+                payment.get_method_display(), payment.get_status_display(), payment.notes or '',
+            ])
+        for cell in sheet['F'][1:]:
+            cell.number_format = '#,##0.00'
+        return self.excel_response(workbook, f'historique-paiements-eleve-{student.id}')
+
+
+class TeacherPayrollExcelExportView(ExcelExportMixin, views.APIView):
+    """All monthly salary records for a teacher in one editable workbook."""
+
+    def get(self, request, teacher_id):
+        from planning.models import TeacherMonthlyPayroll
+
+        teacher = TeacherProfile.objects.select_related('user').get(pk=teacher_id)
+        payrolls = TeacherMonthlyPayroll.objects.filter(teacher=teacher).select_related('academic_year', 'expense').order_by('-year', '-month')
+        workbook, sheet = self.workbook_with_header('Historique salaires', [
+            'Professeur', 'Année académique', 'Mois', 'Statut paie', 'Heures prévues', 'Heures travaillées',
+            'Taux horaire (MAD)', 'Salaire (MAD)', 'Statut dépense', 'Date validation', 'Notes',
+        ])
+        teacher_name = teacher.user.get_full_name().strip() or teacher.user.username
+        for payroll in payrolls:
+            sheet.append([
+                teacher_name, payroll.academic_year.name, f'{payroll.year}-{payroll.month:02d}', payroll.get_status_display(),
+                float(payroll.total_hours), float(payroll.worked_hours), float(payroll.hourly_rate), float(payroll.amount),
+                payroll.expense.get_status_display() if payroll.expense_id else 'Non créée',
+                timezone.localtime(payroll.validated_at).replace(tzinfo=None) if payroll.validated_at else None,
+                payroll.notes or '',
+            ])
+        for column in ('E', 'F', 'G', 'H'):
+            for cell in sheet[column][1:]:
+                cell.number_format = '#,##0.00'
+        return self.excel_response(workbook, f'historique-salaires-professeur-{teacher.id}')
