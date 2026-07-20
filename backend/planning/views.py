@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
+from io import BytesIO
 from datetime import datetime, timedelta, time, date
 from calendar import monthrange
 import copy
@@ -270,8 +271,9 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         Params: start_date, end_date
         Returns: { recurring: [...], instances: [...] }
         """
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
+        params = getattr(request, 'query_params', request.GET)
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
         
         # Default to current week if no date provided
         today = date.today()
@@ -285,7 +287,7 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         else:
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-        academic_year_id = request.query_params.get('academic_year')
+        academic_year_id = params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
 
         # Filter sessions that are active within this range
@@ -793,6 +795,42 @@ class TeacherSchedulePDFView(views.APIView):
         return response
 
 
+class StudentDocumentsPDFView(views.APIView):
+    """Download registration form followed by timetable in a single PDF."""
+    queryset = ClassSession.objects.all()
+    permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
+
+    def get(self, request, pk):
+        from users.models import StudentProfile
+        from users.registration_pdf import build_registration_form
+
+        try:
+            student = StudentProfile.objects.select_related('user').get(pk=pk)
+        except StudentProfile.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Reuse the exact timetable builder so every active subject is present
+        # in both documents, including students enrolled in multiple courses.
+        schedule_response = StudentSchedulePDFView().get(request, pk)
+        if schedule_response.status_code != status.HTTP_200_OK:
+            return schedule_response
+
+        from pypdf import PdfReader, PdfWriter
+
+        # The order is intentional: page 1 is the registration form, then the
+        # timetable pages follow in the same downloadable document.
+        writer = PdfWriter()
+        for source in (build_registration_form(student), BytesIO(schedule_response.content)):
+            reader = PdfReader(source)
+            for page in reader.pages:
+                writer.add_page(page)
+
+        response = HttpResponse(content_type='application/pdf')
+        writer.write(response)
+        response['Content-Disposition'] = f'attachment; filename="fiche-et-horaire-{student.user.username}.pdf"'
+        return response
+
+
 class StudentSchedulePDFView(views.APIView):
     """
     Generate and download student schedule PDF
@@ -811,8 +849,9 @@ class StudentSchedulePDFView(views.APIView):
         
         # Get date range (default to current week)
         today = date.today()
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
+        params = getattr(request, 'query_params', request.GET)
+        start_date_str = params.get('start_date')
+        end_date_str = params.get('end_date')
         
         if start_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -826,7 +865,7 @@ class StudentSchedulePDFView(views.APIView):
         
         # Get all sessions for student's enrolled courses
         from academics.models import Enrollment
-        academic_year_id = request.query_params.get('academic_year')
+        academic_year_id = params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
         
         # First get the courses the student is enrolled in

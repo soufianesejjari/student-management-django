@@ -11,7 +11,8 @@ from .views import (
     TeacherPayrollValidateView,
     TeacherPaymentReportView,
     TeacherSchedulePDFView,
-    StudentSchedulePDFView
+    StudentSchedulePDFView,
+    StudentDocumentsPDFView,
 )
 
 router = DefaultRouter()
@@ -29,4 +30,5 @@ urlpatterns = [
     path('teacher/<int:teacher_id>/payment-report/', TeacherPaymentReportView.as_view(), name='teacher-payment-report'),
     path('teacher/<int:teacher_id>/schedule-pdf/', TeacherSchedulePDFView.as_view(), name='teacher-schedule-pdf'),
     path('student/<int:pk>/schedule-pdf/', StudentSchedulePDFView.as_view(), name='student-schedule-pdf'),
+    path('student/<int:pk>/documents-pdf/', StudentDocumentsPDFView.as_view(), name='student-documents-pdf'),
 ]

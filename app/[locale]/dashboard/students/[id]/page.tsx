@@ -57,6 +57,24 @@ export default function StudentDetailPage() {
         }
     }
 
+    const handleDownloadDocuments = async () => {
+        try {
+            const response = await api.get(`/planning/student/${params.id}/documents-pdf/`, { responseType: 'blob' })
+            const url = URL.createObjectURL(response.data)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `fiche-et-horaire-${student?.user?.username || params.id}.pdf`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(url)
+            toast.success('Fiche et horaire téléchargés')
+        } catch (error) {
+            console.error(error)
+            toast.error('Le téléchargement des documents a échoué.')
+        }
+    }
+
     const handleExportPayments = async () => {
         try {
             const response = await api.get(`/dashboard/students/${params.id}/payments/export/`, { responseType: 'blob' })
@@ -112,6 +130,10 @@ export default function StudentDetailPage() {
                     <Button variant="outline" onClick={handleDownloadSchedule}>
                         <FileDown className="mr-2 h-4 w-4" />
                         {t('students.downloadSchedule')}
+                    </Button>
+                    <Button onClick={handleDownloadDocuments}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Fiche + horaire
                     </Button>
                     <Button variant="outline" onClick={handleExportPayments}>
                         <FileDown className="mr-2 h-4 w-4" />

@@ -12,15 +12,29 @@ def _value(value):
     return str(value) if value else "-"
 
 
+def _wrapped_lines(text, max_chars=78):
+    """Wrap at words so multiple subjects/timetables never leave the page."""
+    words = str(text or '-').split()
+    lines, line = [], ''
+    for word in words:
+        candidate = f'{line} {word}'.strip()
+        if line and len(candidate) > max_chars:
+            lines.append(line)
+            line = word
+        else:
+            line = candidate
+    return lines + [line] if line else ['-']
+
+
 def build_registration_form(student):
     """Return a populated, printable A4 registration PDF for a student."""
     from academics.models import AcademySettings, AcademicYear
 
     academy = AcademySettings.get()
     academic_year = AcademicYear.get_active()
-    courses = student.enrollments.filter(academic_year=academic_year, status='ACTIVE').select_related(
+    courses = list(student.enrollments.filter(academic_year=academic_year, status='ACTIVE').select_related(
         'course__subject', 'course__default_teacher'
-    )
+    ))
 
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -55,9 +69,13 @@ def build_registration_form(student):
         pdf.drawString(left + 10 * mm, y, text)
         return y - 11 * mm
 
-    def field(label, value, y):
+    def field(label, value, y, max_chars=74):
         pdf.setFont('Helvetica', 11.5)
-        pdf.drawString(left + 10 * mm, y, f"{label} : {_value(value)}")
+        lines = _wrapped_lines(_value(value), max_chars)
+        pdf.drawString(left + 10 * mm, y, f"{label} : {lines[0]}")
+        for line in lines[1:]:
+            y -= 6 * mm
+            pdf.drawString(left + 29 * mm, y, line)
         return y - 7.5 * mm
 
     y = heading("INFORMATIONS DE L'ÉLÈVE", height - 129 * mm)
@@ -78,19 +96,25 @@ def build_registration_form(student):
     for enrollment in courses:
         subject = enrollment.course.subject.name if enrollment.course.subject_id else enrollment.course.name
         program_lines.append(f"[ ] {subject} - {enrollment.course.name}")
-        if enrollment.course.default_teacher_id:
-            teacher_names.append(enrollment.course.default_teacher.user.get_full_name())
-        for session in enrollment.course.sessions.filter(academic_year=academic_year).order_by('day_of_week', 'start_time'):
+        course_schedules = []
+        sessions = enrollment.course.sessions.filter(academic_year=academic_year).select_related('teacher__user').order_by('day_of_week', 'start_time')
+        for session in sessions:
             days = ('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche')
-            schedules.append(f"{days[session.day_of_week]} {session.start_time.strftime('%H:%M')}-{session.end_time.strftime('%H:%M')}")
+            teacher_names.append(session.teacher.user.get_full_name() or session.teacher.user.username)
+            course_schedules.append(f"{days[session.day_of_week]} {session.start_time.strftime('%H:%M')}-{session.end_time.strftime('%H:%M')}")
+        if not course_schedules and enrollment.course.default_teacher_id:
+            teacher_names.append(enrollment.course.default_teacher.user.get_full_name())
+        if course_schedules:
+            schedules.append(f"{enrollment.course.name} : {', '.join(course_schedules)}")
 
     pdf.setFont('Helvetica', 11.5)
     for line in program_lines or ['[ ] Programme à définir']:
-        pdf.drawString(left + 10 * mm, y, line)
-        y -= 7 * mm
+        for wrapped in _wrapped_lines(line, 76):
+            pdf.drawString(left + 10 * mm, y, wrapped)
+            y -= 6.5 * mm
     y -= 4 * mm
-    y = field('Professeur', ', '.join(dict.fromkeys(filter(None, teacher_names))), y)
-    y = field('Horaire(s) des cours', ' | '.join(dict.fromkeys(schedules)), y)
+    y = field('Professeur(s)', ', '.join(dict.fromkeys(filter(None, teacher_names))), y)
+    y = field('Horaire(s) des cours', ' | '.join(dict.fromkeys(schedules)), y, max_chars=66)
 
     pdf.setFont('Helvetica-Bold', 11.5)
     registration_fee = academy.default_registration_fee
