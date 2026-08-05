@@ -86,6 +86,16 @@ export const api = {
         login: (data: any) => axiosInstance.post('/auth/token/', data),
         refreshToken: (data: any) => axiosInstance.post('/auth/token/refresh/', data),
     },
+    users: {
+        /** Current authenticated user profile */
+        me: () => axiosInstance.get('/users/users/me/').then(res => res.data),
+        /** Update own profile (username/email/name/avatar — no password) */
+        updateMe: (data: Partial<{ username: string; email: string; first_name: string; last_name: string }>) =>
+            axiosInstance.patch('/users/users/me/update/', data).then(res => res.data),
+        /** Change own password (requires current password) */
+        changePassword: (data: { current_password: string; new_password: string }) =>
+            axiosInstance.post('/users/users/me/change-password/', data).then(res => res.data),
+    },
     students: {
         list: () => axiosInstance.get('/users/students/').then(res => res.data),
         get: (id: string) => axiosInstance.get(`/users/students/${id}/`).then(res => res.data),
@@ -186,6 +196,20 @@ export const api = {
     permissions: {
         /** Full catalogue of delegatable Django permissions, grouped by app */
         available: () => axiosInstance.get('/users/available-permissions/').then(res => res.data),
+    },
+    admins: {
+        /** List all admin accounts */
+        list: () => axiosInstance.get('/users/admins/').then(res => res.data),
+        /** Get a single admin */
+        get: (id: number) => axiosInstance.get(`/users/admins/${id}/`).then(res => res.data),
+        /** Create a new admin account */
+        create: (data: { username: string; email: string; first_name: string; last_name: string; password: string }) =>
+            axiosInstance.post('/users/admins/', data).then(res => res.data),
+        /** Update an admin account */
+        update: (id: number, data: Partial<{ username: string; email: string; first_name: string; last_name: string; is_active: boolean; password: string }>) =>
+            axiosInstance.patch(`/users/admins/${id}/`, data).then(res => res.data),
+        /** Delete an admin account */
+        delete: (id: number) => axiosInstance.delete(`/users/admins/${id}/`).then(res => res.data),
     },
     notifications: {
         sendStudentSchedules: (ids?: number[]) =>

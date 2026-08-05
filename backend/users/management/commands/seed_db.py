@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from users.models import StudentProfile, TeacherProfile, TeacherAvailability
-from academics.models import Subject, Course, Enrollment
+from academics.models import AcademicYear, Subject, Course, Enrollment
 from planning.models import Room, ClassSession
 from finances.models import Payment, Expense
 from datetime import date, time, timedelta, datetime
@@ -28,11 +28,25 @@ class Command(BaseCommand):
         TeacherProfile.objects.all().delete()
         StudentProfile.objects.all().delete()
         User.objects.filter(is_superuser=False).delete()
+        User.objects.filter(is_superuser=True).exclude(username='musicacadimie').delete()
 
         # 1. Create Superuser (if not exists)
-        if not User.objects.filter(username='admin').exists():
-            User.objects.create_superuser('admin', 'admin@example.com', 'admin')
-            self.stdout.write('Created superuser: admin/admin')
+        admin_username = 'musicacadimie'
+        admin_password = 'Piano7572!'
+        if not User.objects.filter(username=admin_username).exists():
+            User.objects.create_superuser(admin_username, 'admin@example.com', admin_password)
+            self.stdout.write(f'Created superuser: {admin_username}/{admin_password}')
+
+        # Ensure there's an active academic year for enrollments
+        academic_year, _ = AcademicYear.objects.get_or_create(
+            name='2025-2026',
+            defaults={
+                'start_date': date(2025, 9, 1),
+                'end_date': date(2026, 8, 31),
+                'is_active': True,
+            },
+        )
+        self.stdout.write(f'Using academic year: {academic_year.name}')
 
         # 2. Create Subjects
         subjects = {
@@ -114,7 +128,7 @@ class Command(BaseCommand):
         for student in student_profiles:
             # Enroll in 1 random course
             course = random.choice(courses)
-            Enrollment.objects.create(student=student, course=course)
+            Enrollment.objects.create(student=student, course=course, academic_year=academic_year, default_price=course.price, custom_price=course.price)
             
         # 7. Rooms
         rooms = [
@@ -144,7 +158,7 @@ class Command(BaseCommand):
                 start_time=start_t,
                 end_time=end_t,
                 start_date=date.today(),
-                end_date=date.today() + timedelta(days=90)
+                end_date=min(date.today() + timedelta(days=90), academic_year.end_date)
             )
             
         self.stdout.write('Created sessions')

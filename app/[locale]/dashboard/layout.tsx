@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect } from "react"
 import {
   BarChart3, BookOpen, Calendar, CreditCard, Home, LogOut,
-  Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck,
+  Settings, Users, UserCog, DoorOpen, Menu, Music, ShieldCheck, KeyRound, UserCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -52,6 +52,8 @@ export default function DashboardLayout({
     { name: t('navigation.finances'),  href: "/dashboard/finances", icon: CreditCard, module: "finances" },
     { name: t('navigation.reports'),   href: "/dashboard/reports",  icon: BarChart3,  module: "reports" },
     { name: "Rôles & Permissions",     href: "/dashboard/users",    icon: ShieldCheck, module: "users" },
+    { name: t('navigation.admins'),    href: "/dashboard/admins",   icon: KeyRound,   module: "admins" },
+    { name: t('navigation.account'),   href: "/dashboard/account",  icon: UserCircle, module: null },
     { name: t('navigation.settings'),  href: "/dashboard/settings", icon: Settings,   module: "settings" },
   ]
 

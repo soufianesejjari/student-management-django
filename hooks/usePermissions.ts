@@ -24,6 +24,7 @@ export const MODULE_PERMISSIONS: Record<string, string> = {
     finances:  'finances',
     reports:   'finances',  // or dashboard – allows read access to reports
     users:     '__admin__', // admin-only section
+    admins:    '__admin__', // admin-only section
     settings:  '__admin__',
 };
 

@@ -24,6 +24,52 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_admin', 'role', 'avatar']
 
 
+class UserSelfSerializer(serializers.ModelSerializer):
+    """Serializer for a user editing their own profile (no password here)."""
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'avatar']
+        read_only_fields = ['id', 'role']
+
+
+class AdminSerializer(serializers.ModelSerializer):
+    """Full serializer for admin user management by another admin."""
+    password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'role', 'is_active', 'password',
+        ]
+        read_only_fields = ['role']
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.role = User.Role.ADMIN
+        user.is_admin = True
+        user.set_password(password)
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        # Keep admin flag in sync with role
+        instance.is_admin = True
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
+
+
 class PermissionSerializer(serializers.ModelSerializer):
     """Serializes a Django Permission as a flat codename like 'academics.view_course'."""
     full_codename = serializers.SerializerMethodField()

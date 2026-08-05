@@ -5,10 +5,14 @@ from rest_framework.decorators import action
 from django.http import FileResponse
 from rest_framework.views import APIView
 from django.contrib.auth.models import Permission
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoPasswordValidationError
 
 from .models import User, StudentProfile, TeacherProfile
 from .serializers import (
     UserSerializer,
+    UserSelfSerializer,
+    AdminSerializer,
     StudentProfileSerializer,
     TeacherProfileSerializer,
     SecretaireSerializer,
@@ -44,10 +48,53 @@ class UserViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name', 'last_name', 'email', 'username']
 
+    def get_permissions(self):
+        # Self-service endpoints only require an authenticated session.
+        if self.action in ('me', 'update_me', 'change_password'):
+            return [permissions.IsAuthenticated()]
+        return super().get_permissions()
+
     @action(detail=False, methods=['get'])
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['patch'], url_path='me/update')
+    def update_me(self, request):
+        """Authenticated user updates their own profile (no password)."""
+        serializer = UserSelfSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSelfSerializer(request.user).data)
+
+    @action(detail=False, methods=['post'], url_path='me/change-password')
+    def change_password(self, request):
+        """Authenticated user changes their own password.
+
+        Body: { "current_password": "...", "new_password": "..." }
+        """
+        current = request.data.get('current_password', '')
+        new = request.data.get('new_password', '')
+        if not current or not new:
+            return Response(
+                {'detail': 'current_password et new_password sont requis.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not request.user.check_password(current):
+            return Response(
+                {'current_password': ['Mot de passe actuel incorrect.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            validate_password(new, user=request.user)
+        except DjangoPasswordValidationError as exc:
+            return Response(
+                {'new_password': list(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request.user.set_password(new)
+        request.user.save()
+        return Response({'detail': 'Mot de passe mis à jour.'})
 
 
 class StudentProfileViewSet(viewsets.ModelViewSet):
@@ -148,6 +195,30 @@ class SecretaireViewSet(viewsets.ModelViewSet):
                 secretaire.user_permissions.select_related('content_type').all(), many=True
             ).data
         )
+
+
+# ---------------------------------------------------------------------------
+# Admin account management (admin only)
+# ---------------------------------------------------------------------------
+
+class AdminViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for admin accounts — admin only.
+
+    GET    /api/users/admins/                → list
+    POST   /api/users/admins/                → create another admin
+    GET    /api/users/admins/{id}/           → detail
+    PATCH  /api/users/admins/{id}/           → update
+    DELETE /api/users/admins/{id}/           → delete
+    """
+
+    serializer_class = AdminSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'username']
+
+    def get_queryset(self):
+        return User.objects.filter(role=User.Role.ADMIN)
 
 
 # ---------------------------------------------------------------------------
