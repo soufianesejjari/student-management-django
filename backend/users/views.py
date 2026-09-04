@@ -42,7 +42,9 @@ def get_delegatable_permissions():
 # ---------------------------------------------------------------------------
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    # This endpoint manages application accounts, not the internal User rows used
+    # to store student/teacher names and contact details.
+    queryset = User.objects.filter(role__in=(User.Role.ADMIN, User.Role.SECRETAIRE))
     serializer_class = UserSerializer
     permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
@@ -106,12 +108,22 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='registration-form')
     def registration_form(self, request, pk=None):
-        """A printable registration form immediately available after creation."""
+        """Return the completed form once a course and professor are assigned."""
         from .registration_pdf import build_registration_form
 
         student = self.get_object()
+        if not student.registration_form_ready:
+            return Response(
+                {'detail': 'Inscrivez d’abord l’étudiant à un cours avec un professeur.'},
+                status=status.HTTP_409_CONFLICT,
+            )
         filename = f"fiche-inscription-{student.id}.pdf"
         return FileResponse(build_registration_form(student), as_attachment=True, filename=filename)
+
+    def perform_destroy(self, instance):
+        # The related User row is profile/contact data and must not become an
+        # orphan application account when the student is removed.
+        instance.user.delete()
 
 
 class TeacherProfileViewSet(viewsets.ModelViewSet):
@@ -120,6 +132,9 @@ class TeacherProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [make_module_permission('users'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__username', 'speciality', 'phone', 'cin', 'status']
+
+    def perform_destroy(self, instance):
+        instance.user.delete()
 
 
 # ---------------------------------------------------------------------------

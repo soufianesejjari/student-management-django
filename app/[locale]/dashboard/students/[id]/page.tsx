@@ -131,9 +131,13 @@ export default function StudentDetailPage() {
                         <FileDown className="mr-2 h-4 w-4" />
                         {t('students.downloadSchedule')}
                     </Button>
-                    <Button onClick={handleDownloadDocuments}>
+                    <Button
+                        onClick={handleDownloadDocuments}
+                        disabled={!student.registration_form_ready}
+                        title={!student.registration_form_ready ? t('students.registrationFormNotReady') : undefined}
+                    >
                         <FileDown className="mr-2 h-4 w-4" />
-                        Fiche + horaire
+                        {t('students.downloadDocuments')}
                     </Button>
                     <Button variant="outline" onClick={handleExportPayments}>
                         <FileDown className="mr-2 h-4 w-4" />

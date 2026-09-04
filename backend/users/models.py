@@ -8,6 +8,8 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'admin', _('Admin')
         SECRETAIRE = 'secretaire', _('Secrétaire')
+        STUDENT = 'student', _('Student record')
+        TEACHER = 'teacher', _('Teacher record')
 
     role = models.CharField(
         max_length=20,
@@ -21,8 +23,7 @@ class User(AbstractUser):
 
     def save(self, *args, **kwargs):
         # Keep is_admin in sync with role field
-        if self.role == self.Role.ADMIN:
-            self.is_admin = True
+        self.is_admin = self.role == self.Role.ADMIN
         super().save(*args, **kwargs)
 
     @property
@@ -56,6 +57,20 @@ class StudentProfile(models.Model):
 
     def __str__(self):
         return f"Student: {self.user.username}"
+
+    @property
+    def registration_form_ready(self):
+        """A fiche is complete only after a course and professor are known."""
+        from academics.models import AcademicYear
+
+        academic_year = AcademicYear.get_active()
+        return self.enrollments.filter(
+            status='ACTIVE',
+            academic_year=academic_year,
+        ).filter(
+            models.Q(course__default_teacher__isnull=False)
+            | models.Q(course__sessions__academic_year=academic_year)
+        ).exists()
 
 class TeacherProfile(models.Model):
     STATUS_CHOICES = (

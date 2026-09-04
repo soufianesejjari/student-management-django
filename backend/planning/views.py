@@ -809,6 +809,12 @@ class StudentDocumentsPDFView(views.APIView):
         except StudentProfile.DoesNotExist:
             return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        if not student.registration_form_ready:
+            return Response(
+                {'detail': 'Inscrivez d’abord l’étudiant à un cours avec un professeur.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         # Reuse the exact timetable builder so every active subject is present
         # in both documents, including students enrolled in multiple courses.
         schedule_response = StudentSchedulePDFView().get(request, pk)

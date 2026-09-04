@@ -37,6 +37,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useTranslations } from "next-intl"
 
 const sessionSchema = z.object({
+    teacher: z.union([z.string(), z.number()], { required_error: "Teacher is required" }),
     day_of_week: z.string().min(1, "Day is required"),
     start_time: z.string().min(1, "Start time is required"),
     end_time: z.string().min(1, "End time is required"),
@@ -67,11 +68,11 @@ export function SessionDialog({
     const [isChecking, setIsChecking] = useState(false)
     const [suggestedSlots, setSuggestedSlots] = useState<any[]>([])
     const [isSuggesting, setIsSuggesting] = useState(false)
-    const [teacher, setTeacher] = useState<number | null>(null)
 
     const form = useForm<SessionFormValues>({
         resolver: zodResolver(sessionSchema),
         defaultValues: {
+            teacher: undefined,
             day_of_week: "0",
             start_time: "10:00",
             end_time: "11:00",
@@ -83,6 +84,7 @@ export function SessionDialog({
     useEffect(() => {
         if (open && session) {
             form.reset({
+                teacher: session.teacher,
                 day_of_week: session.day_of_week.toString(),
                 start_time: session.start_time,
                 end_time: session.end_time,
@@ -92,6 +94,7 @@ export function SessionDialog({
             })
         } else if (open) {
             form.reset({
+                teacher: undefined,
                 day_of_week: "0",
                 start_time: "10:00",
                 end_time: "11:00",
@@ -101,12 +104,15 @@ export function SessionDialog({
         }
     }, [session, form, open])
 
-    // Fetch course to get teacher
+    // Use the course professor as a convenient default. A professor can also be
+    // selected here when the course was intentionally created without one.
     useEffect(() => {
         const fetchCourse = async () => {
             try {
                 const course = await api.courses.get(courseId.toString())
-                setTeacher(course.default_teacher)
+                if (!session && course.default_teacher) {
+                    form.setValue("teacher", course.default_teacher)
+                }
             } catch (e) {
                 console.error("Failed to fetch course", e)
             }
@@ -114,9 +120,10 @@ export function SessionDialog({
         if (open) {
             fetchCourse()
         }
-    }, [courseId, open])
+    }, [courseId, form, open, session])
 
     // Check availability
+    const teacher = form.watch("teacher")
     const watchedSchedule = form.watch(["day_of_week", "start_time", "end_time", "room"])
     useEffect(() => {
         const [day_of_week, start_time, end_time, room] = watchedSchedule
@@ -127,7 +134,7 @@ export function SessionDialog({
                 setConflict(null)
                 try {
                     const res = await api.planning.checkAvailability({
-                        teacher_id: teacher,
+                        teacher_id: Number(teacher),
                         room_id: Number(room),
                         day_of_week: Number(day_of_week),
                         start_time,
@@ -157,7 +164,7 @@ export function SessionDialog({
         setIsSuggesting(true)
         try {
             const slots = await api.planning.suggestSlots({
-                teacher_id: teacher,
+                teacher_id: Number(teacher),
                 day_of_week: Number(day),
                 duration_minutes: 60
             })
@@ -179,7 +186,7 @@ export function SessionDialog({
         try {
             const payload = {
                 course: courseId,
-                teacher: teacher,
+                teacher: Number(values.teacher),
                 day_of_week: Number(values.day_of_week),
                 start_time: values.start_time,
                 end_time: values.end_time,
@@ -231,6 +238,25 @@ export function SessionDialog({
                                 </AlertDescription>
                             </Alert>
                         )}
+
+                        <FormField
+                            control={form.control}
+                            name="teacher"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>{t('dialogs.course.teacher')}</FormLabel>
+                                    <AsyncSelect
+                                        endpoint="/users/teachers/"
+                                        label={t('dialogs.course.teacher')}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        renderLabel={(item: any) => `${item.user.first_name} ${item.user.last_name}`}
+                                        renderValue={(item: any) => item.id}
+                                    />
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         {/* Suggest Slots Button */}
                         <Button

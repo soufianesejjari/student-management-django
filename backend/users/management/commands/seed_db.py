@@ -76,7 +76,14 @@ class Command(BaseCommand):
         
         teacher_profiles = []
         for first, last, spec, email in teachers_data:
-            user = User.objects.create_user(username=first.lower(), email=email, first_name=first, last_name=last, password='password123')
+            user = User.objects.create_user(
+                username=first.lower(),
+                email=email,
+                first_name=first,
+                last_name=last,
+                role=User.Role.TEACHER,
+                is_active=False,
+            )
             profile = TeacherProfile.objects.create(user=user, speciality=spec)
             teacher_profiles.append(profile)
             
@@ -106,7 +113,14 @@ class Command(BaseCommand):
         
         student_profiles = []
         for first, last, email in students_data:
-            user = User.objects.create_user(username=f"{first.lower()}{last.lower()}", email=email, first_name=first, last_name=last, password='password123')
+            user = User.objects.create_user(
+                username=f"{first.lower()}{last.lower()}",
+                email=email,
+                first_name=first,
+                last_name=last,
+                role=User.Role.STUDENT,
+                is_active=False,
+            )
             profile = StudentProfile.objects.create(user=user)
             student_profiles.append(profile)
             

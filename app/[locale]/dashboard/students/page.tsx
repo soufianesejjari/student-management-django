@@ -46,10 +46,9 @@ function StudentsContent() {
 
   const handleCreate = async (data: any) => {
     try {
-      const response = await createStudent(data)
+      await createStudent(data)
       toast.success(t('students.createSuccess'))
       mutate()
-      await downloadRegistrationForm(response.data.id, response.data.user)
     } catch (error) {
       toast.error(t('students.createError'))
       console.error(error)
@@ -277,7 +276,13 @@ function StudentsContent() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" title="Télécharger la fiche d'inscription" onClick={() => downloadRegistrationForm(student.id, student.user)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={student.registration_form_ready ? t('students.downloadRegistrationForm') : t('students.registrationFormNotReady')}
+                          disabled={!student.registration_form_ready}
+                          onClick={() => downloadRegistrationForm(student.id, student.user)}
+                        >
                           <Download className="h-4 w-4" />
                         </Button>
                         {hasPermission("users.change_studentprofile") && (

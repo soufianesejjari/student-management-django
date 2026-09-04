@@ -13,7 +13,6 @@ import Link from "next/link"
 import { CourseDialog } from "@/components/courses/course-dialog"
 import api from "@/lib/api"
 import { toast } from "sonner"
-import { format } from "date-fns"
 import { useTranslations } from "next-intl"
 
 import { Suspense } from "react"
@@ -34,54 +33,12 @@ function CoursesContent() {
 
   const handleCourseSubmit = async (data: any) => {
     try {
-      let courseId;
       if (selectedCourse) {
-        // Edit 
         await api.put(`/academics/courses/${selectedCourse.id}/`, data)
         toast.success(t('courses.updateSuccess'))
       } else {
-        // Create
-        // 1. Create Course
-        const courseRes = await api.post("/academics/courses/", {
-          name: data.name,
-          subject: data.subject,
-          default_teacher: data.default_teacher,
-          level: data.level,
-          price: data.price,
-          status: data.status
-        })
-        courseId = courseRes.data.id;
+        await api.post("/academics/courses/", data)
         toast.success(t('courses.createSuccess'))
-
-        // 2. Create Schedule (if requested)
-        if (data.create_schedule) {
-          try {
-            // Determine start date (e.g. Next occurrence of that day)
-            // For simplicity, let's just use Today/Tomorrow logic or a default
-            // Ideally we should ask for start_date in the form too, but let's assume "Next applicable day" logic 
-            // in a real app, but for now we'll send a fixed date or today. 
-            // However, backend requires start_date.
-
-            // Let's default start_date to "Next occurrence of Day X"
-            // ...Simpler: Default to today.
-            const today = new Date();
-
-            await api.post("/planning/sessions/", {
-              course: courseId,
-              teacher: data.default_teacher, // Use course teacher
-              room: data.room,
-              day_of_week: parseInt(data.day_of_week),
-              start_time: data.start_time,
-              end_time: data.end_time,
-              start_date: format(today, "yyyy-MM-dd"), // Default to starting now
-              end_date: null // Indefinite
-            })
-            toast.success(t('courses.scheduleCreated'))
-          } catch (scheduleError: any) {
-            console.error(scheduleError)
-            toast.warning(t('courses.scheduleWarning'))
-          }
-        }
       }
       mutate()
       setIsDialogOpen(false)

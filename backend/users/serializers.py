@@ -144,6 +144,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
     courses = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payment_balance = serializers.SerializerMethodField()
+    registration_form_ready = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = StudentProfile
@@ -151,7 +152,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status',
             'courses', 'payment_status', 'payment_balance', 'first_name', 'last_name',
             'email', 'registration_fee_status', 'insurance_fee_status',
-            'address', 'phone', 'date_of_birth', 'age_group',
+            'address', 'phone', 'date_of_birth', 'age_group', 'registration_form_ready',
         ]
 
     def get_courses(self, obj):
@@ -173,7 +174,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     def get_payment_balance(self, obj):
         return self._payment_summary(obj)[1]
-    
+
     @transaction.atomic
     def create(self, validated_data):
         from academics.services import BillingService
@@ -188,6 +189,9 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'last_name': last_name,
             'email': email,
             'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
+            # Student users only hold profile/contact data. They are not login accounts.
+            'role': User.Role.STUDENT,
+            'is_active': False,
         }
         user = User.objects.create_user(**user_data)
         user.set_unusable_password()
@@ -257,6 +261,9 @@ class TeacherProfileSerializer(serializers.ModelSerializer):
             'last_name': last_name,
             'email': email,
             'username': validated_data.pop('username', None) or _generate_username(first_name, last_name, email),
+            # Teacher users only hold profile/contact data. They are not login accounts.
+            'role': User.Role.TEACHER,
+            'is_active': False,
         }
         user = User.objects.create_user(**user_data)
         user.set_unusable_password()
