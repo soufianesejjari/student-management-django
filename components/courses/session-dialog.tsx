@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -36,17 +36,17 @@ import { Loader2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useTranslations } from "next-intl"
 
-const sessionSchema = z.object({
-    teacher: z.union([z.string(), z.number()], { required_error: "Teacher is required" }),
-    day_of_week: z.string().min(1, "Day is required"),
-    start_time: z.string().min(1, "Start time is required"),
-    end_time: z.string().min(1, "End time is required"),
-    room: z.number({ required_error: "Room is required" }),
-    start_date: z.string().min(1, "Start date is required"),
+const createSessionSchema = (t: (key: any) => string) => z.object({
+    teacher: z.union([z.string(), z.number()], { required_error: t('dialogs.sessionDialog.validation.teacherRequired') }),
+    day_of_week: z.string().min(1, t('dialogs.sessionDialog.validation.dayRequired')),
+    start_time: z.string().min(1, t('dialogs.sessionDialog.validation.startTimeRequired')),
+    end_time: z.string().min(1, t('dialogs.sessionDialog.validation.endTimeRequired')),
+    room: z.number({ required_error: t('dialogs.sessionDialog.validation.roomRequired') }),
+    start_date: z.string().min(1, t('dialogs.sessionDialog.validation.startDateRequired')),
     end_date: z.string().optional(),
 })
 
-type SessionFormValues = z.infer<typeof sessionSchema>
+type SessionFormValues = z.infer<ReturnType<typeof createSessionSchema>>
 
 interface SessionDialogProps {
     open: boolean
@@ -64,6 +64,7 @@ export function SessionDialog({
     onSuccess,
 }: SessionDialogProps) {
     const t = useTranslations()
+    const sessionSchema = useMemo(() => createSessionSchema(t), [t])
     const [conflict, setConflict] = useState<any>(null)
     const [isChecking, setIsChecking] = useState(false)
     const [suggestedSlots, setSuggestedSlots] = useState<any[]>([])
@@ -205,8 +206,8 @@ export function SessionDialog({
             onOpenChange(false)
             form.reset()
         } catch (error: any) {
-            const errorMsg = error.response?.data?.detail || "Failed to save schedule"
-            toast.error(errorMsg)
+            console.error(error)
+            toast.error(t('dialogs.sessionDialog.saveError'))
         }
     }
 
@@ -326,7 +327,7 @@ export function SessionDialog({
                                         <FormLabel>{t('dialogs.course.room')}</FormLabel>
                                         <AsyncSelect
                                             endpoint="/planning/rooms/"
-                                            label="Room"
+                                        label={t('dialogs.course.room')}
                                             value={field.value}
                                             onChange={field.onChange}
                                             renderLabel={(item: any) => `${item.name}`}

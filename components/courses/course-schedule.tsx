@@ -8,8 +8,10 @@ import { Calendar, Clock, MapPin, Plus, Pencil } from "lucide-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { SessionDialog } from "./session-dialog"
+import { useTranslations } from "next-intl"
 
 export function CourseSchedule({ courseId }: { courseId: number }) {
+    const t = useTranslations()
     const [sessions, setSessions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [openDialog, setOpenDialog] = useState(false)
@@ -39,7 +41,15 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
         fetchSessions()
     }, [courseId])
 
-    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    const daysOfWeek = [
+        t('schedule.monday'),
+        t('schedule.tuesday'),
+        t('schedule.wednesday'),
+        t('schedule.thursday'),
+        t('schedule.friday'),
+        t('schedule.saturday'),
+        t('schedule.sunday'),
+    ]
 
     const handleAddSchedule = () => {
         setSelectedSession(null)
@@ -54,7 +64,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
     if (loading) {
         return (
             <Card className="p-4">
-                <p className="text-muted-foreground">Loading schedule...</p>
+                <p className="text-muted-foreground">{t('schedule.loading')}</p>
             </Card>
         )
     }
@@ -66,14 +76,14 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                     <div className="flex flex-col items-center justify-center text-center space-y-4">
                         <Calendar className="h-12 w-12 text-muted-foreground" />
                         <div>
-                            <h3 className="font-semibold text-lg">No Schedule Yet</h3>
+                            <h3 className="font-semibold text-lg">{t('schedule.noScheduleTitle')}</h3>
                             <p className="text-sm text-muted-foreground mt-1">
-                                Create an official class schedule for this course
+                                {t('schedule.noScheduleDescription')}
                             </p>
                         </div>
                         <Button onClick={handleAddSchedule}>
                             <Plus className="mr-2 h-4 w-4" />
-                            Add Schedule
+                            {t('schedule.addSchedule')}
                         </Button>
                     </div>
                 </Card>
@@ -85,7 +95,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                     session={selectedSession}
                     onSuccess={() => {
                         fetchSessions()
-                        toast.success("Schedule created successfully")
+                        toast.success(t('schedule.createSuccess'))
                     }}
                 />
             </>
@@ -96,10 +106,10 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
         <>
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">Class Sessions</h3>
+                    <h3 className="text-lg font-semibold">{t('schedule.classSessions')}</h3>
                     <Button onClick={handleAddSchedule} size="sm">
                         <Plus className="mr-2 h-3 w-3" />
-                        Add Session
+                        {t('schedule.addSession')}
                     </Button>
                 </div>
 
@@ -119,6 +129,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                                     <Button
                                         variant="ghost"
                                         size="sm"
+                                        title={t('schedule.edit')}
                                         onClick={() => handleEditSession(session)}
                                     >
                                         <Pencil className="h-3 w-3" />
@@ -136,7 +147,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                                 </div>
                                 <div className="flex items-center gap-2 mt-3">
                                     <Badge variant="outline" className="text-xs">
-                                        {session.start_date} → {session.end_date || 'Ongoing'}
+                                        {session.start_date} → {session.end_date || t('schedule.ongoing')}
                                     </Badge>
                                 </div>
                             </CardContent>
@@ -152,7 +163,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                 session={selectedSession}
                 onSuccess={() => {
                     fetchSessions()
-                    toast.success(selectedSession ? "Schedule updated" : "Schedule created")
+                    toast.success(selectedSession ? t('schedule.updateSuccess') : t('schedule.createSuccess'))
                 }}
             />
         </>

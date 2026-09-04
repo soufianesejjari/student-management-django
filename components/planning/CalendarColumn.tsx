@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useTranslations } from "next-intl"
 
 type CalendarColumnProps = {
     dayDate: Date
@@ -20,6 +21,7 @@ export function CalendarColumn({
     getSessionStyle,
     onSelectSession,
 }: CalendarColumnProps) {
+    const t = useTranslations('schedule')
 
     // 1. Collect all valid events for this day (recurring + instances)
     const daySessions = sessions
@@ -138,7 +140,7 @@ export function CalendarColumn({
                         key={`${event.type}-${data.id}`}
                         className={cn(
                             "absolute rounded-md p-1.5 text-xs border-2 overflow-hidden hover:z-30 hover:shadow-xl transition-all cursor-pointer group",
-                            getColor(displayText || "Event")
+                            getColor(displayText || t('event'))
                         )}
                         style={{
                             ...getSessionStyle(event.start, event.end),
@@ -152,7 +154,7 @@ export function CalendarColumn({
                     >
                         <div className="font-bold truncate leading-tight text-[11px]">
                             {displayText}
-                            {isInstance && <span className="opacity-70"> (Mod)</span>}
+                            {isInstance && <span className="opacity-70"> ({t('modifiedShort')})</span>}
                         </div>
 
                         {!isInstance && (

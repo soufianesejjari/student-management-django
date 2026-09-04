@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -35,17 +35,17 @@ import { AlertDialogFooter, AlertDialogHeader } from "../ui/alert-dialog"
 import { useTranslations } from "next-intl"
 
 
-const sessionSchema = z.object({
-    course: z.number({ required_error: "Course is required" }),
-    teacher: z.number({ required_error: "Teacher is required" }),
-    room: z.number({ required_error: "Room is required" }),
-    start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format"),
-    start_date: z.date({ required_error: "Start date is required" }),
+const createSessionSchema = (t: (key: any) => string) => z.object({
+    course: z.number({ required_error: t('validation.courseRequired') }),
+    teacher: z.number({ required_error: t('validation.teacherRequired') }),
+    room: z.number({ required_error: t('validation.roomRequired') }),
+    start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, t('validation.invalidTime')),
+    end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, t('validation.invalidTime')),
+    start_date: z.date({ required_error: t('validation.startDateRequired') }),
 })
 
 
-type SessionFormValues = z.infer<typeof sessionSchema>
+type SessionFormValues = z.infer<ReturnType<typeof createSessionSchema>>
 
 interface SessionDialogProps {
     open: boolean
@@ -55,6 +55,7 @@ interface SessionDialogProps {
 
 export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogProps) {
     const t = useTranslations('schedule')
+    const sessionSchema = useMemo(() => createSessionSchema(t), [t])
     const [conflictData, setConflictData] = useState<any>(null)
     const [isForceDialogOpen, setIsForceDialogOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -98,7 +99,7 @@ export function SessionDialog({ open, onOpenChange, onSuccess }: SessionDialogPr
                 setIsForceDialogOpen(true)
             } else {
                 console.error(error)
-                toast.error(error.response?.data?.detail || t('createSessionError'))
+                toast.error(t('createSessionError'))
             }
         } finally {
             setIsSubmitting(false)

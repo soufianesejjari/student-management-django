@@ -439,6 +439,14 @@
   "schedule": {
     "title": "Class schedule",
     "addSession": "Add session",
+    "addSchedule": "Add schedule",
+    "loading": "Loading schedule...",
+    "noScheduleTitle": "No schedule yet",
+    "noScheduleDescription": "Create the official schedule for this course.",
+    "classSessions": "Class sessions",
+    "ongoing": "Ongoing",
+    "event": "Event",
+    "modifiedShort": "Mod.",
     "week": "Week",
     "day": "Day",
     "today": "Today",
@@ -501,7 +509,14 @@
     "conflictsDescription": "The following students have conflicting classes at this time:",
     "conflictsForceQuestion": "Do you want to force this schedule anyway?",
     "forceSchedule": "Force Schedule",
-    "createSessionError": "Failed to create session"
+    "createSessionError": "Failed to create session",
+    "validation": {
+      "courseRequired": "Course is required",
+      "teacherRequired": "Teacher is required",
+      "roomRequired": "Room is required",
+      "invalidTime": "Invalid time format",
+      "startDateRequired": "Start date is required"
+    }
   },
   "finances": {
     "title": "Financial management",
@@ -756,6 +771,9 @@
     "add": "Add",
     "remove": "Remove",
     "search": "Search",
+    "selectItem": "Select an item...",
+    "searchFor": "Search {label}...",
+    "noResults": "No results found.",
     "filter": "Filter",
     "actions": "Actions",
     "export": "Export",
@@ -876,6 +894,15 @@
       "editTitle": "Edit Schedule",
       "addTitle": "Add Schedule",
       "description": "Configure the weekly class session",
+      "saveError": "Failed to save schedule",
+      "validation": {
+        "teacherRequired": "Teacher is required",
+        "dayRequired": "Day is required",
+        "startTimeRequired": "Start time is required",
+        "endTimeRequired": "End time is required",
+        "roomRequired": "Room is required",
+        "startDateRequired": "Start date is required"
+      },
       "updateSchedule": "Update Schedule",
       "createSchedule": "Create Schedule",
       "startDate": "Start Date",

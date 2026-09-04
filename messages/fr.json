@@ -439,6 +439,14 @@
   "schedule": {
     "title": "Planning des cours",
     "addSession": "Ajouter une séance",
+    "addSchedule": "Ajouter un planning",
+    "loading": "Chargement du planning...",
+    "noScheduleTitle": "Aucun planning pour le moment",
+    "noScheduleDescription": "Créez le planning officiel de ce cours.",
+    "classSessions": "Séances du cours",
+    "ongoing": "En cours",
+    "event": "Événement",
+    "modifiedShort": "Mod.",
     "week": "Semaine",
     "day": "Jour",
     "today": "Aujourd'hui",
@@ -501,7 +509,14 @@
     "conflictsDescription": "Les étudiants suivants ont des cours en conflit à cette heure :",
     "conflictsForceQuestion": "Voulez-vous forcer cette programmation ?",
     "forceSchedule": "Forcer la programmation",
-    "createSessionError": "Échec de la création de la séance"
+    "createSessionError": "Échec de la création de la séance",
+    "validation": {
+      "courseRequired": "Le cours est obligatoire",
+      "teacherRequired": "Le professeur est obligatoire",
+      "roomRequired": "La salle est obligatoire",
+      "invalidTime": "Format d’heure invalide",
+      "startDateRequired": "La date de début est obligatoire"
+    }
   },
   "finances": {
     "title": "Gestion financière",
@@ -756,6 +771,9 @@
     "add": "Ajouter",
     "remove": "Retirer",
     "search": "Rechercher",
+    "selectItem": "Sélectionner un élément...",
+    "searchFor": "Rechercher : {label}...",
+    "noResults": "Aucun résultat trouvé.",
     "filter": "Filtrer",
     "actions": "Actions",
     "export": "Exporter",
@@ -876,6 +894,15 @@
       "editTitle": "Modifier le planning",
       "addTitle": "Ajouter un planning",
       "description": "Configurer la séance hebdomadaire",
+      "saveError": "Échec de l’enregistrement du planning",
+      "validation": {
+        "teacherRequired": "Le professeur est obligatoire",
+        "dayRequired": "Le jour est obligatoire",
+        "startTimeRequired": "L’heure de début est obligatoire",
+        "endTimeRequired": "L’heure de fin est obligatoire",
+        "roomRequired": "La salle est obligatoire",
+        "startDateRequired": "La date de début est obligatoire"
+      },
       "updateSchedule": "Modifier le planning",
       "createSchedule": "Créer le planning",
       "startDate": "Date de début",

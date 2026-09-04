@@ -16,6 +16,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import useSWR from "swr"
 import api from "@/lib/api"
 import { useDebounce } from "@/hooks/useDebounce"
+import { useTranslations } from "next-intl"
 
 interface AsyncSelectProps {
     endpoint: string
@@ -39,9 +40,10 @@ export function AsyncSelect({
     renderLabel,
     renderValue,
     searchParam = "search",
-    placeholder = "Select item...",
+    placeholder,
     disabled = false,
 }: AsyncSelectProps) {
+    const t = useTranslations('common')
     const [open, setOpen] = React.useState(false)
     const [query, setQuery] = React.useState("")
     const debouncedQuery = useDebounce(query, 300)
@@ -83,7 +85,7 @@ export function AsyncSelect({
                     className="w-full justify-between"
                     disabled={disabled}
                 >
-                    {value ? (displayLabel || value) : placeholder}
+                    {value ? (displayLabel || value) : (placeholder || t('selectItem'))}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverPrimitive.Trigger>
@@ -100,7 +102,7 @@ export function AsyncSelect({
             >
                 <Command shouldFilter={false}>
                     <CommandInput
-                        placeholder={`Search ${label}...`}
+                        placeholder={t('searchFor', { label })}
                         value={query}
                         onValueChange={setQuery}
                     />
@@ -111,7 +113,7 @@ export function AsyncSelect({
                             </div>
                         )}
                         {!isLoading && items.length === 0 && (
-                            <CommandEmpty>No results found.</CommandEmpty>
+                            <CommandEmpty>{t('noResults')}</CommandEmpty>
                         )}
                         <CommandGroup>
                             {items.map((item: any) => {
