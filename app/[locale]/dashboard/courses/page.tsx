@@ -2,10 +2,21 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react"
 import { useCourses } from "@/hooks/useCourses"
+import { usePermissions } from "@/hooks/usePermissions"
 import { useState } from "react"
 import { usePageSearch } from "@/hooks/usePageSearch"
 import { PageHeader } from "@/components/layout/page-header"
@@ -20,11 +31,14 @@ import { Loader2 } from "lucide-react"
 
 function CoursesContent() {
   const t = useTranslations()
+  const { hasPermission } = usePermissions()
   const { page, search, setSearch, setPage } = usePageSearch()
 
   const { courses, isLoading, next, previous, totalCount, mutate } = useCourses(page, search)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
+  const [courseToDelete, setCourseToDelete] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleOpenDialog = (course?: any) => {
     setSelectedCourse(course)
@@ -45,6 +59,28 @@ function CoursesContent() {
     } catch (error) {
       console.error(error)
       toast.error(t('common.error'))
+    }
+  }
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return
+
+    setIsDeleting(true)
+    try {
+      await api.delete(`/academics/courses/${courseToDelete.id}/`)
+      toast.success(t('courses.deleteSuccess'))
+      setCourseToDelete(null)
+
+      if (courses?.length === 1 && page > 1) {
+        setPage(page - 1)
+      } else {
+        await mutate()
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error(t('courses.deleteError'))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -130,9 +166,28 @@ function CoursesContent() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenDialog(course)}>
-                            {t('common.details')}
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            {hasPermission("academics.change_course") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title={t('courses.edit')}
+                                onClick={() => handleOpenDialog(course)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {hasPermission("academics.delete_course") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title={t('courses.delete')}
+                                onClick={() => setCourseToDelete(course)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
@@ -170,6 +225,31 @@ function CoursesContent() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && !isDeleting && setCourseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('courses.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('courses.deleteConfirmDescription', { name: courseToDelete?.name || '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault()
+                handleDeleteCourse()
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('courses.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

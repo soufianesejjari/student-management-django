@@ -374,6 +374,8 @@
     "createSuccess": "Course created successfully",
     "updateSuccess": "Course updated successfully",
     "deleteSuccess": "Course deleted successfully",
+    "deleteConfirmTitle": "Delete this course?",
+    "deleteConfirmDescription": "The course “{name}” will be deleted with its enrollments, related payments, and scheduled sessions. This action cannot be undone.",
     "createError": "Error creating course",
     "updateError": "Error updating course",
     "scheduleCreated": "Official schedule created",

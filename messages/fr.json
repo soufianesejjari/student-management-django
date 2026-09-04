@@ -374,6 +374,8 @@
     "createSuccess": "Cours créé avec succès",
     "updateSuccess": "Cours mis à jour avec succès",
     "deleteSuccess": "Cours supprimé avec succès",
+    "deleteConfirmTitle": "Supprimer ce cours ?",
+    "deleteConfirmDescription": "Le cours « {name} » sera supprimé avec ses inscriptions, les paiements associés et ses séances de planning. Cette action est irréversible.",
     "createError": "Erreur lors de la création du cours",
     "updateError": "Erreur lors de la mise à jour du cours",
     "scheduleCreated": "Planning officiel créé",
