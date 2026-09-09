@@ -26,7 +26,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
         amount: "",
         category: "OTHER",
         date: new Date().toISOString().split('T')[0],
-        status: "PENDING",
+        status: "PAID",
     })
 
     useEffect(() => {
@@ -37,7 +37,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                 amount: expense.amount?.toString?.() ?? `${expense.amount ?? ""}`,
                 category: expense.category || "OTHER",
                 date: expense.date || new Date().toISOString().split('T')[0],
-                status: expense.status || "PENDING",
+                status: expense.status || "PAID",
             })
         } else {
             setFormData({
@@ -45,7 +45,7 @@ export function ExpenseDialog({ onSuccess, expense, trigger }: ExpenseDialogProp
                 amount: "",
                 category: "OTHER",
                 date: new Date().toISOString().split('T')[0],
-                status: "PENDING",
+                status: "PAID",
             })
         }
     }, [open, expense])

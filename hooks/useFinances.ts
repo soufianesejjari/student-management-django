@@ -42,10 +42,11 @@ export function useFinancialReports(year?: number, month?: number) {
      if (year) params.append('year', year.toString());
      if (month) params.append('month', month.toString());
      const query = params.toString() ? `?${params.toString()}` : '';
-     const { data, error, isLoading } = useSWR(`/finances/reports/${query}`, fetcher);
+     const { data, error, isLoading, mutate } = useSWR(`/finances/reports/${query}`, fetcher);
      return {
         reports: data,
         isLoading,
-        isError: error
+        isError: error,
+        mutate,
     };
 }

@@ -55,13 +55,29 @@ function FinancesContent() {
   const { expenses, isLoading: expensesLoading, next: expensesNext, previous: expensesPrevious, totalCount: expensesTotal, mutate: mutateExpenses } = useExpenses(expensesPage, expensesSearch)
   const { paymentStatus, isLoading: statusLoading, mutate: mutateStatus } = usePaymentStatus()
   const currentMonthDate = new Date()
-  const { reports: financialReports } = useFinancialReports(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1)
+  const { reports: financialReports, mutate: mutateReports } = useFinancialReports(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1)
+  const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null)
   const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
 
   const mutate = () => {
     mutatePayments()
     mutateExpenses()
     mutateStatus()
+    mutateReports()
+  }
+
+  const handleDeletePayment = async (id: number) => {
+    try {
+      setDeletingPaymentId(id)
+      await api.delete(`/finances/payments/${id}/`)
+      toast.success(t('finances.paymentDeleted'))
+      mutate()
+    } catch (error) {
+      console.error(error)
+      toast.error(t('finances.paymentDeleteFailed'))
+    } finally {
+      setDeletingPaymentId(null)
+    }
   }
 
   const handleDeleteExpense = async (id: number) => {
@@ -69,7 +85,7 @@ function FinancesContent() {
       setDeletingExpenseId(id)
       await api.delete(`/finances/expenses/${id}/`)
       toast.success(t('finances.expenseDeleted'))
-      mutateExpenses()
+      mutate()
     } catch (error) {
       console.error(error)
       toast.error(t('finances.expenseDeleteFailed'))
@@ -178,7 +194,7 @@ function FinancesContent() {
                       <TableHead>{t('finances.date')}</TableHead>
                       <TableHead>{t('finances.method')}</TableHead>
                       <TableHead>{t('finances.status')}</TableHead>
-                      <TableHead className="w-[60px]">{t('common.actions')}</TableHead>
+                      <TableHead className="w-[100px] text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -214,12 +230,46 @@ function FinancesContent() {
                               {payment.status}
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <UpdatePaymentStatusDialog 
-                              paymentId={payment.id}
-                              currentStatus={payment.status}
-                              onSuccess={mutate}
-                            />
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {hasPermission("finances.change_payment") && (
+                                <UpdatePaymentStatusDialog
+                                  paymentId={payment.id}
+                                  currentStatus={payment.status}
+                                  onSuccess={mutate}
+                                />
+                              )}
+                              {hasPermission("finances.delete_payment") && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" aria-label={t('finances.deletePaymentTitle')}>
+                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>{t('finances.deletePaymentTitle')}</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        {t('finances.deletePaymentDescription', {
+                                          amount: payment.amount,
+                                          student: payment.student_name || payment.student_username || `#${payment.student}`,
+                                        })}
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeletePayment(payment.id)}
+                                        disabled={deletingPaymentId === payment.id}
+                                        className="bg-red-600 text-white hover:bg-red-700"
+                                      >
+                                        {deletingPaymentId === payment.id ? t('finances.deleting') : t('common.delete')}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -398,19 +448,21 @@ function FinancesContent() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <ExpenseDialog
-                                expense={expense}
-                                onSuccess={() => mutateExpenses()}
-                                trigger={
-                                  <Button variant="ghost" size="icon" aria-label="Edit expense">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                }
-                              />
-                              {!expense.salary_payroll_id && (
+                              {hasPermission("finances.change_expense") && (
+                                <ExpenseDialog
+                                  expense={expense}
+                                  onSuccess={mutate}
+                                  trigger={
+                                    <Button variant="ghost" size="icon" aria-label={t('finances.edit')}>
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  }
+                                />
+                              )}
+                              {hasPermission("finances.delete_expense") && !expense.salary_payroll_id && (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" aria-label="Delete expense">
+                                    <Button variant="ghost" size="icon" aria-label={t('finances.deleteExpenseTitle')}>
                                       <Trash2 className="h-4 w-4 text-red-600" />
                                     </Button>
                                   </AlertDialogTrigger>
@@ -426,6 +478,7 @@ function FinancesContent() {
                                       <AlertDialogAction
                                         onClick={() => handleDeleteExpense(expense.id)}
                                         disabled={deletingExpenseId === expense.id}
+                                        className="bg-red-600 text-white hover:bg-red-700"
                                       >
                                         {deletingExpenseId === expense.id ? t('finances.deleting') : t('common.delete')}
                                       </AlertDialogAction>
