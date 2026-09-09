@@ -128,6 +128,7 @@ class BillingService:
     PLAN_MONTHS = {
         'MONTHLY': 1,
         'QUARTERLY': 3,
+        'ANNUAL': 12,
     }
     AUTOMATION_JOB_NAME = 'billing_daily_sync'
 
@@ -149,9 +150,10 @@ class BillingService:
         return max(months, 1)
 
     @classmethod
-    def subscription_amount(cls, enrollment, start_date, end_date):
+    def subscription_amount(cls, enrollment, start_date, end_date, subscription_type=None):
         monthly_price = enrollment.custom_price or Decimal('0')
-        return monthly_price * cls.covered_months(start_date, end_date)
+        billed_months = 10 if subscription_type == 'ANNUAL' else cls.covered_months(start_date, end_date)
+        return monthly_price * billed_months
 
     @staticmethod
     def _status_for_amount(amount, end_date, today):
@@ -168,7 +170,7 @@ class BillingService:
     @classmethod
     def create_subscription_for_period(cls, enrollment, subscription_type, start_date):
         end_date = cls.period_end_date(start_date, subscription_type, enrollment.academic_year)
-        amount = cls.subscription_amount(enrollment, start_date, end_date)
+        amount = cls.subscription_amount(enrollment, start_date, end_date, subscription_type)
         today = timezone.now().date()
 
         subscription, created = Subscription.objects.get_or_create(
@@ -286,6 +288,8 @@ class BillingService:
         academic_year=None,
         registration_status='PENDING',
         insurance_status='PENDING',
+        registration_amount=None,
+        insurance_amount=None,
         payment_method='CASH',
         user=None,
     ):
@@ -295,8 +299,16 @@ class BillingService:
         settings = AcademySettings.get()
         today = timezone.now().date()
         fee_configs = [
-            ('REGISTRATION', settings.default_registration_fee, registration_status),
-            ('INSURANCE', settings.default_insurance_fee, insurance_status),
+            (
+                'REGISTRATION',
+                settings.default_registration_fee if registration_amount is None else registration_amount,
+                registration_status,
+            ),
+            (
+                'INSURANCE',
+                settings.default_insurance_fee if insurance_amount is None else insurance_amount,
+                insurance_status,
+            ),
         ]
         created_fees = []
 

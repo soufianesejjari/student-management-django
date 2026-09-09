@@ -825,6 +825,7 @@
       "plan": "Forfait",
       "monthly": "Mensuel",
       "quarterly": "Trimestriel",
+      "annual": "Annuel",
       "startDate": "Date de début",
       "finalPrice": "Prix final (MAD)",
       "monthlyPrice": "Prix mensuel (MAD)",

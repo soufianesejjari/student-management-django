@@ -97,10 +97,12 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             notes=notes,
         )
 
-        if subscription_type == 'MONTHLY':
-            end_date = subscription_start_date + relativedelta(months=1) - timedelta(days=1)
-        else:
-            end_date = subscription_start_date + relativedelta(months=3) - timedelta(days=1)
+        period_months = {
+            'MONTHLY': 1,
+            'QUARTERLY': 3,
+            'ANNUAL': 12,
+        }[subscription_type]
+        end_date = subscription_start_date + relativedelta(months=period_months) - timedelta(days=1)
 
         Subscription.objects.create(
             enrollment=enrollment,

@@ -142,6 +142,7 @@ class Enrollment(models.Model):
     BILLING_PLAN_CHOICES = [
         ('MONTHLY', 'Monthly'),
         ('QUARTERLY', 'Quarterly (3 months)'),
+        ('ANNUAL', 'Annual'),
     ]
     
     student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, related_name='enrollments')
@@ -205,10 +206,11 @@ class Enrollment(models.Model):
 
 
 class Subscription(models.Model):
-    """Payment subscription for an enrollment (monthly or quarterly)"""
+    """Payment subscription for an enrollment (monthly, quarterly, or annual)"""
     SUBSCRIPTION_TYPE_CHOICES = [
         ('MONTHLY', 'Monthly'),
         ('QUARTERLY', 'Quarterly (3 months)'),
+        ('ANNUAL', 'Annual'),
     ]
     
     PAYMENT_STATUS_CHOICES = [

@@ -40,7 +40,8 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
     const [offerSettings, setOfferSettings] = useState<any>(null)
     const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
     const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
-    const subscriptionAmount = Number(customPrice || 0) * (subscriptionType === "QUARTERLY" ? 3 : 1)
+    const billedMonths = subscriptionType === "ANNUAL" ? 10 : subscriptionType === "QUARTERLY" ? 3 : 1
+    const subscriptionAmount = Number(customPrice || 0) * billedMonths
     const isEnrollingInFreeCourse = Boolean(
         globalOffer?.free_course_id && courseId && Number(globalOffer.free_course_id) === Number(courseId)
     )
@@ -343,6 +344,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                                 <SelectContent>
                                     <SelectItem value="MONTHLY">{t("dialogs.enrollStudent.monthly")}</SelectItem>
                                     <SelectItem value="QUARTERLY">{t("dialogs.enrollStudent.quarterly")}</SelectItem>
+                                    <SelectItem value="ANNUAL">{t("dialogs.enrollStudent.annual")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { useForm } from "react-hook-form"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -50,6 +50,8 @@ export function TeacherDialog({
     onSubmit,
 }: TeacherDialogProps) {
     const t = useTranslations()
+    const submitLock = useRef(false)
+    const [isSaving, setIsSaving] = useState(false)
     const form = useForm<TeacherFormValues>({
         resolver: zodResolver(teacherSchema),
         defaultValues: {
@@ -88,9 +90,18 @@ export function TeacherDialog({
     }, [teacher, form, open])
 
     const handleSubmit = async (data: TeacherFormValues) => {
-        await onSubmit(data)
-        onOpenChange(false)
-        form.reset()
+        if (submitLock.current) return
+
+        submitLock.current = true
+        setIsSaving(true)
+        try {
+            await onSubmit(data)
+            onOpenChange(false)
+            form.reset()
+        } finally {
+            submitLock.current = false
+            setIsSaving(false)
+        }
     }
 
     return (
@@ -198,7 +209,7 @@ export function TeacherDialog({
                             )}
                         />
                         <DialogFooter>
-                            <Button type="submit">
+                            <Button type="submit" disabled={isSaving}>
                                 {teacher ? t('common.saveChanges') : t('teachers.addTeacher')}
                             </Button>
                         </DialogFooter>

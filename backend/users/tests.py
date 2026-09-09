@@ -4,7 +4,8 @@ from datetime import time
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from academics.models import AcademicYear, Course, Enrollment, Subject
+from academics.models import AcademicYear, AcademySettings, Course, Enrollment, StudentFee, Subject
+from finances.models import Payment
 from planning.models import ClassSession, Room
 from users.models import StudentProfile, TeacherProfile, User
 from users.serializers import StudentProfileSerializer, TeacherProfileSerializer
@@ -33,6 +34,40 @@ class ProfileAccountSafetyTests(TestCase):
         self.assertFalse(student.user.is_active)
         self.assertFalse(student.user.has_usable_password())
         self.assertNotIn(student.user, UserViewSet.queryset)
+
+    def test_student_creation_can_override_default_fee_amounts(self):
+        settings = AcademySettings.get()
+        settings.default_registration_fee = Decimal('200.00')
+        settings.default_insurance_fee = Decimal('50.00')
+        settings.save()
+        serializer = StudentProfileSerializer(data={
+            'first_name': 'Nora',
+            'last_name': 'Amrani',
+            'email': 'nora@example.com',
+            'phone': '0600000000',
+            'address': 'Casablanca',
+            'age_group': '6-12ans',
+            'registration_fee_status': 'PAID',
+            'registration_fee_amount': '300.00',
+            'insurance_fee_status': 'PENDING',
+            'insurance_fee_amount': '75.00',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        student = serializer.save()
+
+        registration = StudentFee.objects.get(student=student, fee_type='REGISTRATION')
+        insurance = StudentFee.objects.get(student=student, fee_type='INSURANCE')
+        self.assertEqual(registration.amount, Decimal('300.00'))
+        self.assertEqual(registration.status, 'PAID')
+        self.assertEqual(insurance.amount, Decimal('75.00'))
+        self.assertEqual(insurance.status, 'PENDING')
+        self.assertTrue(Payment.objects.filter(
+            student=student,
+            student_fee=registration,
+            amount=Decimal('300.00'),
+            status='PAID',
+        ).exists())
 
     def test_teacher_profile_creates_non_login_user(self):
         serializer = TeacherProfileSerializer(data={

@@ -74,11 +74,12 @@ class Enrollment(models.Model):
 
 class Subscription(models.Model):
     """
-    Payment subscription for an enrollment (monthly or quarterly).
+    Payment subscription for an enrollment (monthly, quarterly, or annual).
     """
     SUBSCRIPTION_TYPE_CHOICES = [
         ('MONTHLY', 'Monthly'),
         ('QUARTERLY', 'Quarterly (3 months)'),
+        ('ANNUAL', 'Annual'),
     ]
     
     PAYMENT_STATUS_CHOICES = [

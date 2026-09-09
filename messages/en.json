@@ -825,6 +825,7 @@
       "plan": "Plan",
       "monthly": "Monthly",
       "quarterly": "Quarterly",
+      "annual": "Annual",
       "startDate": "Start Date",
       "finalPrice": "Final Price (MAD)",
       "monthlyPrice": "Monthly price (MAD)",

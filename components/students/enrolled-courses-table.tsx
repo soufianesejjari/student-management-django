@@ -201,6 +201,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                                 <SelectContent>
                                                     <SelectItem value="MONTHLY">{t('dialogs.enrollStudent.monthly')}</SelectItem>
                                                     <SelectItem value="QUARTERLY">{t('dialogs.enrollStudent.quarterly')}</SelectItem>
+                                                    <SelectItem value="ANNUAL">{t('dialogs.enrollStudent.annual')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             {enrollment.status === 'ACTIVE' && (

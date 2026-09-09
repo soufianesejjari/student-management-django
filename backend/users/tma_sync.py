@@ -100,7 +100,11 @@ def build_student_payload(student_id):
             enrollment.course.name for enrollment in enrollments
         ),
         'formule': _unique_text(
-            'Mensuel' if enrollment.billing_plan == 'MONTHLY' else 'Trimestriel'
+            {
+                'MONTHLY': 'Mensuel',
+                'QUARTERLY': 'Trimestriel',
+                'ANNUAL': 'Annuel',
+            }.get(enrollment.billing_plan, enrollment.billing_plan)
             for enrollment in enrollments
         ),
         'tarif': _unique_text(

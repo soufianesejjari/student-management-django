@@ -11,6 +11,33 @@ const axiosInstance = axios.create({
   },
 });
 
+// Share identical write requests while the first one is still running. This
+// prevents rapid double-clicks from creating or updating the same record twice.
+const inFlightMutations = new Map<string, Promise<any>>();
+
+const mutationRequest = (
+  method: 'post' | 'put' | 'patch' | 'delete',
+  url: string,
+  data?: any,
+  config?: any,
+) => {
+  const key = `${method}:${url}:${JSON.stringify(data ?? null)}:${JSON.stringify(config?.params ?? null)}`;
+  const existingRequest = inFlightMutations.get(key);
+  if (existingRequest) return existingRequest;
+
+  const request = axiosInstance.request({ ...config, method, url, data });
+  inFlightMutations.set(key, request);
+
+  const release = () => {
+    if (inFlightMutations.get(key) === request) {
+      inFlightMutations.delete(key);
+    }
+  };
+  request.then(release, release);
+
+  return request;
+};
+
 // Request Interceptor to add Token
 axiosInstance.interceptors.request.use(
   (config) => {
@@ -77,30 +104,30 @@ axiosInstance.interceptors.response.use(
 export const api = {
     // Generic methods
     get: (url: string, config?: any) => axiosInstance.get(url, config),
-    post: (url: string, data?: any, config?: any) => axiosInstance.post(url, data, config),
-    put: (url: string, data?: any, config?: any) => axiosInstance.put(url, data, config),
-    patch: (url: string, data?: any, config?: any) => axiosInstance.patch(url, data, config),
-    delete: (url: string, config?: any) => axiosInstance.delete(url, config),
+    post: (url: string, data?: any, config?: any) => mutationRequest('post', url, data, config),
+    put: (url: string, data?: any, config?: any) => mutationRequest('put', url, data, config),
+    patch: (url: string, data?: any, config?: any) => mutationRequest('patch', url, data, config),
+    delete: (url: string, config?: any) => mutationRequest('delete', url, config?.data, config),
 
     auth: {
-        login: (data: any) => axiosInstance.post('/auth/token/', data),
-        refreshToken: (data: any) => axiosInstance.post('/auth/token/refresh/', data),
+        login: (data: any) => mutationRequest('post', '/auth/token/', data),
+        refreshToken: (data: any) => mutationRequest('post', '/auth/token/refresh/', data),
     },
     users: {
         /** Current authenticated user profile */
         me: () => axiosInstance.get('/users/users/me/').then(res => res.data),
         /** Update own profile (username/email/name/avatar — no password) */
         updateMe: (data: Partial<{ username: string; email: string; first_name: string; last_name: string }>) =>
-            axiosInstance.patch('/users/users/me/update/', data).then(res => res.data),
+            mutationRequest('patch', '/users/users/me/update/', data).then(res => res.data),
         /** Change own password (requires current password) */
         changePassword: (data: { current_password: string; new_password: string }) =>
-            axiosInstance.post('/users/users/me/change-password/', data).then(res => res.data),
+            mutationRequest('post', '/users/users/me/change-password/', data).then(res => res.data),
     },
     students: {
         list: () => axiosInstance.get('/users/students/').then(res => res.data),
         get: (id: string) => axiosInstance.get(`/users/students/${id}/`).then(res => res.data),
-        create: (data: any) => axiosInstance.post('/users/students/', data).then(res => res.data),
-        update: (id: string, data: any) => axiosInstance.patch(`/users/students/${id}/`, data).then(res => res.data),
+        create: (data: any) => mutationRequest('post', '/users/students/', data).then(res => res.data),
+        update: (id: string, data: any) => mutationRequest('patch', `/users/students/${id}/`, data).then(res => res.data),
     },
     teachers: {
         list: () => axiosInstance.get('/users/teachers/').then(res => res.data),
@@ -108,22 +135,22 @@ export const api = {
     courses: {
         list: () => axiosInstance.get('/academics/courses/').then(res => res.data),
         get: (id: string) => axiosInstance.get(`/academics/courses/${id}/`).then(res => res.data),
-        create: (data: any) => axiosInstance.post('/academics/courses/', data).then(res => res.data),
-        update: (id: string, data: any) => axiosInstance.patch(`/academics/courses/${id}/`, data).then(res => res.data),
+        create: (data: any) => mutationRequest('post', '/academics/courses/', data).then(res => res.data),
+        update: (id: string, data: any) => mutationRequest('patch', `/academics/courses/${id}/`, data).then(res => res.data),
         sessions: (id: string) => axiosInstance.get(`/academics/courses/${id}/sessions/`).then(res => res.data),
     },
     academicYears: {
         list: () => axiosInstance.get('/academics/academic-years/').then(res => res.data),
         current: () => axiosInstance.get('/academics/academic-years/current/').then(res => res.data),
-        create: (data: any) => axiosInstance.post('/academics/academic-years/', data).then(res => res.data),
-        update: (id: number, data: any) => axiosInstance.patch(`/academics/academic-years/${id}/`, data).then(res => res.data),
-        activate: (id: number) => axiosInstance.post(`/academics/academic-years/${id}/activate/`).then(res => res.data),
+        create: (data: any) => mutationRequest('post', '/academics/academic-years/', data).then(res => res.data),
+        update: (id: number, data: any) => mutationRequest('patch', `/academics/academic-years/${id}/`, data).then(res => res.data),
+        activate: (id: number) => mutationRequest('post', `/academics/academic-years/${id}/activate/`).then(res => res.data),
     },
     enrollments: {
         list: (params?: any) => axiosInstance.get('/academics/enrollments/', { params }).then(res => res.data),
-        create: (data: any) => axiosInstance.post('/academics/enrollments/', data).then(res => res.data),
+        create: (data: any) => mutationRequest('post', '/academics/enrollments/', data).then(res => res.data),
         get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
-        update: (id: string | number, data: any) => axiosInstance.patch(`/academics/enrollments/${id}/`, data).then(res => res.data),
+        update: (id: string | number, data: any) => mutationRequest('patch', `/academics/enrollments/${id}/`, data).then(res => res.data),
         offerSettings: (student_id?: number) =>
             axiosInstance.get('/academics/offer-settings/', { params: student_id ? { student_id } : {} }).then(res => res.data),
         updateOfferSettings: (data: {
@@ -133,21 +160,21 @@ export const api = {
             school?: Record<string, string>;
             student_fees?: { registration_fee?: number | string; insurance_fee?: number | string };
         }) =>
-            axiosInstance.patch('/academics/offer-settings/update/', data).then(res => res.data),
+            mutationRequest('patch', '/academics/offer-settings/update/', data).then(res => res.data),
         suggestPrice: (data: { student_id: number, course_id: number }) =>
-            axiosInstance.post('/academics/enrollments/suggest-price/', data).then(res => res.data),
+            mutationRequest('post', '/academics/enrollments/suggest-price/', data).then(res => res.data),
     },
     subscriptions: {
         list: (params?: any) => axiosInstance.get('/academics/subscriptions/', { params }).then(res => res.data),
-        syncDue: (data?: any) => axiosInstance.post('/academics/subscriptions/sync-due/', data || {}).then(res => res.data),
+        syncDue: (data?: any) => mutationRequest('post', '/academics/subscriptions/sync-due/', data || {}).then(res => res.data),
     },
     studentFees: {
         list: (params?: any) => axiosInstance.get('/academics/student-fees/', { params }).then(res => res.data),
-        update: (id: string | number, data: any) => axiosInstance.patch(`/academics/student-fees/${id}/`, data).then(res => res.data),
+        update: (id: string | number, data: any) => mutationRequest('patch', `/academics/student-fees/${id}/`, data).then(res => res.data),
     },
     payments: {
         list: (params?: any) => axiosInstance.get('/finances/payments/', { params }).then(res => res.data),
-        create: (data: any) => axiosInstance.post('/finances/payments/', data).then(res => res.data),
+        create: (data: any) => mutationRequest('post', '/finances/payments/', data).then(res => res.data),
     },
     subjects: {
         list: () => axiosInstance.get('/academics/subjects/').then(res => res.data),
@@ -156,13 +183,13 @@ export const api = {
         list: () => axiosInstance.get('/planning/rooms/').then(res => res.data),
     },
     planning: {
-        createSession: (data: any) => axiosInstance.post('/planning/sessions/', data).then(res => res.data),
-        checkAvailability: (data: any) => axiosInstance.post('/planning/check-availability/', data).then(res => res.data),
-        suggestSlots: (data: any) => axiosInstance.post('/planning/suggest-slots/', data).then(res => res.data),
+        createSession: (data: any) => mutationRequest('post', '/planning/sessions/', data).then(res => res.data),
+        checkAvailability: (data: any) => mutationRequest('post', '/planning/check-availability/', data).then(res => res.data),
+        suggestSlots: (data: any) => mutationRequest('post', '/planning/suggest-slots/', data).then(res => res.data),
         getTeacherSessions: (teacherId: number, year: number, month: number) => 
             axiosInstance.get(`/planning/teacher/${teacherId}/sessions/`, { params: { year, month } }).then(res => res.data),
         updateSessionAttendance: (teacherId: number, data: any) => 
-            axiosInstance.patch(`/planning/teacher/${teacherId}/sessions/`, data).then(res => res.data),
+            mutationRequest('patch', `/planning/teacher/${teacherId}/sessions/`, data).then(res => res.data),
     },
     // -----------------------------------------------------------------------
     // Role & permission management (admin only)
@@ -174,24 +201,24 @@ export const api = {
         get: (id: number) => axiosInstance.get(`/users/secretaires/${id}/`).then(res => res.data),
         /** Create a new secretaire account */
         create: (data: { username: string; email: string; first_name: string; last_name: string; password?: string }) =>
-            axiosInstance.post('/users/secretaires/', data).then(res => res.data),
+            mutationRequest('post', '/users/secretaires/', data).then(res => res.data),
         /** Update basic info of a secretaire */
         update: (id: number, data: Partial<{ username: string; email: string; first_name: string; last_name: string; is_active: boolean }>) =>
-            axiosInstance.patch(`/users/secretaires/${id}/`, data).then(res => res.data),
+            mutationRequest('patch', `/users/secretaires/${id}/`, data).then(res => res.data),
         /** Delete a secretaire account */
-        delete: (id: number) => axiosInstance.delete(`/users/secretaires/${id}/`).then(res => res.data),
+        delete: (id: number) => mutationRequest('delete', `/users/secretaires/${id}/`).then(res => res.data),
         /** Get current permissions of a secretaire */
         getPermissions: (id: number) =>
             axiosInstance.get(`/users/secretaires/${id}/permissions/`).then(res => res.data),
         /** Assign additional permissions (does not remove existing ones) */
         assignPermissions: (id: number, permissionIds: number[]) =>
-            axiosInstance.post(`/users/secretaires/${id}/permissions/assign/`, { permission_ids: permissionIds }).then(res => res.data),
+            mutationRequest('post', `/users/secretaires/${id}/permissions/assign/`, { permission_ids: permissionIds }).then(res => res.data),
         /** Revoke specific permissions */
         revokePermissions: (id: number, permissionIds: number[]) =>
-            axiosInstance.post(`/users/secretaires/${id}/permissions/revoke/`, { permission_ids: permissionIds }).then(res => res.data),
+            mutationRequest('post', `/users/secretaires/${id}/permissions/revoke/`, { permission_ids: permissionIds }).then(res => res.data),
         /** Replace ALL permissions at once */
         setPermissions: (id: number, permissionIds: number[]) =>
-            axiosInstance.post(`/users/secretaires/${id}/permissions/set/`, { permission_ids: permissionIds }).then(res => res.data),
+            mutationRequest('post', `/users/secretaires/${id}/permissions/set/`, { permission_ids: permissionIds }).then(res => res.data),
     },
     permissions: {
         /** Full catalogue of delegatable Django permissions, grouped by app */
@@ -204,18 +231,18 @@ export const api = {
         get: (id: number) => axiosInstance.get(`/users/admins/${id}/`).then(res => res.data),
         /** Create a new admin account */
         create: (data: { username: string; email: string; first_name: string; last_name: string; password: string }) =>
-            axiosInstance.post('/users/admins/', data).then(res => res.data),
+            mutationRequest('post', '/users/admins/', data).then(res => res.data),
         /** Update an admin account */
         update: (id: number, data: Partial<{ username: string; email: string; first_name: string; last_name: string; is_active: boolean; password: string }>) =>
-            axiosInstance.patch(`/users/admins/${id}/`, data).then(res => res.data),
+            mutationRequest('patch', `/users/admins/${id}/`, data).then(res => res.data),
         /** Delete an admin account */
-        delete: (id: number) => axiosInstance.delete(`/users/admins/${id}/`).then(res => res.data),
+        delete: (id: number) => mutationRequest('delete', `/users/admins/${id}/`).then(res => res.data),
     },
     notifications: {
         sendStudentSchedules: (ids?: number[]) =>
-            axiosInstance.post('/notifications/students/send-schedule/', ids ? { ids } : {}).then(res => res.data),
+            mutationRequest('post', '/notifications/students/send-schedule/', ids ? { ids } : {}).then(res => res.data),
         sendTeacherSchedules: (ids?: number[]) =>
-            axiosInstance.post('/notifications/teachers/send-schedule/', ids ? { ids } : {}).then(res => res.data),
+            mutationRequest('post', '/notifications/teachers/send-schedule/', ids ? { ids } : {}).then(res => res.data),
     },
 };
 

@@ -42,7 +42,7 @@ import { useTranslations } from "next-intl"
 
 const formSchema = z.object({
     studentId: z.union([z.string(), z.number()]),
-    subscriptionType: z.enum(["MONTHLY", "QUARTERLY"]),
+    subscriptionType: z.enum(["MONTHLY", "QUARTERLY", "ANNUAL"]),
     startDate: z.string().min(1, "Start date is required"),
     customPrice: z.string().min(1, "Price is required"),
     notes: z.string().optional(),
@@ -172,7 +172,8 @@ export function AddStudentToCourseDialog({
 
     const subscriptionType = form.watch("subscriptionType")
     const monthlyPrice = Number(form.watch("customPrice") || 0)
-    const firstPeriodAmount = monthlyPrice * (subscriptionType === "QUARTERLY" ? 3 : 1)
+    const billedMonths = subscriptionType === "ANNUAL" ? 10 : subscriptionType === "QUARTERLY" ? 3 : 1
+    const firstPeriodAmount = monthlyPrice * billedMonths
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         const studentId = Number(values.studentId)
@@ -380,6 +381,7 @@ export function AddStudentToCourseDialog({
                                             <SelectContent>
                                                 <SelectItem value="MONTHLY">{t('dialogs.enrollStudent.monthly')}</SelectItem>
                                                 <SelectItem value="QUARTERLY">{t('dialogs.enrollStudent.quarterly')}</SelectItem>
+                                                <SelectItem value="ANNUAL">{t('dialogs.enrollStudent.annual')}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />

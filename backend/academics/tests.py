@@ -136,6 +136,20 @@ class BillingServiceTests(TestCase):
         self.assertEqual(next_subscription.amount, Decimal('1500.00'))
         self.assertEqual(next_subscription.payment_status, 'PENDING')
 
+    def test_annual_subscription_charges_ten_months(self):
+        enrollment = self.create_enrollment(billing_plan='ANNUAL')
+
+        subscription, created = BillingService.create_subscription_for_period(
+            enrollment,
+            'ANNUAL',
+            date(2025, 9, 1),
+        )
+
+        self.assertTrue(created)
+        self.assertEqual(subscription.subscription_type, 'ANNUAL')
+        self.assertEqual(subscription.end_date, date(2026, 8, 31))
+        self.assertEqual(subscription.amount, Decimal('5000.00'))
+
     def test_partial_payment_keeps_subscription_pending_until_fully_paid(self):
         enrollment = self.create_enrollment(billing_plan='MONTHLY')
         subscription, _ = BillingService.create_subscription_for_period(

@@ -141,6 +141,20 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         required=False,
         default='PENDING',
     )
+    registration_fee_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        write_only=True,
+        required=False,
+    )
+    insurance_fee_amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=0,
+        write_only=True,
+        required=False,
+    )
     courses = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payment_balance = serializers.SerializerMethodField()
@@ -152,6 +166,7 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'enrollment_date', 'parent_name', 'parent_phone', 'status',
             'courses', 'payment_status', 'payment_balance', 'first_name', 'last_name',
             'email', 'registration_fee_status', 'insurance_fee_status',
+            'registration_fee_amount', 'insurance_fee_amount',
             'address', 'phone', 'date_of_birth', 'age_group', 'registration_form_ready',
         ]
 
@@ -184,6 +199,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         email = validated_data.pop('email', '')
         registration_fee_status = validated_data.pop('registration_fee_status', 'PENDING')
         insurance_fee_status = validated_data.pop('insurance_fee_status', 'PENDING')
+        registration_fee_amount = validated_data.pop('registration_fee_amount', None)
+        insurance_fee_amount = validated_data.pop('insurance_fee_amount', None)
         user_data = {
             'first_name': first_name,
             'last_name': last_name,
@@ -202,12 +219,19 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             student,
             registration_status=registration_fee_status,
             insurance_status=insurance_fee_status,
+            registration_amount=registration_fee_amount,
+            insurance_amount=insurance_fee_amount,
         )
         from .tma_sync import schedule_student_sync
         schedule_student_sync(student.id)
         return student
 
     def update(self, instance, validated_data):
+        # Fee amount/status overrides only apply when the student is created.
+        validated_data.pop('registration_fee_status', None)
+        validated_data.pop('insurance_fee_status', None)
+        validated_data.pop('registration_fee_amount', None)
+        validated_data.pop('insurance_fee_amount', None)
         # Update user fields if present
         user = instance.user
         if 'first_name' in validated_data:
