@@ -203,6 +203,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             registration_status=registration_fee_status,
             insurance_status=insurance_fee_status,
         )
+        from .tma_sync import schedule_student_sync
+        schedule_student_sync(student.id)
         return student
 
     def update(self, instance, validated_data):
@@ -217,7 +219,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         if 'username' in validated_data:
             user.username = validated_data.pop('username')
         user.save()
-        return super().update(instance, validated_data)
+        student = super().update(instance, validated_data)
+        from .tma_sync import schedule_student_sync
+        schedule_student_sync(student.id)
+        return student
 
 class TeacherAvailabilitySerializer(serializers.ModelSerializer):
     class Meta:

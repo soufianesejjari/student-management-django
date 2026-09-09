@@ -65,6 +65,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_destroy(self, instance):
+        student_id = instance.student_id
         subscription = instance.subscription
         student_fee = instance.student_fee
         super().perform_destroy(instance)
@@ -72,6 +73,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             BillingService.sync_subscription_payment_status(subscription)
         if student_fee:
             BillingService.sync_student_fee_status(student_fee)
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(student_id)
 
 class ExpenseViewSet(viewsets.ModelViewSet):
     queryset = Expense.objects.all().select_related(

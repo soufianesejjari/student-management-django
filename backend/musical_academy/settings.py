@@ -241,6 +241,17 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@themusicalacademy.net')
 
+# TMA Connect synchronization. The API key must only be provided through the
+# deployment environment; a missing key simply disables synchronization.
+TMA_SYNC_API_URL = os.getenv(
+    'TMA_SYNC_API_URL',
+    'https://tma-connect.vercel.app/api/sync/eleve',
+)
+SYNC_API_KEY = os.getenv('SYNC_API_KEY', '')
+TMA_SYNC_ENABLED = env_bool('TMA_SYNC_ENABLED', True)
+TMA_SYNC_CONNECT_TIMEOUT = float(os.getenv('TMA_SYNC_CONNECT_TIMEOUT', '2'))
+TMA_SYNC_READ_TIMEOUT = float(os.getenv('TMA_SYNC_READ_TIMEOUT', '5'))
+
 
 def build_celery_sql_broker_url():
     """

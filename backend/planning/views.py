@@ -118,7 +118,10 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
                         "conflicts": conflicts,
                         "can_force": True
                     }, status=status.HTTP_409_CONFLICT)
-                
+
+            from users.tma_sync import schedule_course_students_sync
+            schedule_course_students_sync(instance.course_id)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except DjangoValidationError as e:
@@ -142,6 +145,8 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             return self._payroll_locked_response(payroll_conflicts)
 
         self.perform_update(serializer)
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(serializer.instance.course_id)
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
@@ -149,7 +154,11 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         payroll_conflicts = get_validated_payroll_conflicts_for_session(instance)
         if payroll_conflicts:
             return self._payroll_locked_response(payroll_conflicts)
-        return super().destroy(request, *args, **kwargs)
+        course_id = instance.course_id
+        response = super().destroy(request, *args, **kwargs)
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(course_id)
+        return response
 
     @action(detail=False, methods=['post']) 
     def check_conflicts(self, request):
@@ -230,7 +239,9 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
                 'notes': notes
             }
         )
-        
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(session.course_id)
+
         return Response(SessionInstanceSerializer(instance).data)
 
     @action(detail=True, methods=['post'])
@@ -262,6 +273,8 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
                 'notes': notes
             }
         )
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(session.course_id)
         return Response(SessionInstanceSerializer(instance).data)
 
     @action(detail=False, methods=['get'])

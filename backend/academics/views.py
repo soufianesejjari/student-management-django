@@ -54,6 +54,11 @@ class CourseViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'subject__name']
 
+    def perform_update(self, serializer):
+        course = serializer.save()
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(course.id)
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         academic_year_id = self.request.query_params.get('academic_year')
@@ -74,6 +79,22 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return EnrollmentCreateSerializer
         return EnrollmentSerializer
+
+    def perform_create(self, serializer):
+        enrollment = serializer.save()
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(enrollment.student_id)
+
+    def perform_update(self, serializer):
+        enrollment = serializer.save()
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(enrollment.student_id)
+
+    def perform_destroy(self, instance):
+        student_id = instance.student_id
+        super().perform_destroy(instance)
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(student_id)
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -137,6 +158,22 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.all().select_related('enrollment__student__user', 'enrollment__course', 'enrollment__academic_year')
     serializer_class = SubscriptionSerializer
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
+
+    def perform_create(self, serializer):
+        subscription = serializer.save()
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(subscription.enrollment.student_id)
+
+    def perform_update(self, serializer):
+        subscription = serializer.save()
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(subscription.enrollment.student_id)
+
+    def perform_destroy(self, instance):
+        student_id = instance.enrollment.student_id
+        super().perform_destroy(instance)
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(student_id)
 
     def list(self, request, *args, **kwargs):
         academic_year = self._requested_academic_year()
@@ -243,6 +280,8 @@ class StudentFeeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = serializer.save()
         BillingService.sync_student_fee_status(instance)
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(instance.student_id)
 
 
 class CourseOfferSettingsViewSet(viewsets.ViewSet):

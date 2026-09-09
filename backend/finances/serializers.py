@@ -46,6 +46,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             BillingService.sync_subscription_payment_status(payment.subscription)
         if payment.student_fee:
             BillingService.sync_student_fee_status(payment.student_fee)
+
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(payment.student_id)
             
         return payment
 
@@ -78,6 +81,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             fee_obj = StudentFee.objects.filter(pk=fee_id).first()
             if fee_obj:
                 BillingService.sync_student_fee_status(fee_obj)
+
+        from users.tma_sync import schedule_student_sync
+        schedule_student_sync(payment.student_id)
 
         return payment
 
