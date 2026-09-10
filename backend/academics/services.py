@@ -198,6 +198,61 @@ class BillingService:
         return subscription, created
 
     @classmethod
+    @transaction.atomic
+    def update_current_unpaid_subscription_plan(cls, enrollment, subscription_type):
+        """Recalculate the current due when its payment has not started yet.
+
+        Paid and partially paid periods are accounting history and must stay
+        unchanged. In that case, the enrollment plan is used by the next due.
+        """
+        subscription = (
+            enrollment.subscriptions
+            .select_for_update()
+            .exclude(payment_status__in=['PAID', 'CANCELLED'])
+            .order_by('start_date', 'id')
+            .first()
+        )
+        if not subscription or subscription.payments.filter(status='PAID').exists():
+            return None
+
+        end_date = cls.period_end_date(
+            subscription.start_date,
+            subscription_type,
+            enrollment.academic_year,
+        )
+        amount = cls.subscription_amount(
+            enrollment,
+            subscription.start_date,
+            end_date,
+            subscription_type,
+        )
+
+        duplicate_period = (
+            enrollment.subscriptions
+            .exclude(pk=subscription.pk)
+            .filter(start_date=subscription.start_date, end_date=end_date)
+            .exists()
+        )
+        if duplicate_period:
+            return None
+
+        subscription.subscription_type = subscription_type
+        subscription.end_date = end_date
+        subscription.amount = amount
+        subscription.payment_status = cls._status_for_amount(
+            amount,
+            end_date,
+            timezone.now().date(),
+        )
+        subscription.save(update_fields=[
+            'subscription_type',
+            'end_date',
+            'amount',
+            'payment_status',
+        ])
+        return subscription
+
+    @classmethod
     def sync_subscription_payment_status(cls, subscription, today=None):
         today = today or timezone.now().date()
         if not subscription or subscription.payment_status == 'CANCELLED':

@@ -7,7 +7,7 @@ from pypdf import PdfReader, PdfWriter
 
 from academics.models import AcademicYear, Course, Enrollment, Subject
 from planning.models import ClassSession, Room, TeacherMonthlyPayroll
-from planning.pdf_service import PDFReportGenerator
+from planning.pdf_service import PDFReportGenerator, WeeklyScheduleGrid
 from planning.services import (
     build_student_schedule_pdf_data,
     get_teacher_monthly_occurrences,
@@ -156,3 +156,16 @@ class PlanningPayrollSyncTests(TestCase):
         self.assertIn("PLANNING DE L'ÉLÈVE", pages[1].extract_text())
         self.assertIn('THE MUSICAL ACADEMY', pages[0].extract_text())
         self.assertIn('THE MUSICAL ACADEMY', pages[1].extract_text())
+
+    def test_schedule_block_uses_exact_start_minute_and_duration(self):
+        grid = WeeklyScheduleGrid([], hour_height=30)
+        box = grid.session_box({
+            'day_of_week': 1,
+            'start_time': '18:30:00',
+            'end_time': '20:00:00',
+        })
+        _, y, _, height = box
+
+        expected_bottom = grid.body_height - (12 * grid.hour_height)
+        self.assertEqual(y, expected_bottom)
+        self.assertEqual(height, 1.5 * grid.hour_height)

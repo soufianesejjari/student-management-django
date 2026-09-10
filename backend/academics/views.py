@@ -3,6 +3,7 @@ from users.permissions import make_module_permission, StrictDjangoModelPermissio
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from decimal import Decimal, InvalidOperation
+from django.db import transaction
 from .models import AcademicYear, Subject, Course, Enrollment, Subscription, StudentFee, AcademySettings
 from .serializers import (
     AcademicYearSerializer,
@@ -86,7 +87,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         schedule_student_sync(enrollment.student_id)
 
     def perform_update(self, serializer):
-        enrollment = serializer.save()
+        previous_plan = serializer.instance.billing_plan
+        with transaction.atomic():
+            enrollment = serializer.save()
+            if enrollment.billing_plan != previous_plan:
+                BillingService.update_current_unpaid_subscription_plan(
+                    enrollment,
+                    enrollment.billing_plan,
+                )
         from users.tma_sync import schedule_student_sync
         schedule_student_sync(enrollment.student_id)
 

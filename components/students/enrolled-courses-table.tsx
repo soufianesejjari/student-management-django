@@ -111,9 +111,21 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
             )))
 
             const currentSubscription = subscriptionsByEnrollment[enrollmentId]
-            const appliesNextPeriod = currentSubscription?.subscription_type !== billingPlan
+            const currentPeriodCanChange = Boolean(
+                currentSubscription &&
+                currentSubscription.payment_status !== "PAID" &&
+                currentSubscription.payment_status !== "CANCELLED" &&
+                Number(currentSubscription.amount_paid || 0) === 0
+            )
+            const appliesNextPeriod = Boolean(
+                currentSubscription &&
+                currentSubscription.subscription_type !== billingPlan &&
+                !currentPeriodCanChange
+            )
             toast.success(
-                appliesNextPeriod
+                currentPeriodCanChange
+                    ? t('enrolledCourses.billingPlanUpdatedCurrent', { plan: getPlanLabel(billingPlan) })
+                    : appliesNextPeriod
                     ? t('enrolledCourses.billingPlanUpdatedNextPeriod', { plan: getPlanLabel(billingPlan) })
                     : t('enrolledCourses.billingPlanUpdated', { plan: getPlanLabel(billingPlan) })
             )
@@ -147,7 +159,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     }
 
     return (
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -156,13 +168,15 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                         <TableHead>{t('enrolledCourses.enrolledDate')}</TableHead>
                         <TableHead>{t('enrolledCourses.status')}</TableHead>
                         <TableHead>{t('enrolledCourses.price')}</TableHead>
+                        <TableHead>{t('enrolledCourses.billingPlan')}</TableHead>
+                        <TableHead>{t('enrolledCourses.billedPeriodColumn')}</TableHead>
                         <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {enrollments.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
+                            <TableCell colSpan={8} className="h-24 text-center">
                                 {t('enrolledCourses.notEnrolled')}
                             </TableCell>
                         </TableRow>
@@ -200,45 +214,20 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="min-w-[280px] space-y-2">
-                                            <div className="text-sm text-muted-foreground">
-                                                {t('enrolledCourses.monthlyRate')}: <span className="font-medium text-foreground">{Number(enrollment.custom_price).toFixed(2)} MAD</span>
+                                        <div className="min-w-[130px] font-medium">
+                                            {Number(enrollment.custom_price).toFixed(2)} MAD
+                                            <div className="text-xs font-normal text-muted-foreground">
+                                                / {t('enrolledCourses.month')}
                                             </div>
-                                            <div className="rounded-md bg-muted/60 px-3 py-2">
-                                                <div className="text-sm font-medium">
-                                                    {t('enrolledCourses.selectedPlan')}: {getPlanLabel(selectedPlan)}
-                                                </div>
-                                                <div className="text-sm font-semibold text-primary">
-                                                    {t('enrolledCourses.selectedPlanAmount')}: {selectedPlanAmount.toFixed(2)} MAD
-                                                </div>
-                                            </div>
-                                            {subscription && (
-                                                <div className="space-y-1 text-xs text-muted-foreground">
-                                                    <div>
-                                                        {t('enrolledCourses.billedPeriod')} ({getPlanLabel(subscriptionPlan)}): {periodLabel}
-                                                    </div>
-                                                    <div>
-                                                        {t('enrolledCourses.billedAmount')}: {Number(subscription.amount).toFixed(2)} MAD
-                                                    </div>
-                                                    {appliesNextPeriod && (
-                                                        <div className="font-medium text-amber-700">
-                                                            {t('enrolledCourses.appliesNextPeriod')}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
                                         {enrollment.is_promotional && (
-                                            <Badge variant="outline" className="ml-2 text-xs border-green-500 text-green-600">
+                                            <Badge variant="outline" className="mt-2 text-xs border-green-500 text-green-600">
                                                 {t('enrolledCourses.promo')}
                                             </Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex flex-col items-end gap-2">
-                                            <div className="text-xs font-medium text-muted-foreground">
-                                                {t('enrolledCourses.billingPlan')}
-                                            </div>
+                                    <TableCell>
+                                        <div className="min-w-[170px] space-y-2">
                                             <Select
                                                 value={selectedPlan}
                                                 onValueChange={(value) => updateBillingPlan(Number(enrollment.id), value)}
@@ -253,6 +242,31 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                                     <SelectItem value="ANNUAL">{t('dialogs.enrollStudent.annual')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <div className="text-xs text-muted-foreground">
+                                                {t('enrolledCourses.selectedPlanAmount')}: <span className="font-semibold text-foreground">{selectedPlanAmount.toFixed(2)} MAD</span>
+                                            </div>
+                                            {appliesNextPeriod && (
+                                                <div className="max-w-[180px] text-xs font-medium text-amber-700">
+                                                    {t('enrolledCourses.appliesNextPeriod')}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="min-w-[210px] space-y-1 text-sm">
+                                            {subscription ? (
+                                                <>
+                                                    <Badge variant="outline">{getPlanLabel(subscriptionPlan)}</Badge>
+                                                    <div className="text-xs text-muted-foreground">{periodLabel}</div>
+                                                    <div className="font-semibold">{Number(subscription.amount).toFixed(2)} MAD</div>
+                                                </>
+                                            ) : (
+                                                <span className="text-muted-foreground">{t('enrolledCourses.noSubscription')}</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex flex-col items-end gap-2">
                                             {enrollment.status === 'ACTIVE' && (
                                                 <PaymentDialog
                                                     studentId={studentId}

@@ -83,6 +83,50 @@ class BillingServiceTests(TestCase):
         self.assertEqual(next_subscription.amount, Decimal('500.00'))
         self.assertEqual(next_subscription.payment_status, 'PENDING')
 
+    def test_plan_change_recalculates_current_subscription_before_payment(self):
+        enrollment = self.create_enrollment(billing_plan='QUARTERLY')
+        subscription, _ = BillingService.create_subscription_for_period(
+            enrollment,
+            'QUARTERLY',
+            date(2025, 9, 1),
+        )
+
+        enrollment.billing_plan = 'MONTHLY'
+        enrollment.save(update_fields=['billing_plan'])
+        updated = BillingService.update_current_unpaid_subscription_plan(enrollment, 'MONTHLY')
+        subscription.refresh_from_db()
+
+        self.assertEqual(updated.id, subscription.id)
+        self.assertEqual(subscription.subscription_type, 'MONTHLY')
+        self.assertEqual(subscription.end_date, date(2025, 9, 30))
+        self.assertEqual(subscription.amount, Decimal('500.00'))
+
+    def test_plan_change_keeps_partially_paid_subscription_unchanged(self):
+        enrollment = self.create_enrollment(billing_plan='QUARTERLY')
+        subscription, _ = BillingService.create_subscription_for_period(
+            enrollment,
+            'QUARTERLY',
+            date(2025, 9, 1),
+        )
+        Payment.objects.create(
+            student=self.student,
+            subscription=subscription,
+            amount=Decimal('200.00'),
+            date=date(2025, 9, 2),
+            method='CASH',
+            status='PAID',
+        )
+
+        enrollment.billing_plan = 'MONTHLY'
+        enrollment.save(update_fields=['billing_plan'])
+        updated = BillingService.update_current_unpaid_subscription_plan(enrollment, 'MONTHLY')
+        subscription.refresh_from_db()
+
+        self.assertIsNone(updated)
+        self.assertEqual(subscription.subscription_type, 'QUARTERLY')
+        self.assertEqual(subscription.end_date, date(2025, 11, 30))
+        self.assertEqual(subscription.amount, Decimal('1500.00'))
+
     def test_monthly_subscription_generates_next_month_only_when_due(self):
         enrollment = self.create_enrollment(billing_plan='MONTHLY')
         BillingService.create_subscription_for_period(
