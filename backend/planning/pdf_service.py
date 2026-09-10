@@ -80,14 +80,29 @@ class WeeklyScheduleGrid(Flowable):
         course = session.get('course_name') or session.get('course') or '-'
         room = session.get('room_name') or session.get('room') or '-'
         time_range = f"{str(session['start_time'])[:5]} - {str(session['end_time'])[:5]}"
+        starts_on_label = session.get('starts_on_label') or ''
         center_x = x + width / 2
 
         course, course_size = self._fit_text(pdf, course, width - 4, 'Helvetica-Bold', 6.2)
         room, room_size = self._fit_text(pdf, room, width - 4, 'Helvetica', 5.3)
         time_range, time_size = self._fit_text(pdf, time_range, width - 4, 'Helvetica', 5.1)
+        starts_size = 4.9
+        if starts_on_label:
+            starts_on_label, starts_size = self._fit_text(
+                pdf, starts_on_label, width - 4, 'Helvetica-Bold', 4.9, minimum_size=4
+            )
 
         pdf.setFillColor(colors.HexColor('#611014'))
-        if height >= 24:
+        if starts_on_label and height >= 24:
+            pdf.setFont('Helvetica-Bold', course_size)
+            pdf.drawCentredString(center_x, y + height - 7, course)
+            pdf.setFont('Helvetica', room_size)
+            pdf.drawCentredString(center_x, y + height - 14, room)
+            pdf.setFont('Helvetica', time_size)
+            pdf.drawCentredString(center_x, y + 9, time_range)
+            pdf.setFont('Helvetica-Bold', starts_size)
+            pdf.drawCentredString(center_x, y + 2.5, starts_on_label)
+        elif height >= 24:
             pdf.setFont('Helvetica-Bold', course_size)
             pdf.drawCentredString(center_x, y + height - 9, course)
             pdf.setFont('Helvetica', room_size)
@@ -349,8 +364,8 @@ class PDFReportGenerator:
         title = Paragraph(title_text, self.title_style)
         story.append(title)
         
-        subtitle = Paragraph(f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}", 
-                            self.styles['Normal'])
+        period_label = teacher_data.get('period_label') or f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}"
+        subtitle = Paragraph(period_label, self.styles['Normal'])
         story.append(subtitle)
         story.append(Spacer(1, 20))
         
@@ -395,9 +410,10 @@ class PDFReportGenerator:
         title = Paragraph("PLANNING DE L'ÉLÈVE", title_style)
         story.append(title)
 
+        period_label = student_data.get('period_label') or f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
         info_data = [[
             Paragraph(f"<b>ÉLÈVE</b><br/>{student_data['name']}", cell_style),
-            Paragraph(f"<b>PÉRIODE</b><br/>{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}", cell_style),
+            Paragraph(f"<b>PÉRIODE</b><br/>{period_label}", cell_style),
         ]]
         info_table = Table(info_data, colWidths=[87*mm, 87*mm])
         info_table.setStyle(TableStyle([
@@ -424,7 +440,10 @@ class PDFReportGenerator:
             for session in enrollment['sessions']:
                 days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
                 day_name = days[session['day_of_week']]
-                course_schedule.append(f"{day_name} {session['start_time'][:5]}-{session['end_time'][:5]}")
+                schedule_line = f"{day_name} {session['start_time'][:5]}-{session['end_time'][:5]}"
+                if session.get('starts_on_label'):
+                    schedule_line += f" - {session['starts_on_label']}"
+                course_schedule.append(schedule_line)
             
             courses_data.append([
                 Paragraph(enrollment['course_name'], cell_style),

@@ -1,6 +1,7 @@
 from datetime import date, time
 from decimal import Decimal
 from io import BytesIO
+from unittest.mock import patch
 
 from django.test import TestCase
 from pypdf import PdfReader, PdfWriter
@@ -10,6 +11,7 @@ from planning.models import ClassSession, Room, TeacherMonthlyPayroll
 from planning.pdf_service import PDFReportGenerator, WeeklyScheduleGrid
 from planning.services import (
     build_student_schedule_pdf_data,
+    build_teacher_schedule_pdf_data,
     get_teacher_monthly_occurrences,
     get_validated_payroll_conflicts_for_dates,
     get_validated_payroll_conflicts_for_session,
@@ -169,3 +171,56 @@ class PlanningPayrollSyncTests(TestCase):
         expected_bottom = grid.body_height - (12 * grid.hour_height)
         self.assertEqual(y, expected_bottom)
         self.assertEqual(height, 1.5 * grid.hour_height)
+
+    @patch('planning.services.timezone.localdate', return_value=date(2025, 9, 1))
+    def test_complete_pdf_schedule_includes_future_course_once(self, _localdate):
+        student_user = User.objects.create_user(username='future-student')
+        student = StudentProfile.objects.create(user=student_user)
+        Enrollment.objects.create(
+            student=student,
+            course=self.course,
+            academic_year=self.academic_year,
+            default_price=self.course.price,
+            custom_price=self.course.price,
+        )
+        future_session = ClassSession.objects.create(
+            course=self.course,
+            academic_year=self.academic_year,
+            teacher=self.teacher,
+            room=self.room,
+            day_of_week=1,
+            start_time=time(18, 30),
+            end_time=time(20, 0),
+            start_date=date(2025, 9, 15),
+            end_date=date(2026, 8, 31),
+        )
+        ClassSession.objects.bulk_create([ClassSession(
+            course=self.course,
+            academic_year=self.academic_year,
+            teacher=self.teacher,
+            room=self.room,
+            day_of_week=future_session.day_of_week,
+            start_time=future_session.start_time,
+            end_time=future_session.end_time,
+            start_date=date(2025, 9, 22),
+            end_date=date(2026, 8, 31),
+        )])
+
+        _, enrollments_data = build_student_schedule_pdf_data(
+            student,
+            date(2025, 9, 1),
+            date(2025, 9, 7),
+            self.academic_year,
+        )
+        teacher_data, sessions_data = build_teacher_schedule_pdf_data(
+            self.teacher,
+            date(2025, 9, 1),
+            date(2025, 9, 7),
+            self.academic_year,
+        )
+
+        student_sessions = enrollments_data[0]['sessions']
+        self.assertEqual(len(student_sessions), 1)
+        self.assertEqual(student_sessions[0]['starts_on_label'], 'Commence le 15/09/2025')
+        self.assertEqual(len(sessions_data['occurrences']), 1)
+        self.assertEqual(teacher_data['period_label'], 'Année scolaire 2025-2026')

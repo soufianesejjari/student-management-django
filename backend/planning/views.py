@@ -32,6 +32,7 @@ from .services import (
     serialize_teacher_payroll,
     serialize_payroll_lock_conflicts,
     build_student_schedule_pdf_data,
+    build_teacher_schedule_pdf_data,
     validate_all_teacher_monthly_payrolls,
     validate_teacher_monthly_payroll,
 )
@@ -755,49 +756,16 @@ class TeacherSchedulePDFView(views.APIView):
         except TeacherProfile.DoesNotExist:
             return Response({"detail": "Teacher not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get date range (default to current week)
-        today = date.today()
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
-        
-        if start_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        else:
-            start_date = today - timedelta(days=today.weekday())
-        
-        if end_date_str:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        else:
-            end_date = start_date + timedelta(days=6)
-        
-        # Get all sessions for teacher
         academic_year_id = request.query_params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
-        sessions = ClassSession.objects.filter(
-            academic_year=academic_year,
-            teacher=teacher
-        ).filter(
-            Q(start_date__lte=end_date) & 
-            (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
-        ).select_related('course', 'room')
-        
-        occurrences = []
-        for session in sessions:
-            occurrences.append({
-                'day_of_week': session.day_of_week,
-                'course': session.course.name,
-                'start_time': session.start_time.isoformat(),
-                'end_time': session.end_time.isoformat(),
-                'room': session.room.name,
-            })
-        
-        teacher_data = {
-            'name': teacher.user.get_full_name() or teacher.user.username,
-        }
-        
-        sessions_data = {
-            'occurrences': occurrences
-        }
+        start_date = academic_year.start_date
+        end_date = academic_year.end_date
+        teacher_data, sessions_data = build_teacher_schedule_pdf_data(
+            teacher,
+            start_date,
+            end_date,
+            academic_year,
+        )
         
         # Generate PDF
         pdf_generator = PDFReportGenerator()
@@ -828,20 +796,11 @@ class StudentDocumentsPDFView(views.APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        today = date.today()
         params = getattr(request, 'query_params', request.GET)
-        start_date = (
-            datetime.strptime(params.get('start_date'), '%Y-%m-%d').date()
-            if params.get('start_date')
-            else today - timedelta(days=today.weekday())
-        )
-        end_date = (
-            datetime.strptime(params.get('end_date'), '%Y-%m-%d').date()
-            if params.get('end_date')
-            else start_date + timedelta(days=6)
-        )
         academic_year_id = params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        start_date = academic_year.start_date
+        end_date = academic_year.end_date
         student_data, enrollments_data = build_student_schedule_pdf_data(
             student,
             start_date,
@@ -888,79 +847,17 @@ class StudentSchedulePDFView(views.APIView):
         except StudentProfile.DoesNotExist:
             return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get date range (default to current week)
-        today = date.today()
         params = getattr(request, 'query_params', request.GET)
-        start_date_str = params.get('start_date')
-        end_date_str = params.get('end_date')
-        
-        if start_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        else:
-            start_date = today - timedelta(days=today.weekday())
-        
-        if end_date_str:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-        else:
-            end_date = start_date + timedelta(days=6)
-        
-        # Get all sessions for student's enrolled courses
-        from academics.models import Enrollment
         academic_year_id = params.get('academic_year')
         academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
-        
-        # First get the courses the student is enrolled in
-        enrolled_courses = Enrollment.objects.filter(
-            student=student,
-            academic_year=academic_year,
-            status='ACTIVE'
-        ).values_list('course_id', flat=True)
-        
-        sessions = ClassSession.objects.filter(
-            academic_year=academic_year,
-            course_id__in=enrolled_courses
-        ).filter(
-            Q(start_date__lte=end_date) & 
-            (Q(end_date__gte=start_date) | Q(end_date__isnull=True))
-        ).select_related('course', 'room', 'teacher__user').distinct()
-        
-        occurrences = []
-        for session in sessions:
-            occurrences.append({
-                'day_of_week': session.day_of_week,
-                'course': session.course.name,
-                'teacher': session.teacher.user.get_full_name() or session.teacher.user.username,
-                'start_time': session.start_time.isoformat(),
-                'end_time': session.end_time.isoformat(),
-                'room': session.room.name,
-            })
-        
-        # Group sessions by course for PDF generation
-        courses_dict = {}
-        all_sessions = []
-        for session in sessions:
-            key = session.course.id
-            if key not in courses_dict:
-                courses_dict[key] = {
-                    'course_name': session.course.name,
-                    'teacher_name': session.teacher.user.get_full_name() or session.teacher.user.username,
-                    'sessions': []
-                }
-            session_data = {
-                'day_of_week': session.day_of_week,
-                'course_name': session.course.name,
-                'start_time': session.start_time.isoformat(),
-                'end_time': session.end_time.isoformat(),
-                'room_name': session.room.name,
-            }
-            courses_dict[key]['sessions'].append(session_data)
-            all_sessions.append(session_data)
-        
-        enrollments_data = list(courses_dict.values())
-        
-        student_data = {
-            'name': student.user.get_full_name() or student.user.username,
-        }
+        start_date = academic_year.start_date
+        end_date = academic_year.end_date
+        student_data, enrollments_data = build_student_schedule_pdf_data(
+            student,
+            start_date,
+            end_date,
+            academic_year,
+        )
         
         # Generate PDF
         pdf_generator = PDFReportGenerator()

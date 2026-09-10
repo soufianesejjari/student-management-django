@@ -1,14 +1,6 @@
 """Celery tasks for sending schedule emails."""
 from smtplib import SMTPException
-from datetime import date, timedelta
-
 from celery import shared_task
-
-
-def _current_week():
-    today = date.today()
-    start = today - timedelta(days=today.weekday())
-    return start, start + timedelta(days=6)
 
 
 @shared_task(
@@ -20,6 +12,7 @@ def _current_week():
 )
 def send_student_schedule_email(self, student_id):
     from users.models import StudentProfile
+    from academics.models import AcademicYear
     from planning.services import build_student_schedule_pdf_data
     from planning.pdf_service import PDFReportGenerator
     from notifications.email_service import send_schedule_email
@@ -33,24 +26,27 @@ def send_student_schedule_email(self, student_id):
     if not email:
         return {'status': 'skipped', 'reason': 'no_email', 'student_id': student_id}
 
-    start_date, end_date = _current_week()
-    student_data, enrollments_data = build_student_schedule_pdf_data(student, start_date, end_date)
+    academic_year = AcademicYear.get_active()
+    start_date, end_date = academic_year.start_date, academic_year.end_date
+    student_data, enrollments_data = build_student_schedule_pdf_data(
+        student, start_date, end_date, academic_year
+    )
 
     pdf_buffer = PDFReportGenerator().generate_student_schedule(
         student_data, enrollments_data, start_date, end_date
     )
 
     name = student_data['name']
-    week_label = f"{start_date.strftime('%d/%m/%Y')} – {end_date.strftime('%d/%m/%Y')}"
+    period_label = student_data['period_label']
     send_schedule_email(
         to_email=email,
         name=name,
         pdf_buffer=pdf_buffer,
-        filename=f"schedule_{student.user.username}_{start_date}.pdf",
-        subject=f"Your schedule – {week_label}",
+        filename=f"schedule_{student.user.username}_{academic_year.name}.pdf",
+        subject=f"Your complete schedule - {academic_year.name}",
         body=(
             f"Dear {name},\n\n"
-            f"Please find attached your schedule for the week of {week_label}.\n\n"
+            f"Please find attached your complete schedule for {period_label}.\n\n"
             "The Musical Academy"
         ),
     )
@@ -66,6 +62,7 @@ def send_student_schedule_email(self, student_id):
 )
 def send_teacher_schedule_email(self, teacher_id):
     from users.models import TeacherProfile
+    from academics.models import AcademicYear
     from planning.services import build_teacher_schedule_pdf_data
     from planning.pdf_service import PDFReportGenerator
     from notifications.email_service import send_schedule_email
@@ -79,24 +76,27 @@ def send_teacher_schedule_email(self, teacher_id):
     if not email:
         return {'status': 'skipped', 'reason': 'no_email', 'teacher_id': teacher_id}
 
-    start_date, end_date = _current_week()
-    teacher_data, sessions_data = build_teacher_schedule_pdf_data(teacher, start_date, end_date)
+    academic_year = AcademicYear.get_active()
+    start_date, end_date = academic_year.start_date, academic_year.end_date
+    teacher_data, sessions_data = build_teacher_schedule_pdf_data(
+        teacher, start_date, end_date, academic_year
+    )
 
     pdf_buffer = PDFReportGenerator().generate_teacher_schedule(
         teacher_data, sessions_data, start_date, end_date
     )
 
     name = teacher_data['name']
-    week_label = f"{start_date.strftime('%d/%m/%Y')} – {end_date.strftime('%d/%m/%Y')}"
+    period_label = teacher_data['period_label']
     send_schedule_email(
         to_email=email,
         name=name,
         pdf_buffer=pdf_buffer,
-        filename=f"schedule_{teacher.user.username}_{start_date}.pdf",
-        subject=f"Your schedule – {week_label}",
+        filename=f"schedule_{teacher.user.username}_{academic_year.name}.pdf",
+        subject=f"Your complete schedule - {academic_year.name}",
         body=(
             f"Dear {name},\n\n"
-            f"Please find attached your schedule for the week of {week_label}.\n\n"
+            f"Please find attached your complete schedule for {period_label}.\n\n"
             "The Musical Academy"
         ),
     )
