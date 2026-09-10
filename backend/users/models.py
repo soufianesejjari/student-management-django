@@ -54,6 +54,7 @@ class StudentProfile(models.Model):
     phone = models.CharField(max_length=50, null=True, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     age_group = models.CharField(max_length=20, choices=AGE_GROUP_CHOICES, default='6-12ans')
+    school_or_profession = models.CharField(max_length=255, blank=True, default='')
 
     def __str__(self):
         return f"Student: {self.user.username}"

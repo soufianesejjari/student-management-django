@@ -59,6 +59,47 @@ function FinancesContent() {
   const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null)
   const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
 
+  const formatPaymentPeriodDate = (value?: string) => {
+    if (!value) return "-"
+    const [year, month, day] = value.split("-")
+    return year && month && day ? `${day}/${month}/${year}` : value
+  }
+
+  const getPaymentDescription = (payment: any) => {
+    const subscription = payment.subscription_details
+    if (subscription) {
+      const planLabel = subscription.subscription_type === "ANNUAL"
+        ? t('finances.annualPayment')
+        : subscription.subscription_type === "QUARTERLY"
+          ? t('finances.quarterlyPayment')
+          : t('finances.monthlyPayment')
+      return {
+        title: `${subscription.course_name || t('finances.coursePayment')} · ${planLabel}`,
+        detail: t('finances.paymentPeriod', {
+          start: formatPaymentPeriodDate(subscription.start_date),
+          end: formatPaymentPeriodDate(subscription.end_date),
+        }),
+      }
+    }
+
+    const studentFee = payment.student_fee_details
+    if (studentFee) {
+      return {
+        title: studentFee.fee_type === "REGISTRATION"
+          ? t('students.registrationFee')
+          : t('students.insuranceFee'),
+        detail: studentFee.academic_year_name
+          ? t('finances.paymentAcademicYear', { year: studentFee.academic_year_name })
+          : payment.invoice_ref || "",
+      }
+    }
+
+    return {
+      title: payment.notes?.trim() || t('finances.manualPayment'),
+      detail: payment.invoice_ref || "",
+    }
+  }
+
   const mutate = () => {
     mutatePayments()
     mutateExpenses()
@@ -190,6 +231,7 @@ function FinancesContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('finances.student')}</TableHead>
+                      <TableHead>{t('finances.paymentDescription')}</TableHead>
                       <TableHead>{t('finances.amount')}</TableHead>
                       <TableHead>{t('finances.date')}</TableHead>
                       <TableHead>{t('finances.method')}</TableHead>
@@ -200,20 +242,28 @@ function FinancesContent() {
                   <TableBody>
                     {paymentsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">{t('common.loading')}</TableCell>
+                        <TableCell colSpan={7} className="text-center h-24">{t('common.loading')}</TableCell>
                       </TableRow>
                     ) : payments?.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">{t('finances.noPayments')}</TableCell>
+                        <TableCell colSpan={7} className="text-center h-24">{t('finances.noPayments')}</TableCell>
                       </TableRow>
                     ) : (
-                      payments?.map((payment: any) => (
+                      payments?.map((payment: any) => {
+                        const description = getPaymentDescription(payment)
+                        return (
                         <TableRow key={payment.id}>
                           <TableCell className="font-medium">
                             {payment.student_name
                               || payment.subscription_details?.student_name
                               || payment.student_username
                               || `#${payment.student}`}
+                          </TableCell>
+                          <TableCell className="max-w-[320px]">
+                            <div className="font-medium">{description.title}</div>
+                            {description.detail && (
+                              <div className="text-xs text-muted-foreground">{description.detail}</div>
+                            )}
                           </TableCell>
                           <TableCell>{payment.amount} MAD</TableCell>
                           <TableCell>{new Date(payment.date).toLocaleDateString('fr-FR')}</TableCell>
@@ -272,7 +322,8 @@ function FinancesContent() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>

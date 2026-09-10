@@ -26,7 +26,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
         'student__user__last_name',
         'student__user__username',
         'student__user__email',
-        'invoice_ref'
+        'subscription__enrollment__course__name',
+        'subscription__subscription_type',
+        'student_fee__fee_type',
+        'invoice_ref',
+        'notes',
     ]
 
     def get_queryset(self):

@@ -35,6 +35,7 @@ const studentSchema = z.object({
     address: z.string().min(1, "Address is required"),
     date_of_birth: z.string().optional(),
     age_group: z.enum(["2-5ans", "6-12ans", "Adulte"]).default("6-12ans"),
+    school_or_profession: z.string().optional(),
     registration_fee_status: z.enum(["PENDING", "PAID", "EXEMPT"]).default("PENDING"),
     insurance_fee_status: z.enum(["PENDING", "PAID", "EXEMPT"]).default("PENDING"),
     registration_fee_amount: z.string().optional(),
@@ -69,6 +70,7 @@ export function StudentDialog({
             address: "",
             date_of_birth: "",
             age_group: "6-12ans",
+            school_or_profession: "",
             registration_fee_status: "PENDING",
             insurance_fee_status: "PENDING",
             registration_fee_amount: "",
@@ -86,6 +88,7 @@ export function StudentDialog({
                 address: student.address || "",
                 date_of_birth: student.date_of_birth || "",
                 age_group: student.age_group || "6-12ans",
+                school_or_profession: student.school_or_profession || "",
                 registration_fee_status: "PENDING",
                 insurance_fee_status: "PENDING",
                 registration_fee_amount: "",
@@ -100,6 +103,7 @@ export function StudentDialog({
                 address: "",
                 date_of_birth: "",
                 age_group: "6-12ans",
+                school_or_profession: "",
                 registration_fee_status: "PENDING",
                 insurance_fee_status: "PENDING",
                 registration_fee_amount: "",
@@ -126,6 +130,8 @@ export function StudentDialog({
             cancelled = true
         }
     }, [open, student, form])
+
+    const isAdult = form.watch("age_group") === "Adulte"
 
     const handleSubmit = async (data: StudentFormValues) => {
         if (submitLock.current) return
@@ -252,7 +258,7 @@ export function StudentDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>{t('students.ageGroup')} *</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="..." />
@@ -264,6 +270,26 @@ export function StudentDialog({
                                             <SelectItem value="Adulte">{t('students.ageGroupAdult')}</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="school_or_profession"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>
+                                        {isAdult ? t('students.profession') : t('students.school')}
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder={isAdult
+                                                ? t('students.professionPlaceholder')
+                                                : t('students.schoolPlaceholder')}
+                                            {...field}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

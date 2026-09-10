@@ -167,7 +167,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'courses', 'payment_status', 'payment_balance', 'first_name', 'last_name',
             'email', 'registration_fee_status', 'insurance_fee_status',
             'registration_fee_amount', 'insurance_fee_amount',
-            'address', 'phone', 'date_of_birth', 'age_group', 'registration_form_ready',
+            'address', 'phone', 'date_of_birth', 'age_group', 'school_or_profession',
+            'registration_form_ready',
         ]
 
     def get_courses(self, obj):

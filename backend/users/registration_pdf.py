@@ -85,7 +85,8 @@ def build_registration_form(student):
     y = field('Téléphone', student.phone, y)
     y = field('E-mail', student.user.email, y)
     y = field('Adresse', student.address, y)
-    y = field('École', student.parent_name, y)
+    school_or_profession_label = 'Profession' if student.age_group == 'Adulte' else 'École'
+    y = field(school_or_profession_label, student.school_or_profession, y)
     y = field('Classe', student.age_group, y)
 
     y -= 4 * mm
