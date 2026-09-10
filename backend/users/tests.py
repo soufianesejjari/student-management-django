@@ -2,12 +2,14 @@ from decimal import Decimal
 from datetime import time
 
 from django.test import TestCase
+from pypdf import PdfReader
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from academics.models import AcademicYear, AcademySettings, Course, Enrollment, StudentFee, Subject
 from finances.models import Payment
 from planning.models import ClassSession, Room
 from users.models import StudentProfile, TeacherProfile, User
+from users.registration_pdf import build_registration_form
 from users.serializers import StudentProfileSerializer, TeacherProfileSerializer
 from users.views import StudentProfileViewSet, UserViewSet
 
@@ -147,6 +149,25 @@ class RegistrationFormReadinessTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 409)
+
+    def test_registration_pdf_uses_student_fee_override(self):
+        academy = AcademySettings.get()
+        academy.default_registration_fee = Decimal('200.00')
+        academy.save(update_fields=['default_registration_fee'])
+        StudentFee.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            fee_type='REGISTRATION',
+            amount=Decimal('300.00'),
+            status='PAID',
+            due_date=self.academic_year.start_date,
+        )
+
+        pdf_buffer = build_registration_form(self.student)
+        pdf_text = PdfReader(pdf_buffer).pages[0].extract_text()
+
+        self.assertIn("Frais d'inscription : 300 DH", pdf_text)
+        self.assertNotIn("Frais d'inscription : 200 DH", pdf_text)
 
     def test_fiche_accepts_professor_selected_during_planning(self):
         subject = Subject.objects.create(name='Guitare')

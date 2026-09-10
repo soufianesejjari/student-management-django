@@ -117,7 +117,17 @@ def build_registration_form(student):
     y = field('Horaire(s) des cours', ' | '.join(dict.fromkeys(schedules)), y, max_chars=66)
 
     pdf.setFont('Helvetica-Bold', 11.5)
-    registration_fee = academy.default_registration_fee
+    student_registration_fee = (
+        student.fees
+        .filter(academic_year=academic_year, fee_type='REGISTRATION')
+        .only('amount')
+        .first()
+    )
+    registration_fee = (
+        student_registration_fee.amount
+        if student_registration_fee
+        else academy.default_registration_fee
+    )
     pdf.drawString(left + 10 * mm, y - 3 * mm, f"Frais d'inscription : {registration_fee:.0f} DH")
 
     pdf.setStrokeColor(red)
