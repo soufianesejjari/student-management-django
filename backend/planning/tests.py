@@ -1,16 +1,21 @@
 from datetime import date, time
 from decimal import Decimal
+from io import BytesIO
 
 from django.test import TestCase
+from pypdf import PdfReader, PdfWriter
 
-from academics.models import AcademicYear, Course, Subject
+from academics.models import AcademicYear, Course, Enrollment, Subject
 from planning.models import ClassSession, Room, TeacherMonthlyPayroll
+from planning.pdf_service import PDFReportGenerator
 from planning.services import (
+    build_student_schedule_pdf_data,
     get_teacher_monthly_occurrences,
     get_validated_payroll_conflicts_for_dates,
     get_validated_payroll_conflicts_for_session,
 )
-from users.models import TeacherProfile, User
+from users.models import StudentProfile, TeacherProfile, User
+from users.registration_pdf import build_registration_form
 
 
 class PlanningPayrollSyncTests(TestCase):
@@ -91,3 +96,63 @@ class PlanningPayrollSyncTests(TestCase):
 
         self.assertEqual([item.id for item in session_conflicts], [payroll.id])
         self.assertEqual([item.id for item in date_conflicts], [payroll.id])
+
+    def test_student_documents_fit_two_pages_with_matching_branding(self):
+        student_user = User.objects.create_user(
+            username='student-pdf',
+            first_name='Nora',
+            last_name='Amrani',
+            email='nora@example.com',
+        )
+        student = StudentProfile.objects.create(
+            user=student_user,
+            phone='0600000000',
+            age_group='6-12ans',
+        )
+        Enrollment.objects.create(
+            student=student,
+            course=self.course,
+            academic_year=self.academic_year,
+            billing_plan='QUARTERLY',
+            default_price=self.course.price,
+            custom_price=self.course.price,
+        )
+        ClassSession.objects.create(
+            course=self.course,
+            academic_year=self.academic_year,
+            teacher=self.teacher,
+            room=self.room,
+            day_of_week=0,
+            start_time=time(10, 0),
+            end_time=time(11, 0),
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+        )
+
+        student_data, enrollments_data = build_student_schedule_pdf_data(
+            student,
+            date(2025, 9, 1),
+            date(2025, 9, 7),
+            self.academic_year,
+        )
+        schedule = PDFReportGenerator().generate_student_schedule(
+            student_data,
+            enrollments_data,
+            date(2025, 9, 1),
+            date(2025, 9, 7),
+            page_label='2 / 2',
+        )
+
+        writer = PdfWriter()
+        for source in (build_registration_form(student, page_label='1 / 2'), schedule):
+            for page in PdfReader(source).pages:
+                writer.add_page(page)
+        combined = BytesIO()
+        writer.write(combined)
+        pages = PdfReader(combined).pages
+
+        self.assertEqual(len(pages), 2)
+        self.assertIn("FICHE D'INSCRIPTION ÉLÈVE", pages[0].extract_text())
+        self.assertIn("PLANNING DE L'ÉLÈVE", pages[1].extract_text())
+        self.assertIn('THE MUSICAL ACADEMY', pages[0].extract_text())
+        self.assertIn('THE MUSICAL ACADEMY', pages[1].extract_text())

@@ -2,13 +2,15 @@
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from reportlab.lib.units import inch, mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from io import BytesIO
 from datetime import datetime, timedelta
 from calendar import monthrange
 import os
+
+from musical_academy.pdf_branding import draw_academy_footer, draw_academy_header
 
 # Academy identity constants
 ACADEMY_NAME = "The Musical Academy"
@@ -257,27 +259,72 @@ class PDFReportGenerator:
         buffer.seek(0)
         return buffer
     
-    def generate_student_schedule(self, student_data, enrollments_data, start_date, end_date):
+    def generate_student_schedule(self, student_data, enrollments_data, start_date, end_date, page_label=None):
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4,
-                               rightMargin=72, leftMargin=72,
-                               topMargin=72, bottomMargin=50)
+                               rightMargin=18*mm, leftMargin=18*mm,
+                               topMargin=42*mm, bottomMargin=25*mm)
         
         story = []
-        self._add_header(story)
-        
-        title_text = f"Emploi du Temps - Élève : {student_data['name']}"
-        title = Paragraph(title_text, self.title_style)
+
+        title_style = ParagraphStyle(
+            'StudentScheduleTitle',
+            parent=self.title_style,
+            fontSize=18,
+            leading=21,
+            textColor=colors.HexColor('#202020'),
+            spaceAfter=5,
+        )
+        section_style = ParagraphStyle(
+            'StudentScheduleSection',
+            parent=self.heading_style,
+            fontSize=10.5,
+            leading=13,
+            textColor=ACADEMY_PRIMARY_COLOR,
+            spaceBefore=8,
+            spaceAfter=6,
+        )
+        cell_style = ParagraphStyle(
+            'StudentScheduleCell',
+            parent=self.styles['Normal'],
+            fontSize=7.5,
+            leading=9,
+            textColor=colors.HexColor('#303030'),
+        )
+        timetable_style = ParagraphStyle(
+            'StudentTimetableCell',
+            parent=cell_style,
+            fontSize=6.3,
+            leading=7.2,
+            alignment=TA_CENTER,
+        )
+
+        title = Paragraph("PLANNING DE L'ÉLÈVE", title_style)
         story.append(title)
+
+        info_data = [[
+            Paragraph(f"<b>ÉLÈVE</b><br/>{student_data['name']}", cell_style),
+            Paragraph(f"<b>PÉRIODE</b><br/>{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}", cell_style),
+        ]]
+        info_table = Table(info_data, colWidths=[87*mm, 87*mm])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FCEDEE')),
+            ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#E8C8CA')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E8C8CA')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 9),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 9),
+            ('TOPPADDING', (0, 0), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+        ]))
+        story.append(info_table)
+        story.append(Paragraph("COURS ET HORAIRES", section_style))
         
-        subtitle = Paragraph(f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}", 
-                            self.styles['Normal'])
-        story.append(subtitle)
-        story.append(Spacer(1, 20))
-        
-        story.append(Paragraph("Cours Inscrits", self.heading_style))
-        
-        courses_data = [['Cours', 'Professeur', 'Jours & Heures']]
+        courses_data = [[
+            Paragraph('<b>COURS</b>', ParagraphStyle('scheduleTh1', parent=cell_style, textColor=colors.white)),
+            Paragraph('<b>PROFESSEUR</b>', ParagraphStyle('scheduleTh2', parent=cell_style, textColor=colors.white)),
+            Paragraph('<b>JOURS ET HEURES</b>', ParagraphStyle('scheduleTh3', parent=cell_style, textColor=colors.white)),
+        ]]
         
         for enrollment in enrollments_data:
             course_schedule = []
@@ -287,28 +334,35 @@ class PDFReportGenerator:
                 course_schedule.append(f"{day_name} {session['start_time'][:5]}-{session['end_time'][:5]}")
             
             courses_data.append([
-                enrollment['course_name'],
-                enrollment['teacher_name'],
-                ', '.join(course_schedule)
+                Paragraph(enrollment['course_name'], cell_style),
+                Paragraph(enrollment['teacher_name'], cell_style),
+                Paragraph('<br/>'.join(course_schedule), cell_style),
+            ])
+
+        if len(courses_data) == 1:
+            courses_data.append([
+                Paragraph('Aucun cours planifié pour cette période', cell_style),
+                Paragraph('-', cell_style),
+                Paragraph('-', cell_style),
             ])
         
-        courses_table = Table(courses_data, colWidths=[2*inch, 2*inch, 2.5*inch])
+        courses_table = Table(courses_data, colWidths=[53*mm, 50*mm, 71*mm], repeatRows=1)
         courses_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), ACADEMY_PRIMARY_COLOR),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.45, colors.HexColor('#D8D8D8')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FAFAFA')]),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
         ]))
         
         story.append(courses_table)
-        story.append(Spacer(1, 20))
-        
-        story.append(PageBreak())
-        story.append(Paragraph("Emploi du Temps Hebdomadaire", self.heading_style))
+        story.append(Paragraph("EMPLOI DU TEMPS HEBDOMADAIRE", section_style))
         
         days_of_week = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
         schedule_data = [['Heure'] + days_of_week]
@@ -333,29 +387,33 @@ class PDFReportGenerator:
                                s['start_time'][:5] <= time_slot < s['end_time'][:5]]
                 
                 if day_sessions:
-                    cell_text = '\n'.join([f"{s['course_name']}\n{s['room_name']}" for s in day_sessions])
-                    row.append(cell_text)
+                    cell_text = '<br/>'.join([f"<b>{s['course_name']}</b><br/>{s['room_name']}" for s in day_sessions])
+                    row.append(Paragraph(cell_text, timetable_style))
                 else:
                     row.append('')
             
             schedule_data.append(row)
         
-        schedule_table = Table(schedule_data, colWidths=[0.8*inch] + [0.9*inch]*7)
+        schedule_table = Table(schedule_data, colWidths=[13*mm] + [23*mm]*7, rowHeights=[8*mm] + [7.5*mm]*13, repeatRows=1)
         schedule_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), ACADEMY_PRIMARY_COLOR),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('BACKGROUND', (0, 1), (0, -1), colors.lightgrey),
+            ('FONTSIZE', (0, 0), (-1, 0), 7.2),
+            ('FONTSIZE', (0, 1), (0, -1), 6.7),
+            ('GRID', (0, 0), (-1, -1), 0.45, colors.HexColor('#B9B9B9')),
+            ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#F1F1F1')),
         ]))
         
         story.append(schedule_table)
-        
-        doc.build(story, onFirstPage=self._add_footer, onLaterPages=self._add_footer)
+
+        def add_student_page_branding(pdf_canvas, _doc):
+            draw_academy_header(pdf_canvas, self.academy, self.logo_path)
+            draw_academy_footer(pdf_canvas, self.academy, page_label)
+
+        doc.build(story, onFirstPage=add_student_page_branding, onLaterPages=add_student_page_branding)
         buffer.seek(0)
         return buffer
 

@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.db import transaction
 from django.http import HttpResponse
-from io import BytesIO
 from datetime import datetime, timedelta, time, date
 from calendar import monthrange
 import copy
@@ -32,6 +31,7 @@ from .services import (
     reopen_teacher_monthly_payroll,
     serialize_teacher_payroll,
     serialize_payroll_lock_conflicts,
+    build_student_schedule_pdf_data,
     validate_all_teacher_monthly_payrolls,
     validate_teacher_monthly_payroll,
 )
@@ -828,18 +828,40 @@ class StudentDocumentsPDFView(views.APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Reuse the exact timetable builder so every active subject is present
-        # in both documents, including students enrolled in multiple courses.
-        schedule_response = StudentSchedulePDFView().get(request, pk)
-        if schedule_response.status_code != status.HTTP_200_OK:
-            return schedule_response
+        today = date.today()
+        params = getattr(request, 'query_params', request.GET)
+        start_date = (
+            datetime.strptime(params.get('start_date'), '%Y-%m-%d').date()
+            if params.get('start_date')
+            else today - timedelta(days=today.weekday())
+        )
+        end_date = (
+            datetime.strptime(params.get('end_date'), '%Y-%m-%d').date()
+            if params.get('end_date')
+            else start_date + timedelta(days=6)
+        )
+        academic_year_id = params.get('academic_year')
+        academic_year = AcademicYear.objects.filter(pk=academic_year_id).first() if academic_year_id else AcademicYear.get_active()
+        student_data, enrollments_data = build_student_schedule_pdf_data(
+            student,
+            start_date,
+            end_date,
+            academic_year,
+        )
+        schedule_pdf = PDFReportGenerator().generate_student_schedule(
+            student_data,
+            enrollments_data,
+            start_date,
+            end_date,
+            page_label='2 / 2',
+        )
 
         from pypdf import PdfReader, PdfWriter
 
         # The order is intentional: page 1 is the registration form, then the
         # timetable pages follow in the same downloadable document.
         writer = PdfWriter()
-        for source in (build_registration_form(student), BytesIO(schedule_response.content)):
+        for source in (build_registration_form(student, page_label='1 / 2'), schedule_pdf):
             reader = PdfReader(source)
             for page in reader.pages:
                 writer.add_page(page)

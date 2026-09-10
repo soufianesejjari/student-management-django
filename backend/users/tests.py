@@ -166,8 +166,9 @@ class RegistrationFormReadinessTests(TestCase):
         pdf_buffer = build_registration_form(self.student)
         pdf_text = PdfReader(pdf_buffer).pages[0].extract_text()
 
-        self.assertIn("Frais d'inscription : 300 DH", pdf_text)
-        self.assertNotIn("Frais d'inscription : 200 DH", pdf_text)
+        self.assertIn("FRAIS D'INSCRIPTION", pdf_text)
+        self.assertIn("300 DH", pdf_text)
+        self.assertNotIn("200 DH", pdf_text)
 
     def test_registration_pdf_uses_school_for_child_and_profession_for_adult(self):
         self.student.age_group = '6-12ans'
@@ -175,15 +176,17 @@ class RegistrationFormReadinessTests(TestCase):
         self.student.save(update_fields=['age_group', 'school_or_profession'])
 
         child_pdf_text = PdfReader(build_registration_form(self.student)).pages[0].extract_text()
-        self.assertIn('École : École Al Qods', child_pdf_text)
+        self.assertIn('ÉCOLE', child_pdf_text)
+        self.assertIn('École Al Qods', child_pdf_text)
 
         self.student.age_group = 'Adulte'
         self.student.school_or_profession = 'Architecte'
         self.student.save(update_fields=['age_group', 'school_or_profession'])
 
         adult_pdf_text = PdfReader(build_registration_form(self.student)).pages[0].extract_text()
-        self.assertIn('Profession : Architecte', adult_pdf_text)
-        self.assertNotIn('École :', adult_pdf_text)
+        self.assertIn('PROFESSION', adult_pdf_text)
+        self.assertIn('Architecte', adult_pdf_text)
+        self.assertNotIn('ÉCOLE', adult_pdf_text)
 
     def test_fiche_accepts_professor_selected_during_planning(self):
         subject = Subject.objects.create(name='Guitare')

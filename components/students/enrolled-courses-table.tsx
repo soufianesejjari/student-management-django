@@ -17,6 +17,7 @@ import { api } from "@/lib/api"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
+import { toast } from "sonner"
 
 interface EnrolledCoursesTableProps {
     studentId: number
@@ -29,9 +30,9 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     const [loading, setLoading] = useState(true)
     const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null)
 
-    const fetchEnrollments = async () => {
+    const fetchEnrollments = async (showLoading = true) => {
         try {
-            setLoading(true)
+            if (showLoading) setLoading(true)
             const [enrollmentsResult, subscriptionsResult] = await Promise.allSettled([
                 api.enrollments.list({ student_id: studentId }),
                 api.subscriptions.list({ student: studentId }),
@@ -89,7 +90,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
             setEnrollments([])
             setSubscriptionsByEnrollment({})
         } finally {
-            setLoading(false)
+            if (showLoading) setLoading(false)
         }
     }
 
@@ -104,13 +105,37 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     const updateBillingPlan = async (enrollmentId: number, billingPlan: string) => {
         setUpdatingPlanId(enrollmentId)
         try {
-            await api.enrollments.update(enrollmentId, { billing_plan: billingPlan })
-            await fetchEnrollments()
+            const updatedEnrollment = await api.enrollments.update(enrollmentId, { billing_plan: billingPlan })
+            setEnrollments((current) => current.map((enrollment) => (
+                Number(enrollment.id) === enrollmentId ? { ...enrollment, ...updatedEnrollment } : enrollment
+            )))
+
+            const currentSubscription = subscriptionsByEnrollment[enrollmentId]
+            const appliesNextPeriod = currentSubscription?.subscription_type !== billingPlan
+            toast.success(
+                appliesNextPeriod
+                    ? t('enrolledCourses.billingPlanUpdatedNextPeriod', { plan: getPlanLabel(billingPlan) })
+                    : t('enrolledCourses.billingPlanUpdated', { plan: getPlanLabel(billingPlan) })
+            )
+            await fetchEnrollments(false)
         } catch (error) {
             console.error("Failed to update billing plan:", error)
+            toast.error(t('enrolledCourses.billingPlanUpdateError'))
         } finally {
             setUpdatingPlanId(null)
         }
+    }
+
+    const getPlanLabel = (plan: string) => {
+        if (plan === "ANNUAL") return t('dialogs.enrollStudent.annual')
+        if (plan === "QUARTERLY") return t('dialogs.enrollStudent.quarterly')
+        return t('dialogs.enrollStudent.monthly')
+    }
+
+    const getPlanAmount = (monthlyPrice: number, plan: string) => {
+        if (plan === "ANNUAL") return monthlyPrice * 10
+        if (plan === "QUARTERLY") return monthlyPrice * 3
+        return monthlyPrice
     }
 
     if (loading) {
@@ -145,8 +170,12 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                         enrollments.map((enrollment) => {
                             const subscription = subscriptionsByEnrollment[Number(enrollment.id)]
                             const amount = subscription?.balance ?? subscription?.amount ?? enrollment.custom_price
+                            const selectedPlan = enrollment.billing_plan || "MONTHLY"
+                            const selectedPlanAmount = getPlanAmount(Number(enrollment.custom_price), selectedPlan)
+                            const subscriptionPlan = subscription?.subscription_type || selectedPlan
+                            const appliesNextPeriod = Boolean(subscription && subscriptionPlan !== selectedPlan)
                             const periodLabel = subscription
-                                ? `${format(new Date(subscription.start_date), "MMM d")} - ${format(new Date(subscription.end_date), "MMM d, yyyy")}`
+                                ? `${format(new Date(subscription.start_date), "dd/MM/yyyy")} - ${format(new Date(subscription.end_date), "dd/MM/yyyy")}`
                                 : t('enrolledCourses.noSubscription')
 
                             return (
@@ -171,14 +200,31 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="space-y-1">
-                                            <div>{Number(enrollment.custom_price).toFixed(2)} MAD / {t('enrolledCourses.month')}</div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {t('enrolledCourses.currentPeriod')}: {periodLabel}
+                                        <div className="min-w-[280px] space-y-2">
+                                            <div className="text-sm text-muted-foreground">
+                                                {t('enrolledCourses.monthlyRate')}: <span className="font-medium text-foreground">{Number(enrollment.custom_price).toFixed(2)} MAD</span>
+                                            </div>
+                                            <div className="rounded-md bg-muted/60 px-3 py-2">
+                                                <div className="text-sm font-medium">
+                                                    {t('enrolledCourses.selectedPlan')}: {getPlanLabel(selectedPlan)}
+                                                </div>
+                                                <div className="text-sm font-semibold text-primary">
+                                                    {t('enrolledCourses.selectedPlanAmount')}: {selectedPlanAmount.toFixed(2)} MAD
+                                                </div>
                                             </div>
                                             {subscription && (
-                                                <div className="text-xs text-muted-foreground">
-                                                    {t('enrolledCourses.periodAmount')}: {Number(subscription.amount).toFixed(2)} MAD
+                                                <div className="space-y-1 text-xs text-muted-foreground">
+                                                    <div>
+                                                        {t('enrolledCourses.billedPeriod')} ({getPlanLabel(subscriptionPlan)}): {periodLabel}
+                                                    </div>
+                                                    <div>
+                                                        {t('enrolledCourses.billedAmount')}: {Number(subscription.amount).toFixed(2)} MAD
+                                                    </div>
+                                                    {appliesNextPeriod && (
+                                                        <div className="font-medium text-amber-700">
+                                                            {t('enrolledCourses.appliesNextPeriod')}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -190,12 +236,15 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex flex-col items-end gap-2">
+                                            <div className="text-xs font-medium text-muted-foreground">
+                                                {t('enrolledCourses.billingPlan')}
+                                            </div>
                                             <Select
-                                                value={enrollment.billing_plan || "MONTHLY"}
+                                                value={selectedPlan}
                                                 onValueChange={(value) => updateBillingPlan(Number(enrollment.id), value)}
                                                 disabled={updatingPlanId === Number(enrollment.id)}
                                             >
-                                                <SelectTrigger className="h-8 w-[130px]">
+                                                <SelectTrigger className="h-8 w-[150px]">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
