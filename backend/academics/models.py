@@ -199,8 +199,14 @@ class Enrollment(models.Model):
         return self.status == 'ACTIVE'
 
     class Meta:
-        unique_together = ('student', 'course', 'academic_year')
         ordering = ['-enrolled_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'course', 'academic_year'],
+                condition=Q(status='ACTIVE'),
+                name='unique_active_student_course_year',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.student} enrolled in {self.course}"

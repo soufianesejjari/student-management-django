@@ -111,6 +111,73 @@ class BillingServiceTests(TestCase):
 
         self.assertEqual(list(enrollment.assigned_sessions.all()), [only_session])
 
+    def test_cancelled_enrollment_does_not_block_a_fresh_enrollment(self):
+        cancelled = self.create_enrollment(billing_plan='MONTHLY')
+        cancelled.status = 'CANCELLED'
+        cancelled.save(update_fields=['status'])
+
+        serializer = EnrollmentCreateSerializer(data={
+            'student': self.student.id,
+            'course': self.course.id,
+            'academic_year': self.academic_year.id,
+            'custom_price': '500.00',
+            'subscription_type': 'QUARTERLY',
+            'subscription_start_date': '2025-09-01',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        fresh_enrollment = serializer.save()
+
+        self.assertEqual(fresh_enrollment.status, 'ACTIVE')
+        self.assertEqual(fresh_enrollment.billing_plan, 'QUARTERLY')
+        self.assertNotEqual(fresh_enrollment.id, cancelled.id)
+        self.assertEqual(
+            Enrollment.objects.filter(
+                student=self.student,
+                course=self.course,
+                academic_year=self.academic_year,
+            ).count(),
+            2,
+        )
+
+    def test_active_enrollment_still_blocks_a_duplicate(self):
+        self.create_enrollment()
+        serializer = EnrollmentCreateSerializer(data={
+            'student': self.student.id,
+            'course': self.course.id,
+            'academic_year': self.academic_year.id,
+            'custom_price': '500.00',
+            'subscription_type': 'MONTHLY',
+            'subscription_start_date': '2025-09-01',
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('non_field_errors', serializer.errors)
+
+    def test_cancelling_enrollment_cancels_only_open_subscriptions(self):
+        enrollment = self.create_enrollment()
+        open_subscription, _ = BillingService.create_subscription_for_period(
+            enrollment,
+            'MONTHLY',
+            date(2025, 9, 1),
+        )
+        paid_subscription, _ = BillingService.create_subscription_for_period(
+            enrollment,
+            'MONTHLY',
+            date(2025, 10, 1),
+        )
+        paid_subscription.payment_status = 'PAID'
+        paid_subscription.save(update_fields=['payment_status'])
+
+        enrollment.status = 'CANCELLED'
+        enrollment.save(update_fields=['status'])
+        BillingService.cancel_open_subscriptions(enrollment)
+
+        open_subscription.refresh_from_db()
+        paid_subscription.refresh_from_db()
+        self.assertEqual(open_subscription.payment_status, 'CANCELLED')
+        self.assertEqual(paid_subscription.payment_status, 'PAID')
+
     def test_enrollment_rejects_session_from_another_course(self):
         other_course = Course.objects.create(
             name='Violin A',

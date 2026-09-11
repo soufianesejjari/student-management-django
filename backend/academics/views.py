@@ -91,9 +91,12 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         schedule_student_sync(enrollment.student_id)
 
     def perform_update(self, serializer):
+        previous_status = serializer.instance.status
         previous_plan = serializer.instance.billing_plan
         with transaction.atomic():
             enrollment = serializer.save()
+            if enrollment.status == 'CANCELLED' and previous_status != 'CANCELLED':
+                BillingService.cancel_open_subscriptions(enrollment)
             if enrollment.billing_plan != previous_plan:
                 BillingService.update_current_unpaid_subscription_plan(
                     enrollment,

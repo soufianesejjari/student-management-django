@@ -209,6 +209,9 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             'id', 'student', 'course', 'academic_year', 'custom_price', 'notes',
             'subscription_type', 'subscription_start_date', 'is_free_offer', 'assigned_sessions'
         ]
+        # The model constraint is conditional: cancelled/history rows must not
+        # block a fresh active enrollment. Validate that rule explicitly below.
+        validators = []
 
     def validate_academic_year(self, value):
         return value or AcademicYear.get_active()

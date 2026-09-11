@@ -197,6 +197,13 @@ class BillingService:
 
         return subscription, created
 
+    @staticmethod
+    def cancel_open_subscriptions(enrollment):
+        """Cancel unpaid dues when a course enrollment is cancelled."""
+        return enrollment.subscriptions.filter(
+            payment_status__in=['PENDING', 'OVERDUE'],
+        ).update(payment_status='CANCELLED')
+
     @classmethod
     @transaction.atomic
     def update_current_unpaid_subscription_plan(cls, enrollment, subscription_type):
