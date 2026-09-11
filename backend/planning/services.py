@@ -414,56 +414,49 @@ def build_student_schedule_pdf_data(student, start_date, end_date, academic_year
     if academic_year is None:
         academic_year = AcademicYear.get_active()
 
-    enrolled_courses = Enrollment.objects.filter(
+    enrollments = Enrollment.objects.filter(
         student=student,
         academic_year=academic_year,
         status='ACTIVE',
-    ).values_list('course_id', flat=True)
-
-    sessions = ClassSession.objects.filter(
-        academic_year=academic_year,
-        course_id__in=enrolled_courses,
-    ).select_related('course', 'room', 'teacher__user').order_by(
-        'day_of_week', 'start_time', 'start_date', 'id'
-    ).distinct()
+    ).select_related('course').prefetch_related(
+        'assigned_sessions__course',
+        'assigned_sessions__room',
+        'assigned_sessions__teacher__user',
+    )
 
     courses_dict = {}
-    seen_slots = set()
     today = timezone.localdate()
-    for session in sessions:
-        slot_key = (
-            session.course_id,
-            session.teacher_id,
-            session.room_id,
-            session.day_of_week,
-            session.start_time,
-            session.end_time,
+    for enrollment in enrollments:
+        key = enrollment.course_id
+        assigned_sessions = sorted(
+            enrollment.assigned_sessions.all(),
+            key=lambda session: (session.day_of_week, session.start_time, session.start_date, session.id),
         )
-        if slot_key in seen_slots:
-            continue
-        seen_slots.add(slot_key)
-
-        key = session.course.id
-        if key not in courses_dict:
-            courses_dict[key] = {
+        courses_dict[key] = {
+            'course_name': enrollment.course.name,
+            'teacher_name': '',
+            'needs_schedule_assignment': not assigned_sessions,
+            'sessions': [],
+        }
+        teacher_names = []
+        for session in assigned_sessions:
+            teacher_name = session.teacher.user.get_full_name() or session.teacher.user.username
+            teacher_names.append(teacher_name)
+            starts_on_label = (
+                f"Commence le {session.start_date.strftime('%d/%m/%Y')}"
+                if session.start_date > today
+                else ''
+            )
+            courses_dict[key]['sessions'].append({
+                'day_of_week': session.day_of_week,
                 'course_name': session.course.name,
-                'teacher_name': session.teacher.user.get_full_name() or session.teacher.user.username,
-                'sessions': [],
-            }
-        starts_on_label = (
-            f"Commence le {session.start_date.strftime('%d/%m/%Y')}"
-            if session.start_date > today
-            else ''
-        )
-        courses_dict[key]['sessions'].append({
-            'day_of_week': session.day_of_week,
-            'course_name': session.course.name,
-            'start_time': session.start_time.isoformat(),
-            'end_time': session.end_time.isoformat(),
-            'room_name': session.room.name,
-            'starts_on': session.start_date.isoformat(),
-            'starts_on_label': starts_on_label,
-        })
+                'start_time': session.start_time.isoformat(),
+                'end_time': session.end_time.isoformat(),
+                'room_name': session.room.name,
+                'starts_on': session.start_date.isoformat(),
+                'starts_on_label': starts_on_label,
+            })
+        courses_dict[key]['teacher_name'] = ' · '.join(dict.fromkeys(teacher_names))
 
     student_data = {
         'name': student.user.get_full_name() or student.user.username,

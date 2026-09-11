@@ -115,18 +115,25 @@ def build_registration_form(student, page_label=None):
         subject = enrollment.course.subject.name if enrollment.course.subject_id else enrollment.course.name
         teacher_names = []
         course_schedules = []
-        sessions = enrollment.course.sessions.filter(academic_year=academic_year).select_related('teacher__user').order_by('day_of_week', 'start_time')
+        sessions = enrollment.assigned_sessions.select_related(
+            'teacher__user', 'room'
+        ).order_by('day_of_week', 'start_time')
         for session in sessions:
             days = ('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche')
             teacher_names.append(session.teacher.user.get_full_name() or session.teacher.user.username)
             course_schedules.append(f"{days[session.day_of_week]} {session.start_time.strftime('%H:%M')}-{session.end_time.strftime('%H:%M')}")
-        if not course_schedules and enrollment.course.default_teacher_id:
+        has_course_sessions = enrollment.course.sessions.filter(academic_year=academic_year).exists()
+        if not course_schedules and not has_course_sessions and enrollment.course.default_teacher_id:
             teacher_names.append(enrollment.course.default_teacher.user.get_full_name())
         plan = plan_labels.get(enrollment.billing_plan, enrollment.billing_plan)
         course_rows.append([
             Paragraph(f"<b>{subject}</b><br/>{enrollment.course.name}", cell_style),
             Paragraph(', '.join(dict.fromkeys(filter(None, teacher_names))) or 'À affecter', cell_style),
-            Paragraph('<br/>'.join(course_schedules) or 'À planifier', cell_style),
+            Paragraph(
+                '<br/>'.join(course_schedules)
+                or ('À affecter' if has_course_sessions else 'À planifier'),
+                cell_style,
+            ),
             Paragraph(f"{enrollment.custom_price:.0f} DH/mois<br/>{plan}", cell_style),
         ])
 

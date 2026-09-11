@@ -13,6 +13,7 @@ class ClassSessionSerializer(serializers.ModelSerializer):
     academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
     teacher_name = serializers.SerializerMethodField()
     room_name = serializers.CharField(source='room.name', read_only=True)
+    assigned_students = serializers.SerializerMethodField()
     academic_year = serializers.PrimaryKeyRelatedField(
         queryset=AcademicYear.objects.all(),
         required=False,
@@ -22,13 +23,36 @@ class ClassSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassSession
         fields = ['id', 'course', 'course_name', 'academic_year', 'academic_year_name', 'teacher', 'teacher_name', 'room', 'room_name', 
-                  'day_of_week', 'start_time', 'end_time', 'start_date', 'end_date', 'recurrence_rule']
+                  'day_of_week', 'start_time', 'end_time', 'start_date', 'end_date', 'recurrence_rule',
+                  'assigned_students']
 
     def get_teacher_name(self, obj):
         return obj.teacher.user.get_full_name() or obj.teacher.user.username
 
+    def get_assigned_students(self, obj):
+        enrollments = (
+            enrollment
+            for enrollment in obj.student_enrollments.all()
+            if enrollment.status == 'ACTIVE'
+        )
+        return [
+            {
+                'enrollment_id': enrollment.id,
+                'student_id': enrollment.student_id,
+                'student_name': enrollment.student.user.get_full_name() or enrollment.student.user.username,
+            }
+            for enrollment in enrollments
+        ]
+
     def validate(self, attrs):
         attrs['academic_year'] = attrs.get('academic_year') or getattr(self.instance, 'academic_year', None) or AcademicYear.get_active()
+        if self.instance and self.instance.student_enrollments.exists():
+            next_course = attrs.get('course', self.instance.course)
+            next_year = attrs.get('academic_year', self.instance.academic_year)
+            if next_course.pk != self.instance.course_id or next_year.pk != self.instance.academic_year_id:
+                raise serializers.ValidationError(
+                    "Retirez d'abord les élèves affectés avant de changer le cours ou l'année scolaire."
+                )
         return attrs
 
 class AvailabilityCheckSerializer(serializers.Serializer):

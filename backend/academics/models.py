@@ -152,6 +152,12 @@ class Enrollment(models.Model):
         on_delete=models.PROTECT,
         related_name='enrollments'
     )
+    assigned_sessions = models.ManyToManyField(
+        'planning.ClassSession',
+        blank=True,
+        related_name='student_enrollments',
+        help_text="Exact recurring class sessions attended by this student.",
+    )
     enrolled_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ACTIVE')
     billing_plan = models.CharField(

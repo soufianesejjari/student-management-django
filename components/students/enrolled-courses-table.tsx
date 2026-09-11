@@ -11,13 +11,14 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, CreditCard } from "lucide-react"
+import { Loader2, CreditCard, CalendarClock } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
 import { useTranslations } from "next-intl"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
 import { toast } from "sonner"
+import { SessionAssignmentDialog } from "@/components/academics/session-assignment-dialog"
 
 interface EnrolledCoursesTableProps {
     studentId: number
@@ -29,6 +30,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     const [subscriptionsByEnrollment, setSubscriptionsByEnrollment] = useState<Record<number, any>>({})
     const [loading, setLoading] = useState(true)
     const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null)
+    const [editingSessions, setEditingSessions] = useState<any | null>(null)
 
     const fetchEnrollments = async (showLoading = true) => {
         try {
@@ -159,12 +161,14 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     }
 
     return (
+        <>
         <div className="overflow-x-auto rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>{t('enrolledCourses.course')}</TableHead>
                         <TableHead>{t('enrolledCourses.subject')}</TableHead>
+                        <TableHead>{t('enrolledCourses.studentSessions')}</TableHead>
                         <TableHead>{t('enrolledCourses.enrolledDate')}</TableHead>
                         <TableHead>{t('enrolledCourses.status')}</TableHead>
                         <TableHead>{t('enrolledCourses.price')}</TableHead>
@@ -176,7 +180,7 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                 <TableBody>
                     {enrollments.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={8} className="h-24 text-center">
+                            <TableCell colSpan={9} className="h-24 text-center">
                                 {t('enrolledCourses.notEnrolled')}
                             </TableCell>
                         </TableRow>
@@ -198,6 +202,27 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                         {enrollment.course_name}
                                     </TableCell>
                                     <TableCell>{enrollment.course_subject}</TableCell>
+                                    <TableCell>
+                                        <div className="min-w-[190px] space-y-1">
+                                            {enrollment.assigned_session_details?.length ? (
+                                                enrollment.assigned_session_details.map((session: any) => (
+                                                    <div key={session.id} className="text-xs">
+                                                        <span className="font-medium">{[
+                                                            t('schedule.monday'), t('schedule.tuesday'), t('schedule.wednesday'),
+                                                            t('schedule.thursday'), t('schedule.friday'), t('schedule.saturday'),
+                                                            t('schedule.sunday'),
+                                                        ][session.day_of_week]}</span>
+                                                        {' · '}{String(session.start_time).slice(0, 5)}–{String(session.end_time).slice(0, 5)}
+                                                        <div className="text-muted-foreground">{session.teacher_name} · {session.room_name}</div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <Badge variant="outline" className="border-amber-500 text-amber-700">
+                                                    {t('enrolledCourses.sessionToAssign')}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell>
                                         {format(new Date(enrollment.enrolled_at), "MMM d, yyyy")}
                                     </TableCell>
@@ -268,6 +293,12 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                     <TableCell className="text-right">
                                         <div className="flex flex-col items-end gap-2">
                                             {enrollment.status === 'ACTIVE' && (
+                                                <Button variant="outline" size="sm" onClick={() => setEditingSessions(enrollment)}>
+                                                    <CalendarClock className="mr-2 h-3 w-3" />
+                                                    {t('enrolledCourses.editSessions')}
+                                                </Button>
+                                            )}
+                                            {enrollment.status === 'ACTIVE' && (
                                                 <PaymentDialog
                                                     studentId={studentId}
                                                     subscriptionId={subscription?.id}
@@ -292,5 +323,15 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                 </TableBody>
             </Table>
         </div>
+        <SessionAssignmentDialog
+            open={Boolean(editingSessions)}
+            onOpenChange={(open) => !open && setEditingSessions(null)}
+            enrollment={editingSessions}
+            onSuccess={() => {
+                fetchEnrollments(false)
+                window.dispatchEvent(new Event('enrollment-updated'))
+            }}
+        />
+        </>
     )
 }

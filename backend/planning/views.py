@@ -45,7 +45,9 @@ class RoomViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'capacity']
 
 class ClassSessionViewSet(viewsets.ModelViewSet):
-    queryset = ClassSession.objects.all()
+    queryset = ClassSession.objects.select_related(
+        'course', 'academic_year', 'teacher__user', 'room'
+    ).prefetch_related('student_enrollments__student__user')
     serializer_class = ClassSessionSerializer
     permission_classes = [make_module_permission('planning'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
@@ -101,6 +103,22 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             
             with transaction.atomic():
                 instance = serializer.save() 
+
+                # When this is the course's first and only planning slot, the
+                # assignment is unambiguous for existing students as well.
+                if ClassSession.objects.filter(
+                    course=instance.course,
+                    academic_year=instance.academic_year,
+                ).count() == 1:
+                    from academics.models import Enrollment
+                    unassigned_enrollments = Enrollment.objects.filter(
+                        course=instance.course,
+                        academic_year=instance.academic_year,
+                        status='ACTIVE',
+                        assigned_sessions__isnull=True,
+                    ).distinct()
+                    for enrollment in unassigned_enrollments:
+                        enrollment.assigned_sessions.add(instance)
                 
                 # Check Student Conflicts (Soft)
                 conflicts = instance.get_student_conflicts()
@@ -160,6 +178,75 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         from users.tma_sync import schedule_course_students_sync
         schedule_course_students_sync(course_id)
         return response
+
+    @action(detail=True, methods=['post'], url_path='assign-students')
+    def assign_students(self, request, pk=None):
+        """Replace the students assigned to this slot without changing other slots."""
+        from academics.models import Enrollment
+        from academics.serializers import EnrollmentSerializer
+        from users.tma_sync import schedule_student_sync
+
+        session = self.get_object()
+        enrollment_ids = request.data.get('enrollment_ids')
+        if not isinstance(enrollment_ids, list):
+            return Response(
+                {'enrollment_ids': 'Une liste d’inscriptions est obligatoire.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            requested_ids = {int(value) for value in enrollment_ids}
+        except (TypeError, ValueError):
+            return Response(
+                {'enrollment_ids': 'Chaque inscription doit avoir un identifiant valide.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        eligible = Enrollment.objects.filter(
+            course=session.course,
+            academic_year=session.academic_year,
+            status='ACTIVE',
+        ).select_related('student', 'course', 'academic_year').prefetch_related('assigned_sessions')
+        eligible_by_id = {enrollment.id: enrollment for enrollment in eligible}
+        invalid_ids = requested_ids - set(eligible_by_id)
+        if invalid_ids:
+            return Response(
+                {'enrollment_ids': 'Un ou plusieurs élèves ne sont pas inscrits à ce cours.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_ids = set(session.student_enrollments.filter(status='ACTIVE').values_list('id', flat=True))
+        changed_ids = current_ids.symmetric_difference(requested_ids)
+        pending_serializers = []
+        changed_student_ids = set()
+        for enrollment_id in changed_ids:
+            enrollment = eligible_by_id.get(enrollment_id)
+            if enrollment is None:
+                enrollment = Enrollment.objects.get(pk=enrollment_id)
+            next_session_ids = set(enrollment.assigned_sessions.values_list('id', flat=True))
+            if enrollment_id in requested_ids:
+                next_session_ids.add(session.id)
+            else:
+                next_session_ids.discard(session.id)
+            serializer = EnrollmentSerializer(
+                enrollment,
+                data={'assigned_sessions': sorted(next_session_ids)},
+                partial=True,
+                context=self.get_serializer_context(),
+            )
+            serializer.is_valid(raise_exception=True)
+            pending_serializers.append(serializer)
+            changed_student_ids.add(enrollment.student_id)
+
+        with transaction.atomic():
+            for serializer in pending_serializers:
+                serializer.save()
+
+        for student_id in changed_student_ids:
+            schedule_student_sync(student_id)
+
+        session.refresh_from_db()
+        return Response(self.get_serializer(session).data)
 
     @action(detail=False, methods=['post']) 
     def check_conflicts(self, request):

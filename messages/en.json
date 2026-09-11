@@ -1058,7 +1058,18 @@
     "noPhoneToCopy": "No phone to copy",
     "viewStudent": "View Student Details",
     "suspend": "Suspend Enrollment",
-    "cancel": "Cancel Enrollment"
+    "cancel": "Cancel Enrollment",
+    "studentSessions": "Student slot(s)",
+    "editSessions": "Edit schedule slots",
+    "sessionToAssign": "Slot to assign",
+    "noAvailableSessions": "This course has no schedule slot yet. The enrollment will remain unscheduled.",
+    "sessionSelectionHint": "Select only the schedule slots this student actually attends.",
+    "selectAtLeastOneSession": "Select at least one schedule slot for this course.",
+    "sessionAssignmentUpdated": "Student schedule slots updated.",
+    "assignedStudents": "Assigned students",
+    "assignStudents": "Assign students",
+    "noAssignedStudents": "No student is assigned to this slot.",
+    "sessionStudentsUpdated": "Schedule slot assignments updated."
   },
   "studentFees": {
     "type": "Type",

@@ -1058,7 +1058,18 @@
     "noPhoneToCopy": "Aucun téléphone à copier",
     "viewStudent": "Voir la fiche étudiant",
     "suspend": "Suspendre l'inscription",
-    "cancel": "Annuler l'inscription"
+    "cancel": "Annuler l'inscription",
+    "studentSessions": "Créneau(x) de l'élève",
+    "editSessions": "Modifier les créneaux",
+    "sessionToAssign": "Créneau à affecter",
+    "noAvailableSessions": "Ce cours n'a encore aucun créneau. L'inscription restera à planifier.",
+    "sessionSelectionHint": "Sélectionnez uniquement les créneaux réellement suivis par cet élève.",
+    "selectAtLeastOneSession": "Sélectionnez au moins un créneau pour ce cours.",
+    "sessionAssignmentUpdated": "Créneaux de l'élève mis à jour.",
+    "assignedStudents": "Élèves affectés",
+    "assignStudents": "Affecter des élèves",
+    "noAssignedStudents": "Aucun élève affecté à ce créneau.",
+    "sessionStudentsUpdated": "Affectations du créneau mises à jour."
   },
   "studentFees": {
     "type": "Type",

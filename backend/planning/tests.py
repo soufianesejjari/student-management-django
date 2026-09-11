@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from pypdf import PdfReader, PdfWriter
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from academics.models import AcademicYear, Course, Enrollment, Subject
 from planning.models import ClassSession, Room, TeacherMonthlyPayroll
@@ -16,6 +17,7 @@ from planning.services import (
     get_validated_payroll_conflicts_for_dates,
     get_validated_payroll_conflicts_for_session,
 )
+from planning.views import ClassSessionViewSet
 from users.models import StudentProfile, TeacherProfile, User
 from users.registration_pdf import build_registration_form
 
@@ -111,7 +113,7 @@ class PlanningPayrollSyncTests(TestCase):
             phone='0600000000',
             age_group='6-12ans',
         )
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             student=student,
             course=self.course,
             academic_year=self.academic_year,
@@ -119,7 +121,7 @@ class PlanningPayrollSyncTests(TestCase):
             default_price=self.course.price,
             custom_price=self.course.price,
         )
-        ClassSession.objects.create(
+        session = ClassSession.objects.create(
             course=self.course,
             academic_year=self.academic_year,
             teacher=self.teacher,
@@ -130,6 +132,7 @@ class PlanningPayrollSyncTests(TestCase):
             start_date=date(2025, 9, 1),
             end_date=date(2026, 8, 31),
         )
+        enrollment.assigned_sessions.add(session)
 
         student_data, enrollments_data = build_student_schedule_pdf_data(
             student,
@@ -172,11 +175,39 @@ class PlanningPayrollSyncTests(TestCase):
         self.assertEqual(y, expected_bottom)
         self.assertEqual(height, 1.5 * grid.hour_height)
 
+    def test_existing_student_can_be_assigned_from_course_schedule(self):
+        student_user = User.objects.create_user(username='student-to-assign')
+        student = StudentProfile.objects.create(user=student_user)
+        enrollment = Enrollment.objects.create(
+            student=student,
+            course=self.course,
+            academic_year=self.academic_year,
+            default_price=self.course.price,
+            custom_price=self.course.price,
+        )
+        session = self.create_one_week_session()
+        admin = User.objects.create_superuser(username='planning-admin', password='secret')
+        request = APIRequestFactory().post(
+            f'/api/planning/sessions/{session.id}/assign-students/',
+            {'enrollment_ids': [enrollment.id]},
+            format='json',
+        )
+        force_authenticate(request, user=admin)
+
+        response = ClassSessionViewSet.as_view({'post': 'assign_students'})(
+            request,
+            pk=session.id,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(enrollment.assigned_sessions.values_list('id', flat=True)), [session.id])
+        self.assertEqual(response.data['assigned_students'][0]['student_id'], student.id)
+
     @patch('planning.services.timezone.localdate', return_value=date(2025, 9, 1))
     def test_complete_pdf_schedule_includes_future_course_once(self, _localdate):
         student_user = User.objects.create_user(username='future-student')
         student = StudentProfile.objects.create(user=student_user)
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             student=student,
             course=self.course,
             academic_year=self.academic_year,
@@ -205,6 +236,18 @@ class PlanningPayrollSyncTests(TestCase):
             start_date=date(2025, 9, 22),
             end_date=date(2026, 8, 31),
         )])
+        ClassSession.objects.create(
+            course=self.course,
+            academic_year=self.academic_year,
+            teacher=self.teacher,
+            room=self.room,
+            day_of_week=4,
+            start_time=time(17, 0),
+            end_time=time(18, 0),
+            start_date=date(2025, 9, 15),
+            end_date=date(2026, 8, 31),
+        )
+        enrollment.assigned_sessions.add(future_session)
 
         _, enrollments_data = build_student_schedule_pdf_data(
             student,
@@ -221,6 +264,7 @@ class PlanningPayrollSyncTests(TestCase):
 
         student_sessions = enrollments_data[0]['sessions']
         self.assertEqual(len(student_sessions), 1)
+        self.assertEqual(student_sessions[0]['day_of_week'], 1)
         self.assertEqual(student_sessions[0]['starts_on_label'], 'Commence le 15/09/2025')
-        self.assertEqual(len(sessions_data['occurrences']), 1)
+        self.assertEqual(len(sessions_data['occurrences']), 2)
         self.assertEqual(teacher_data['period_label'], 'Année scolaire 2025-2026')

@@ -25,6 +25,7 @@ import { format } from "date-fns"
 import { useTranslations } from "next-intl"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { SessionAssignmentDialog } from "@/components/academics/session-assignment-dialog"
 
 interface EnrolledStudentsTableProps {
     courseId: number
@@ -35,6 +36,7 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
     const router = useRouter()
     const [enrollments, setEnrollments] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [editingSessions, setEditingSessions] = useState<any | null>(null)
 
     const copyPhone = async (phone?: string) => {
         if (!phone) {
@@ -94,6 +96,7 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
     }
 
     return (
+        <>
         <div className="rounded-md border">
             <Table>
                 <TableHeader>
@@ -101,6 +104,7 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                         <TableHead>{t('students.name')}</TableHead>
                         <TableHead>{t('enrolledCourses.enrolledDate')}</TableHead>
                         <TableHead>{t('enrolledCourses.status')}</TableHead>
+                        <TableHead>{t('enrolledCourses.studentSessions')}</TableHead>
                         <TableHead>{t('enrolledCourses.price')}</TableHead>
                         <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
@@ -108,7 +112,7 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                 <TableBody>
                     {enrollments.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
+                            <TableCell colSpan={6} className="h-24 text-center">
                                 {t('enrolledCourses.notEnrolled')}
                             </TableCell>
                         </TableRow>
@@ -130,6 +134,26 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                     <Badge variant={enrollment.status === 'ACTIVE' ? 'default' : 'secondary'}>
                                         {enrollment.status}
                                     </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="min-w-[180px] space-y-1">
+                                        {enrollment.assigned_session_details?.length ? (
+                                            enrollment.assigned_session_details.map((session: any) => (
+                                                <div key={session.id} className="text-xs">
+                                                    <span className="font-medium">{[
+                                                        t('schedule.monday'), t('schedule.tuesday'), t('schedule.wednesday'),
+                                                        t('schedule.thursday'), t('schedule.friday'), t('schedule.saturday'),
+                                                        t('schedule.sunday'),
+                                                    ][session.day_of_week]}</span>
+                                                    {' · '}{String(session.start_time).slice(0, 5)}–{String(session.end_time).slice(0, 5)}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <Badge variant="outline" className="border-amber-500 text-amber-700">
+                                                {t('enrolledCourses.sessionToAssign')}
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </TableCell>
                                 <TableCell>
                                     {enrollment.custom_price} MAD
@@ -157,6 +181,11 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                                                 {t('enrolledCourses.viewStudent')}
                                             </DropdownMenuItem>
                                             {enrollment.status === 'ACTIVE' && (
+                                                <DropdownMenuItem onClick={() => setEditingSessions(enrollment)}>
+                                                    {t('enrolledCourses.editSessions')}
+                                                </DropdownMenuItem>
+                                            )}
+                                            {enrollment.status === 'ACTIVE' && (
                                                 <DropdownMenuItem onClick={() => updateEnrollmentStatus(enrollment.id, "SUSPENDED")}>
                                                     {t('enrolledCourses.suspend')}
                                                 </DropdownMenuItem>
@@ -178,5 +207,15 @@ export function EnrolledStudentsTable({ courseId }: EnrolledStudentsTableProps) 
                 </TableBody>
             </Table>
         </div>
+        <SessionAssignmentDialog
+            open={Boolean(editingSessions)}
+            onOpenChange={(open) => !open && setEditingSessions(null)}
+            enrollment={editingSessions}
+            onSuccess={() => {
+                fetchEnrollments()
+                window.dispatchEvent(new Event('enrollment-updated'))
+            }}
+        />
+        </>
     )
 }

@@ -2,6 +2,61 @@ from rest_framework import serializers
 from .models import AcademicYear, Subject, Course, Enrollment, Subscription, StudentFee
 from users.models import StudentProfile
 from django.db.models import Sum
+from planning.models import ClassSession
+
+
+def _sessions_overlap(left, right, academic_year):
+    """Return whether two recurring sessions can occur at the same time."""
+    left_end = left.end_date or academic_year.end_date
+    right_end = right.end_date or academic_year.end_date
+    return (
+        left.pk != right.pk
+        and left.day_of_week == right.day_of_week
+        and left.start_date <= right_end
+        and right.start_date <= left_end
+        and left.start_time < right.end_time
+        and left.end_time > right.start_time
+    )
+
+
+def validate_enrollment_sessions(student, course, academic_year, sessions, instance=None):
+    """Validate exact session assignments for one enrollment."""
+    sessions = list(sessions)
+    invalid = [
+        session for session in sessions
+        if session.course_id != course.id or session.academic_year_id != academic_year.id
+    ]
+    if invalid:
+        raise serializers.ValidationError({
+            'assigned_sessions': "Chaque créneau doit appartenir au cours et à l'année scolaire de l'inscription."
+        })
+
+    other_enrollment_ids = (
+        Enrollment.objects
+        .filter(student=student, academic_year=academic_year, status='ACTIVE')
+        .exclude(pk=getattr(instance, 'pk', None))
+        .values_list('pk', flat=True)
+    )
+    other_sessions = list(
+        ClassSession.objects
+        .filter(student_enrollments__id__in=other_enrollment_ids)
+        .select_related('course')
+        .distinct()
+    )
+
+    checked = []
+    for session in sessions:
+        for other in other_sessions + checked:
+            if _sessions_overlap(session, other, academic_year):
+                raise serializers.ValidationError({
+                    'assigned_sessions': (
+                        f"Conflit de planning avec {other.course.name} "
+                        f"({other.start_time.strftime('%H:%M')}-{other.end_time.strftime('%H:%M')})."
+                    )
+                })
+        checked.append(session)
+
+    return sessions
 
 class AcademicYearSerializer(serializers.ModelSerializer):
     class Meta:
@@ -64,12 +119,20 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     academic_year_name = serializers.CharField(source='academic_year.name', read_only=True)
     course_name = serializers.CharField(source='course.name', read_only=True)
     course_subject = serializers.CharField(source='course.subject.name', read_only=True)
+    assigned_sessions = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=ClassSession.objects.all(),
+        required=False,
+    )
+    assigned_session_details = serializers.SerializerMethodField()
+    needs_schedule_assignment = serializers.SerializerMethodField()
 
     class Meta:
         model = Enrollment
         fields = [
             'id', 'student', 'student_name', 'student_phone', 'academic_year', 'academic_year_name',
             'course', 'course_name', 'course_subject',
+            'assigned_sessions', 'assigned_session_details', 'needs_schedule_assignment',
             'enrolled_at', 'status', 'billing_plan', 'default_price', 'custom_price',
             'is_promotional', 'promotional_reason', 'is_free_offer', 'notes', 'final_price',
             'is_active'
@@ -81,6 +144,41 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
     def get_student_phone(self, obj):
         return obj.student.phone or obj.student.parent_phone or ""
+
+    def get_assigned_session_details(self, obj):
+        return [
+            {
+                'id': session.id,
+                'day_of_week': session.day_of_week,
+                'start_time': session.start_time.isoformat(),
+                'end_time': session.end_time.isoformat(),
+                'start_date': session.start_date.isoformat(),
+                'end_date': session.end_date.isoformat() if session.end_date else None,
+                'teacher_name': session.teacher.user.get_full_name() or session.teacher.user.username,
+                'room_name': session.room.name,
+            }
+            for session in obj.assigned_sessions.all()
+        ]
+
+    def get_needs_schedule_assignment(self, obj):
+        return obj.status == 'ACTIVE' and not obj.assigned_sessions.exists()
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        assignment_fields = {'assigned_sessions', 'student', 'course', 'academic_year'}
+        if assignment_fields.intersection(attrs):
+            student = attrs.get('student') or self.instance.student
+            course = attrs.get('course') or self.instance.course
+            academic_year = attrs.get('academic_year') or self.instance.academic_year
+            sessions = attrs.get('assigned_sessions', self.instance.assigned_sessions.all())
+            validate_enrollment_sessions(
+                student,
+                course,
+                academic_year,
+                sessions,
+                self.instance,
+            )
+        return attrs
 
 class EnrollmentCreateSerializer(serializers.ModelSerializer):
     """
@@ -99,12 +197,17 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         allow_null=True,
         default=AcademicYear.get_active,
     )
+    assigned_sessions = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=ClassSession.objects.all(),
+        required=False,
+    )
     
     class Meta:
         model = Enrollment
         fields = [
             'id', 'student', 'course', 'academic_year', 'custom_price', 'notes',
-            'subscription_type', 'subscription_start_date', 'is_free_offer'
+            'subscription_type', 'subscription_start_date', 'is_free_offer', 'assigned_sessions'
         ]
 
     def validate_academic_year(self, value):
@@ -134,6 +237,14 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Subscription start date must be inside the selected academic year."
             )
+
+        if 'assigned_sessions' in attrs:
+            validate_enrollment_sessions(
+                student,
+                course,
+                academic_year,
+                attrs['assigned_sessions'],
+            )
         
         return attrs
     
@@ -143,6 +254,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         subscription_type = validated_data.pop('subscription_type')
         subscription_start_date = validated_data.pop('subscription_start_date')
         is_free_offer = validated_data.pop('is_free_offer', False)
+        assigned_sessions = validated_data.pop('assigned_sessions', None)
         
         student = validated_data['student']
         course = validated_data['course']
@@ -173,6 +285,13 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
             is_free_offer=is_free_offer,
             notes=validated_data.get('notes', '')
         )
+
+        if assigned_sessions is None:
+            available_sessions = list(
+                ClassSession.objects.filter(course=course, academic_year=academic_year)[:2]
+            )
+            assigned_sessions = available_sessions if len(available_sessions) == 1 else []
+        enrollment.assigned_sessions.set(assigned_sessions)
         
         BillingService.create_subscription_for_period(
             enrollment=enrollment,

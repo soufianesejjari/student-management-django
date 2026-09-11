@@ -447,8 +447,8 @@ class PDFReportGenerator:
             
             courses_data.append([
                 Paragraph(enrollment['course_name'], cell_style),
-                Paragraph(enrollment['teacher_name'], cell_style),
-                Paragraph('<br/>'.join(course_schedule), cell_style),
+                Paragraph(enrollment['teacher_name'] or 'À affecter', cell_style),
+                Paragraph('<br/>'.join(course_schedule) or 'À affecter', cell_style),
             ])
 
         if len(courses_data) == 1:

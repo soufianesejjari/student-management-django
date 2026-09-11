@@ -61,17 +61,21 @@ class StudentProfile(models.Model):
 
     @property
     def registration_form_ready(self):
-        """A fiche is complete only after a course and professor are known."""
+        """A fiche is complete once its exact planning (or future teacher) is known."""
         from academics.models import AcademicYear
 
         academic_year = AcademicYear.get_active()
-        return self.enrollments.filter(
+        enrollments = self.enrollments.filter(
             status='ACTIVE',
             academic_year=academic_year,
-        ).filter(
-            models.Q(course__default_teacher__isnull=False)
-            | models.Q(course__sessions__academic_year=academic_year)
-        ).exists()
+        ).select_related('course__default_teacher')
+        for enrollment in enrollments:
+            if enrollment.assigned_sessions.exists():
+                return True
+            has_planning = enrollment.course.sessions.filter(academic_year=academic_year).exists()
+            if not has_planning and enrollment.course.default_teacher_id:
+                return True
+        return False
 
 class TeacherProfile(models.Model):
     STATUS_CHOICES = (

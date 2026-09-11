@@ -16,6 +16,7 @@ import { Loader2, Wand2, Gift, CheckCircle2, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { useTranslations } from "next-intl"
+import { SessionPicker } from "@/components/academics/session-picker"
 
 interface EnrollCourseDialogProps {
     open: boolean
@@ -40,6 +41,8 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
     const [offerSettings, setOfferSettings] = useState<any>(null)
     const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
     const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
+    const [selectedSessionIds, setSelectedSessionIds] = useState<number[]>([])
+    const [availableSessionCount, setAvailableSessionCount] = useState(0)
     const billedMonths = subscriptionType === "ANNUAL" ? 10 : subscriptionType === "QUARTERLY" ? 3 : 1
     const subscriptionAmount = Number(customPrice || 0) * billedMonths
     const isEnrollingInFreeCourse = Boolean(
@@ -58,6 +61,8 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
             setGlobalOffer(null)
             setOfferSettings(null)
             setIncludeFreeCourse(false)
+            setSelectedSessionIds([])
+            setAvailableSessionCount(0)
         }
     }, [open])
 
@@ -154,6 +159,11 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
             return
         }
 
+        if (availableSessionCount > 0 && selectedSessionIds.length === 0) {
+            toast.error(t('enrolledCourses.selectAtLeastOneSession'))
+            return
+        }
+
         setSubmitting(true)
         try {
             await api.enrollments.create({
@@ -163,6 +173,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                 subscription_start_date: startDate,
                 custom_price: parseFloat(customPrice),
                 notes,
+                assigned_sessions: selectedSessionIds,
             })
 
             const shouldAddFreeCourse = Boolean(
@@ -198,6 +209,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
             onOpenChange(false)
         } catch (error: any) {
             const detail =
+                error.response?.data?.assigned_sessions?.[0] ||
                 error.response?.data?.non_field_errors?.[0] ||
                 error.response?.data?.detail ||
                 t("dialogs.enrollStudent.enrollError")
@@ -222,7 +234,11 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                             endpoint="/academics/courses/"
                             label={t("enrolledCourses.course")}
                             value={courseId || ""}
-                            onChange={(value) => setCourseId(Number(value))}
+                            onChange={(value) => {
+                                setSelectedSessionIds([])
+                                setAvailableSessionCount(-1)
+                                setCourseId(Number(value))
+                            }}
                             renderLabel={(item: any) => {
                                 const subject = item.subject_name ? ` - ${item.subject_name}` : ""
                                 return `${item.name}${subject}`
@@ -231,6 +247,19 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                             placeholder={t("students.enrollInCourse")}
                         />
                     </div>
+
+                    {courseId && (
+                        <div className="space-y-2">
+                            <Label>{t('enrolledCourses.studentSessions')}</Label>
+                            <SessionPicker
+                                courseId={courseId}
+                                value={selectedSessionIds}
+                                onChange={setSelectedSessionIds}
+                                onSessionsLoaded={setAvailableSessionCount}
+                                disabled={submitting}
+                            />
+                        </div>
+                    )}
 
                     {globalOffer?.enabled && globalOffer?.free_course && !isEnrollingInFreeCourse && (
                         <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
@@ -392,7 +421,7 @@ export function EnrollCourseDialog({ open, onOpenChange, studentId, onSuccess }:
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                             {t("common.cancel")}
                         </Button>
-                        <Button type="submit" disabled={submitting || !courseId}>
+                        <Button type="submit" disabled={submitting || !courseId || availableSessionCount < 0}>
                             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {includeFreeCourse
                                 ? `${t("dialogs.enrollStudent.enrollWithFreePrefix")} ${offerSettings?.free_course?.name || "..."}`

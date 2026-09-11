@@ -50,7 +50,7 @@ class TmaSyncPayloadTests(TestCase):
             default_teacher=teacher,
             price=Decimal('1200.00'),
         )
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             student=student,
             course=course,
             academic_year=academic_year,
@@ -59,7 +59,7 @@ class TmaSyncPayloadTests(TestCase):
             custom_price=Decimal('1200.00'),
         )
         room = Room.objects.create(name='Salle 2')
-        ClassSession.objects.create(
+        selected_session = ClassSession.objects.create(
             course=course,
             academic_year=academic_year,
             teacher=teacher,
@@ -69,6 +69,17 @@ class TmaSyncPayloadTests(TestCase):
             end_time=time(18, 0),
             start_date=academic_year.start_date,
         )
+        ClassSession.objects.create(
+            course=course,
+            academic_year=academic_year,
+            teacher=teacher,
+            room=room,
+            day_of_week=4,
+            start_time=time(18, 0),
+            end_time=time(19, 0),
+            start_date=academic_year.start_date,
+        )
+        enrollment.assigned_sessions.add(selected_session)
 
         payload = build_student_payload(student.id)
 

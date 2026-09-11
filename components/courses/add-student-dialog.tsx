@@ -39,6 +39,7 @@ import { toast } from "sonner"
 import { Loader2, Wand2, Gift, CheckCircle2, XCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useTranslations } from "next-intl"
+import { SessionPicker } from "@/components/academics/session-picker"
 
 const formSchema = z.object({
     studentId: z.union([z.string(), z.number()]),
@@ -90,6 +91,8 @@ export function AddStudentToCourseDialog({
     const [offerSettings, setOfferSettings] = useState<OfferSettings | null>(null)
     const [loadingOfferSettings, setLoadingOfferSettings] = useState(false)
     const [includeFreeCourse, setIncludeFreeCourse] = useState(false)
+    const [selectedSessionIds, setSelectedSessionIds] = useState<number[]>([])
+    const [availableSessionCount, setAvailableSessionCount] = useState(0)
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -113,6 +116,8 @@ export function AddStudentToCourseDialog({
     useEffect(() => {
         if (open && course) {
             form.setValue("customPrice", course.price.toString())
+            setSelectedSessionIds([])
+            setAvailableSessionCount(-1)
         }
     }, [open, course, form])
 
@@ -176,6 +181,10 @@ export function AddStudentToCourseDialog({
     const firstPeriodAmount = monthlyPrice * billedMonths
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        if (availableSessionCount > 0 && selectedSessionIds.length === 0) {
+            toast.error(t('enrolledCourses.selectAtLeastOneSession'))
+            return
+        }
         const studentId = Number(values.studentId)
         const shouldAddFreeCourse = Boolean(
             includeFreeCourse &&
@@ -191,7 +200,8 @@ export function AddStudentToCourseDialog({
                 subscription_type: values.subscriptionType,
                 subscription_start_date: values.startDate,
                 custom_price: parseFloat(values.customPrice),
-                notes: values.notes
+                notes: values.notes,
+                assigned_sessions: selectedSessionIds,
             })
 
             if (shouldAddFreeCourse) {
@@ -223,8 +233,14 @@ export function AddStudentToCourseDialog({
             setOfferSettings(null)
             setGlobalOffer(null)
             setIncludeFreeCourse(false)
+            setSelectedSessionIds([])
+            setAvailableSessionCount(0)
         } catch (error: any) {
-            toast.error(error.response?.data?.non_field_errors?.[0] || t('dialogs.enrollStudent.enrollError'))
+            toast.error(
+                error.response?.data?.assigned_sessions?.[0] ||
+                error.response?.data?.non_field_errors?.[0] ||
+                t('dialogs.enrollStudent.enrollError')
+            )
         }
     }
 
@@ -282,6 +298,17 @@ export function AddStudentToCourseDialog({
                                 </FormItem>
                             )}
                         />
+
+                        <div className="space-y-2">
+                            <FormLabel>{t('enrolledCourses.studentSessions')}</FormLabel>
+                            <SessionPicker
+                                courseId={course ? Number(course.id) : null}
+                                value={selectedSessionIds}
+                                onChange={setSelectedSessionIds}
+                                onSessionsLoaded={setAvailableSessionCount}
+                                disabled={form.formState.isSubmitting}
+                            />
+                        </div>
 
                         {/* Pricing Suggestion Alert */}
                         {suggestingPrice ? (
@@ -435,7 +462,7 @@ export function AddStudentToCourseDialog({
                         />
 
                         <DialogFooter>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                            <Button type="submit" disabled={form.formState.isSubmitting || availableSessionCount < 0}>
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {includeFreeCourse
                                     ? `${t('dialogs.enrollStudent.enrollWithFreePrefix')} ${offerSettings?.free_course?.name || '...'}`

@@ -60,14 +60,14 @@ def build_student_payload(student_id):
         .select_related('course__subject', 'course__default_teacher__user')
         .order_by('course__name')
     )
-    course_ids = [enrollment.course_id for enrollment in enrollments]
     sessions = list(
         ClassSession.objects
-        .filter(course_id__in=course_ids, academic_year=academic_year)
+        .filter(student_enrollments__in=enrollments, academic_year=academic_year)
         .filter(Q(end_date__isnull=True) | Q(end_date__gte=today))
         .select_related('teacher__user', 'room', 'course')
         .order_by('day_of_week', 'start_time')
-    ) if course_ids else []
+        .distinct()
+    ) if enrollments else []
 
     full_name = student.user.get_full_name().strip() or student.user.username
     payment_summary = BillingService.student_payment_summary(

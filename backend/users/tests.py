@@ -128,7 +128,7 @@ class RegistrationFormReadinessTests(TestCase):
             default_teacher=teacher,
             price=Decimal('400.00'),
         )
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             student=self.student,
             course=course,
             academic_year=self.academic_year,
@@ -196,7 +196,7 @@ class RegistrationFormReadinessTests(TestCase):
             level='BEGINNER',
             price=Decimal('350.00'),
         )
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             student=self.student,
             course=course,
             academic_year=self.academic_year,
@@ -210,7 +210,7 @@ class RegistrationFormReadinessTests(TestCase):
         )
         teacher = TeacherProfile.objects.create(user=teacher_user, speciality='Guitare')
         room = Room.objects.create(name='Salle 1')
-        ClassSession.objects.create(
+        session = ClassSession.objects.create(
             course=course,
             academic_year=self.academic_year,
             teacher=teacher,
@@ -220,5 +220,6 @@ class RegistrationFormReadinessTests(TestCase):
             end_time=time(11, 0),
             start_date=self.academic_year.start_date,
         )
+        enrollment.assigned_sessions.add(session)
 
         self.assertTrue(StudentProfileSerializer(self.student).data['registration_form_ready'])

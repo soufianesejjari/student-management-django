@@ -71,7 +71,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     """
     API endpoint for Enrollments
     """
-    queryset = Enrollment.objects.all().select_related('student__user', 'course__subject', 'academic_year')
+    queryset = Enrollment.objects.all().select_related(
+        'student__user', 'course__subject', 'academic_year'
+    ).prefetch_related(
+        'assigned_sessions__teacher__user', 'assigned_sessions__room'
+    )
     permission_classes = [make_module_permission('academics'), StrictDjangoModelPermissions]
     filter_backends = [filters.SearchFilter]
     search_fields = ['student__user__first_name', 'student__user__last_name', 'course__name']

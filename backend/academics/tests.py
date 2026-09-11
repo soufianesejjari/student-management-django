@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 
 from django.test import TestCase
@@ -15,8 +15,10 @@ from academics.models import (
     Subscription,
 )
 from academics.services import BillingService
+from academics.serializers import EnrollmentCreateSerializer, EnrollmentSerializer
 from finances.models import Payment
-from users.models import StudentProfile, User
+from planning.models import ClassSession, Room
+from users.models import StudentProfile, TeacherProfile, User
 
 
 class BillingServiceTests(TestCase):
@@ -54,6 +56,93 @@ class BillingServiceTests(TestCase):
             custom_price=Decimal('500.00'),
             status='ACTIVE',
         )
+
+    def create_session(self, day_of_week, start_hour):
+        teacher_user = User.objects.create_user(username=f'teacher-{day_of_week}-{start_hour}')
+        teacher = TeacherProfile.objects.create(user=teacher_user, speciality='Piano')
+        room = Room.objects.create(name=f'Room {day_of_week}-{start_hour}')
+        return ClassSession.objects.create(
+            course=self.course,
+            academic_year=self.academic_year,
+            teacher=teacher,
+            room=room,
+            day_of_week=day_of_week,
+            start_time=time(start_hour, 0),
+            end_time=time(start_hour + 1, 0),
+            start_date=self.academic_year.start_date,
+            end_date=self.academic_year.end_date,
+        )
+
+    def test_enrollment_uses_only_explicitly_selected_course_session(self):
+        first_session = self.create_session(0, 10)
+        selected_session = self.create_session(2, 16)
+        serializer = EnrollmentCreateSerializer(data={
+            'student': self.student.id,
+            'course': self.course.id,
+            'academic_year': self.academic_year.id,
+            'custom_price': '500.00',
+            'subscription_type': 'MONTHLY',
+            'subscription_start_date': '2025-09-01',
+            'assigned_sessions': [selected_session.id],
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        enrollment = serializer.save()
+
+        self.assertEqual(list(enrollment.assigned_sessions.all()), [selected_session])
+        self.assertNotIn(first_session, enrollment.assigned_sessions.all())
+        output = EnrollmentSerializer(enrollment).data
+        self.assertFalse(output['needs_schedule_assignment'])
+        self.assertEqual(output['assigned_sessions'], [selected_session.id])
+
+    def test_single_course_session_is_assigned_automatically(self):
+        only_session = self.create_session(1, 11)
+        serializer = EnrollmentCreateSerializer(data={
+            'student': self.student.id,
+            'course': self.course.id,
+            'academic_year': self.academic_year.id,
+            'custom_price': '500.00',
+            'subscription_type': 'MONTHLY',
+            'subscription_start_date': '2025-09-01',
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        enrollment = serializer.save()
+
+        self.assertEqual(list(enrollment.assigned_sessions.all()), [only_session])
+
+    def test_enrollment_rejects_session_from_another_course(self):
+        other_course = Course.objects.create(
+            name='Violin A',
+            subject=self.subject,
+            level='BEGINNER',
+            price=Decimal('450.00'),
+        )
+        teacher_user = User.objects.create_user(username='other-teacher')
+        teacher = TeacherProfile.objects.create(user=teacher_user, speciality='Violin')
+        room = Room.objects.create(name='Other room')
+        other_session = ClassSession.objects.create(
+            course=other_course,
+            academic_year=self.academic_year,
+            teacher=teacher,
+            room=room,
+            day_of_week=3,
+            start_time=time(14, 0),
+            end_time=time(15, 0),
+            start_date=self.academic_year.start_date,
+        )
+        serializer = EnrollmentCreateSerializer(data={
+            'student': self.student.id,
+            'course': self.course.id,
+            'academic_year': self.academic_year.id,
+            'custom_price': '500.00',
+            'subscription_type': 'MONTHLY',
+            'subscription_start_date': '2025-09-01',
+            'assigned_sessions': [other_session.id],
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('assigned_sessions', serializer.errors)
 
     def test_quarterly_then_monthly_generates_next_pending_period(self):
         enrollment = self.create_enrollment(billing_plan='QUARTERLY')

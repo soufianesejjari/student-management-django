@@ -124,13 +124,12 @@ class ClassSession(models.Model):
         Returns a list of dictionaries with student info and conflicting session.
         """
         conflicts = []
-        # Get active enrollments for this course
-        # Note: We need to import Enrollment dynamically or rely on related_name if defined
-        # Assuming course.enrollments is available
-        enrolled_students = self.course.enrollments.filter(
+        # Only students explicitly assigned to this exact recurring session
+        # are affected by a change to this planning slot.
+        enrolled_students = self.student_enrollments.filter(
             status='ACTIVE',
             academic_year=self.academic_year,
-        )
+        ).select_related('student__user')
         
         for enrollment in enrolled_students:
             student = enrollment.student
@@ -139,14 +138,14 @@ class ClassSession(models.Model):
             # Conflict condition: Same day AND Overlapping Time
             student_sessions = ClassSession.objects.filter(
                 academic_year=self.academic_year,
-                course__enrollments__student=student,
-                course__enrollments__status='ACTIVE',
-                course__enrollments__academic_year=self.academic_year,
+                student_enrollments__student=student,
+                student_enrollments__status='ACTIVE',
+                student_enrollments__academic_year=self.academic_year,
                 day_of_week=self.day_of_week
             ).filter(
                 # (StartA < EndB) and (EndA > StartB)
                 Q(start_time__lt=self.end_time, end_time__gt=self.start_time)
-            ).exclude(pk=self.pk)
+            ).exclude(pk=self.pk).distinct()
 
             if student_sessions.exists():
                 for conflict_session in student_sessions:

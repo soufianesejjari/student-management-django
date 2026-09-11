@@ -4,11 +4,12 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, MapPin, Plus, Pencil } from "lucide-react"
+import { Calendar, Clock, MapPin, Plus, Pencil, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { SessionDialog } from "./session-dialog"
 import { useTranslations } from "next-intl"
+import { SessionStudentsDialog } from "./session-students-dialog"
 
 export function CourseSchedule({ courseId }: { courseId: number }) {
     const t = useTranslations()
@@ -16,6 +17,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
     const [loading, setLoading] = useState(true)
     const [openDialog, setOpenDialog] = useState(false)
     const [selectedSession, setSelectedSession] = useState<any>(null)
+    const [studentAssignmentSession, setStudentAssignmentSession] = useState<any>(null)
 
     const fetchSessions = async () => {
         try {
@@ -150,6 +152,25 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                                         {session.start_date} → {session.end_date || t('schedule.ongoing')}
                                     </Badge>
                                 </div>
+                                <div className="border-t pt-3">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                            {t('enrolledCourses.assignedStudents')}
+                                            <Badge variant="secondary">{session.assigned_students?.length || 0}</Badge>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={() => setStudentAssignmentSession(session)}>
+                                            {t('enrolledCourses.assignStudents')}
+                                        </Button>
+                                    </div>
+                                    {session.assigned_students?.length ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            {session.assigned_students.map((student: any) => student.student_name).join(', ')}
+                                        </p>
+                                    ) : (
+                                        <p className="text-xs text-amber-700">{t('enrolledCourses.noAssignedStudents')}</p>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
@@ -164,6 +185,16 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                 onSuccess={() => {
                     fetchSessions()
                     toast.success(selectedSession ? t('schedule.updateSuccess') : t('schedule.createSuccess'))
+                }}
+            />
+            <SessionStudentsDialog
+                open={Boolean(studentAssignmentSession)}
+                onOpenChange={(open) => !open && setStudentAssignmentSession(null)}
+                courseId={courseId}
+                session={studentAssignmentSession}
+                onSuccess={() => {
+                    fetchSessions()
+                    window.dispatchEvent(new Event('enrollment-updated'))
                 }}
             />
         </>
