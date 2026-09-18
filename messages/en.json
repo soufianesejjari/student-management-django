@@ -520,7 +520,27 @@
       "roomRequired": "Room is required",
       "invalidTime": "Invalid time format",
       "startDateRequired": "Start date is required"
-    }
+    },
+    "cancelPlanning": "Cancel slot",
+    "restorePlanning": "Restore slot",
+    "deletePlanning": "Delete slot",
+    "cancelPlanningTitle": "Cancel this planning slot",
+    "cancelPlanningDescription": "The slot will be ignored everywhere (conflicts, calendar, timetables, payroll). It stays restorable.",
+    "cancelPlanningReasonPlaceholder": "e.g. course stopped, teacher left...",
+    "deletePlanningTitle": "Permanently delete this slot",
+    "deletePlanningDescription": "This cannot be undone: the slot and its exceptions will be erased.",
+    "cancelPlanningSuccess": "Slot cancelled",
+    "cancelPlanningError": "Failed to cancel the slot",
+    "restorePlanningSuccess": "Slot restored",
+    "restorePlanningError": "Failed to restore the slot",
+    "deletePlanningError": "Failed to delete the slot",
+    "cancelledBadge": "Cancelled",
+    "cancelledSlots": "Cancelled slots",
+    "cancelledSlotsHint": "These slots are ignored everywhere. Restore them to reactivate.",
+    "cancelledReasonLabel": "Reason",
+    "confirm": "Confirm",
+    "restoreConflictTitle": "Conflicts detected while restoring",
+    "restoreForce": "Restore anyway"
   },
   "finances": {
     "title": "Financial management",

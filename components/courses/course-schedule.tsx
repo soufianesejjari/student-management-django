@@ -4,12 +4,13 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Clock, MapPin, Plus, Pencil, Users } from "lucide-react"
+import { Ban, Calendar, Clock, MapPin, Plus, Pencil, RotateCcw, Trash2, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { toast } from "sonner"
 import { SessionDialog } from "./session-dialog"
 import { useTranslations } from "next-intl"
 import { SessionStudentsDialog } from "./session-students-dialog"
+import { SessionActionsDialog, type SessionAction } from "./session-actions-dialog"
 
 export function CourseSchedule({ courseId }: { courseId: number }) {
     const t = useTranslations()
@@ -18,12 +19,13 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
     const [openDialog, setOpenDialog] = useState(false)
     const [selectedSession, setSelectedSession] = useState<any>(null)
     const [studentAssignmentSession, setStudentAssignmentSession] = useState<any>(null)
+    const [pendingAction, setPendingAction] = useState<{ action: SessionAction; session: any } | null>(null)
 
     const fetchSessions = async () => {
         try {
             setLoading(true)
-            const response = await api.get(`/planning/sessions/?course=${courseId}`)
-            const data = response.data
+            // include_cancelled: cancelled slots stay visible here only, so they can be restored or deleted.
+            const data = await api.planning.listCourseSessions(courseId, true)
             // Handle both paginated and non-paginated responses
             if (Array.isArray(data)) {
                 setSessions(data)
@@ -63,6 +65,9 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
         setOpenDialog(true)
     }
 
+    const activeSessions = sessions.filter((session) => !session.is_cancelled)
+    const cancelledSessions = sessions.filter((session) => session.is_cancelled)
+
     if (loading) {
         return (
             <Card className="p-4">
@@ -71,7 +76,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
         )
     }
 
-    if (sessions.length === 0) {
+    if (activeSessions.length === 0 && cancelledSessions.length === 0) {
         return (
             <>
                 <Card className="p-8">
@@ -116,7 +121,7 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                    {sessions.map((session) => (
+                    {activeSessions.map((session) => (
                         <Card key={session.id}>
                             <CardHeader>
                                 <div className="flex items-start justify-between">
@@ -128,14 +133,33 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                                             {session.teacher_name}
                                         </CardDescription>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        title={t('schedule.edit')}
-                                        onClick={() => handleEditSession(session)}
-                                    >
-                                        <Pencil className="h-3 w-3" />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            title={t('schedule.edit')}
+                                            onClick={() => handleEditSession(session)}
+                                        >
+                                            <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            title={t('schedule.cancelPlanning')}
+                                            onClick={() => setPendingAction({ action: 'cancel', session })}
+                                        >
+                                            <Ban className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            title={t('schedule.deletePlanning')}
+                                            className="text-destructive hover:text-destructive"
+                                            onClick={() => setPendingAction({ action: 'delete', session })}
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-2">
@@ -175,7 +199,73 @@ export function CourseSchedule({ courseId }: { courseId: number }) {
                         </Card>
                     ))}
                 </div>
+
+                {cancelledSessions.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                        <div>
+                            <h3 className="text-base font-semibold">{t('schedule.cancelledSlots')}</h3>
+                            <p className="text-xs text-muted-foreground">{t('schedule.cancelledSlotsHint')}</p>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                            {cancelledSessions.map((session) => (
+                                <Card key={session.id} className="border-dashed opacity-80">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <CardTitle className="text-base line-through">
+                                                    {daysOfWeek[session.day_of_week]} {session.start_time} - {session.end_time}
+                                                </CardTitle>
+                                                <CardDescription className="mt-1">
+                                                    {session.teacher_name} · {session.room_name}
+                                                </CardDescription>
+                                            </div>
+                                            <Badge variant="destructive" className="text-xs">
+                                                {t('schedule.cancelledBadge')}
+                                            </Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        {session.cancellation_reason && (
+                                            <p className="text-xs text-muted-foreground">
+                                                {t('schedule.cancelledReasonLabel')}: {session.cancellation_reason}
+                                            </p>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setPendingAction({ action: 'restore', session })}
+                                            >
+                                                <RotateCcw className="mr-2 h-3 w-3" />
+                                                {t('schedule.restorePlanning')}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => setPendingAction({ action: 'delete', session })}
+                                            >
+                                                <Trash2 className="mr-2 h-3 w-3" />
+                                                {t('schedule.deletePlanning')}
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
+
+            <SessionActionsDialog
+                action={pendingAction?.action ?? null}
+                session={pendingAction?.session}
+                onOpenChange={(open) => !open && setPendingAction(null)}
+                onSuccess={() => {
+                    fetchSessions()
+                    window.dispatchEvent(new Event('enrollment-updated'))
+                }}
+            />
 
             <SessionDialog
                 open={openDialog}

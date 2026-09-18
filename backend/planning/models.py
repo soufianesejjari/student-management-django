@@ -98,6 +98,17 @@ class TeacherMonthlyPayroll(models.Model):
     def __str__(self):
         return f"{self.teacher} payroll {self.year}-{self.month:02d} ({self.status})"
 
+class ActiveClassSessionManager(models.Manager):
+    """Default manager hiding cancelled planning slots.
+
+    A cancelled slot must behave like a deleted one everywhere (conflicts,
+    schedules, payroll, student assignments) while staying restorable.
+    """
+
+    def get_queryset(self):
+        return super().get_queryset().filter(is_cancelled=False)
+
+
 class ClassSession(models.Model):
     """The core scheduling unit - represents a recurring class session"""
     course = models.ForeignKey('academics.Course', on_delete=models.CASCADE, related_name='sessions')
@@ -111,12 +122,23 @@ class ClassSession(models.Model):
     end_date = models.DateField(null=True, blank=True, help_text="When this session plan ends (None = Indefinite)")
     recurrence_rule = models.CharField(max_length=255, blank=True, null=True, help_text="RRULE format for complex recurrence")
 
+    # Soft cancellation: the slot keeps its history and student assignments but
+    # is ignored by conflicts, calendars, schedules and payroll.
+    is_cancelled = models.BooleanField(default=False)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True)
+
+    objects = ActiveClassSessionManager()
+    all_objects = models.Manager()
+
     class Meta:
         ordering = ['day_of_week', 'start_time']
+        base_manager_name = 'all_objects'
 
     def __str__(self):
         days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        return f"{self.course.name} - {days[self.day_of_week]} {self.start_time}-{self.end_time} ({self.room.name})"
+        suffix = " [CANCELLED]" if self.is_cancelled else ""
+        return f"{self.course.name} - {days[self.day_of_week]} {self.start_time}-{self.end_time} ({self.room.name}){suffix}"
 
     def get_student_conflicts(self):
         """
@@ -167,6 +189,10 @@ class ClassSession(models.Model):
 
         if self.start_time >= self.end_time:
             raise ValidationError("End time must be after start time")
+
+        # A cancelled slot occupies nothing: skip every conflict check.
+        if self.is_cancelled:
+            return
 
         if not (self.academic_year.start_date <= self.start_date <= self.academic_year.end_date):
             raise ValidationError("Session start date must be inside the academic year")

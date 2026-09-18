@@ -19,7 +19,7 @@ class Command(BaseCommand):
         self.stdout.write('Clearing old data...')
         Payment.objects.all().delete()
         Expense.objects.all().delete()
-        ClassSession.objects.all().delete()
+        ClassSession.all_objects.all().delete()
         Enrollment.objects.all().delete()
         Course.objects.all().delete()
         Subject.objects.all().delete()

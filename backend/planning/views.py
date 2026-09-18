@@ -45,7 +45,8 @@ class RoomViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'capacity']
 
 class ClassSessionViewSet(viewsets.ModelViewSet):
-    queryset = ClassSession.objects.select_related(
+    # all_objects so cancelled slots stay reachable for restore/delete.
+    queryset = ClassSession.all_objects.select_related(
         'course', 'academic_year', 'teacher__user', 'room'
     ).prefetch_related('student_enrollments__student__user')
     serializer_class = ClassSessionSerializer
@@ -55,6 +56,17 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+
+        # Cancelled slots behave like deleted ones: hidden unless asked for.
+        cancelled_filter = (self.request.query_params.get('cancelled') or '').lower()
+        include_cancelled = self.request.query_params.get('include_cancelled') in ('1', 'true', 'True')
+        if cancelled_filter in ('1', 'true', 'only'):
+            queryset = queryset.filter(is_cancelled=True)
+        elif cancelled_filter in ('0', 'false'):
+            queryset = queryset.filter(is_cancelled=False)
+        elif not include_cancelled and self.action == 'list':
+            queryset = queryset.filter(is_cancelled=False)
+
         academic_year = self.request.query_params.get('academic_year')
         all_years = self.request.query_params.get('all_years') in ('1', 'true', 'True')
 
@@ -152,6 +164,11 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        if instance.is_cancelled:
+            return Response(
+                {"detail": "Ce créneau est annulé. Restaurez-le avant de le modifier."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
 
@@ -179,6 +196,69 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         schedule_course_students_sync(course_id)
         return response
 
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_planning(self, request, pk=None):
+        """Soft-cancel a whole planning slot (kept in history, ignored everywhere)."""
+        from django.utils import timezone
+
+        session = self.get_object()
+        if session.is_cancelled:
+            return Response(self.get_serializer(session).data)
+
+        payroll_conflicts = get_validated_payroll_conflicts_for_session(session)
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
+
+        session.is_cancelled = True
+        session.cancelled_at = timezone.now()
+        session.cancellation_reason = request.data.get('reason', '') or ''
+        session.save(update_fields=['is_cancelled', 'cancelled_at', 'cancellation_reason'])
+
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(session.course_id)
+        return Response(self.get_serializer(session).data)
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore_planning(self, request, pk=None):
+        """Restore a cancelled planning slot after re-checking conflicts."""
+        session = self.get_object()
+        if not session.is_cancelled:
+            return Response(self.get_serializer(session).data)
+
+        payroll_conflicts = get_validated_payroll_conflicts_for_session(session)
+        if payroll_conflicts:
+            return self._payroll_locked_response(payroll_conflicts)
+
+        force_conflicts = request.data.get('force_conflicts', False)
+        session.is_cancelled = False
+        session.cancelled_at = None
+        session.cancellation_reason = ''
+        try:
+            session.clean()
+        except DjangoValidationError as e:
+            return Response({
+                "status": "conflict",
+                "conflict_type": "hard",
+                "detail": e.messages,
+                "can_force": False,
+            }, status=status.HTTP_409_CONFLICT)
+
+        student_conflicts = session.get_student_conflicts()
+        if student_conflicts and not force_conflicts:
+            return Response({
+                "status": "conflict",
+                "conflict_type": "student",
+                "message": "Student scheduling conflicts detected",
+                "conflicts": student_conflicts,
+                "can_force": True,
+            }, status=status.HTTP_409_CONFLICT)
+
+        session.save(update_fields=['is_cancelled', 'cancelled_at', 'cancellation_reason'])
+
+        from users.tma_sync import schedule_course_students_sync
+        schedule_course_students_sync(session.course_id)
+        return Response(self.get_serializer(session).data)
+
     @action(detail=True, methods=['post'], url_path='assign-students')
     def assign_students(self, request, pk=None):
         """Replace the students assigned to this slot without changing other slots."""
@@ -187,6 +267,11 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
         from users.tma_sync import schedule_student_sync
 
         session = self.get_object()
+        if session.is_cancelled:
+            return Response(
+                {'detail': "Ce créneau est annulé. Restaurez-le avant d'affecter des élèves."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         enrollment_ids = request.data.get('enrollment_ids')
         if not isinstance(enrollment_ids, list):
             return Response(
@@ -403,7 +488,8 @@ class ClassSessionViewSet(viewsets.ModelViewSet):
             original_date__gte=start_date,
             original_date__lte=end_date
         ).filter(
-            class_session__academic_year=academic_year
+            class_session__academic_year=academic_year,
+            class_session__is_cancelled=False,
         ).select_related('class_session', 'class_session__course', 'class_session__teacher', 'class_session__room')
         
         # Serialize both

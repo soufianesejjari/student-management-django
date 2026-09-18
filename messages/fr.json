@@ -520,7 +520,27 @@
       "roomRequired": "La salle est obligatoire",
       "invalidTime": "Format d’heure invalide",
       "startDateRequired": "La date de début est obligatoire"
-    }
+    },
+    "cancelPlanning": "Annuler le créneau",
+    "restorePlanning": "Restaurer le créneau",
+    "deletePlanning": "Supprimer le créneau",
+    "cancelPlanningTitle": "Annuler ce créneau du planning",
+    "cancelPlanningDescription": "Le créneau sera ignoré partout (conflits, calendrier, emplois du temps, paie). Il reste restaurable.",
+    "cancelPlanningReasonPlaceholder": "Ex : cours arrêté, professeur parti...",
+    "deletePlanningTitle": "Supprimer définitivement ce créneau",
+    "deletePlanningDescription": "Cette action est irréversible : le créneau et ses exceptions seront effacés.",
+    "cancelPlanningSuccess": "Créneau annulé",
+    "cancelPlanningError": "Échec de l'annulation du créneau",
+    "restorePlanningSuccess": "Créneau restauré",
+    "restorePlanningError": "Échec de la restauration du créneau",
+    "deletePlanningError": "Échec de la suppression du créneau",
+    "cancelledBadge": "Annulé",
+    "cancelledSlots": "Créneaux annulés",
+    "cancelledSlotsHint": "Ces créneaux sont ignorés partout. Restaurez-les pour les réactiver.",
+    "cancelledReasonLabel": "Raison",
+    "confirm": "Confirmer",
+    "restoreConflictTitle": "Conflits détectés lors de la restauration",
+    "restoreForce": "Restaurer quand même"
   },
   "finances": {
     "title": "Gestion financière",

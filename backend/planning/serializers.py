@@ -24,7 +24,8 @@ class ClassSessionSerializer(serializers.ModelSerializer):
         model = ClassSession
         fields = ['id', 'course', 'course_name', 'academic_year', 'academic_year_name', 'teacher', 'teacher_name', 'room', 'room_name', 
                   'day_of_week', 'start_time', 'end_time', 'start_date', 'end_date', 'recurrence_rule',
-                  'assigned_students']
+                  'assigned_students', 'is_cancelled', 'cancelled_at', 'cancellation_reason']
+        read_only_fields = ['is_cancelled', 'cancelled_at', 'cancellation_reason']
 
     def get_teacher_name(self, obj):
         return obj.teacher.user.get_full_name() or obj.teacher.user.username
@@ -45,6 +46,10 @@ class ClassSessionSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        if self.instance is not None and self.instance.is_cancelled:
+            raise serializers.ValidationError(
+                "Ce créneau est annulé. Restaurez-le avant de le modifier."
+            )
         attrs['academic_year'] = attrs.get('academic_year') or getattr(self.instance, 'academic_year', None) or AcademicYear.get_active()
         if self.instance and self.instance.student_enrollments.exists():
             next_course = attrs.get('course', self.instance.course)

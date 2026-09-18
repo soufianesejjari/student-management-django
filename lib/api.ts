@@ -184,6 +184,16 @@ export const api = {
     },
     planning: {
         createSession: (data: any) => mutationRequest('post', '/planning/sessions/', data).then(res => res.data),
+        listCourseSessions: (courseId: number, includeCancelled = false) =>
+            axiosInstance
+                .get(`/planning/sessions/`, { params: { course: courseId, include_cancelled: includeCancelled ? 1 : undefined } })
+                .then(res => res.data),
+        cancelSession: (sessionId: number, reason = '') =>
+            mutationRequest('post', `/planning/sessions/${sessionId}/cancel/`, { reason }).then(res => res.data),
+        restoreSession: (sessionId: number, forceConflicts = false) =>
+            mutationRequest('post', `/planning/sessions/${sessionId}/restore/`, { force_conflicts: forceConflicts }).then(res => res.data),
+        deleteSession: (sessionId: number) =>
+            mutationRequest('delete', `/planning/sessions/${sessionId}/`).then(res => res.data),
         checkAvailability: (data: any) => mutationRequest('post', '/planning/check-availability/', data).then(res => res.data),
         suggestSlots: (data: any) => mutationRequest('post', '/planning/suggest-slots/', data).then(res => res.data),
         getTeacherSessions: (teacherId: number, year: number, month: number) => 
