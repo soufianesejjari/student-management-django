@@ -206,6 +206,108 @@ class BillingService:
 
     @classmethod
     @transaction.atomic
+    def allocate_manual_payment(cls, payment, academic_year=None):
+        """Apply a payment recorded without a due to the student's open dues.
+
+        A payment captured from the finance page has no subscription nor student
+        fee attached, so nothing was marked as paid and the student kept an
+        outstanding balance. The amount is now spread over the open dues (oldest
+        first), splitting the payment into one row per covered due so every
+        subscription/fee status and the finance analytics stay consistent.
+
+        Returns the list of resulting payments (the original one included).
+        """
+        from finances.models import Payment
+
+        if payment.subscription_id or payment.student_fee_id or payment.status != 'PAID':
+            return [payment]
+
+        today = timezone.now().date()
+        academic_year = academic_year or AcademicYear.get_active()
+        student = payment.student
+
+        cls.sync_due_subscriptions(today=today, academic_year=academic_year, student_id=student.id)
+        cls.sync_student_fees(student=student, academic_year=academic_year, today=today)
+
+        dues = []
+        for fee in (
+            StudentFee.objects
+            .filter(student=student, academic_year=academic_year)
+            .exclude(status__in=['PAID', 'EXEMPT'])
+            .order_by('due_date', 'id')
+        ):
+            dues.append((fee.due_date, 'student_fee', fee))
+
+        for subscription in (
+            Subscription.objects
+            .filter(
+                enrollment__student=student,
+                enrollment__academic_year=academic_year,
+                enrollment__status='ACTIVE',
+            )
+            .exclude(payment_status__in=['PAID', 'CANCELLED'])
+            .order_by('start_date', 'id')
+        ):
+            dues.append((subscription.start_date, 'subscription', subscription))
+
+        dues.sort(key=lambda row: (row[0], row[1], row[2].id))
+
+        remaining = payment.amount
+        allocations = []
+        for _, field, due in dues:
+            if remaining <= 0:
+                break
+            already_paid = (
+                Payment.objects
+                .filter(status='PAID', **{field: due})
+                .exclude(pk=payment.pk)
+                .aggregate(total=Sum('amount'))['total']
+                or Decimal('0')
+            )
+            outstanding = cls.remaining_balance(due.amount, already_paid)
+            if outstanding <= 0:
+                continue
+            taken = min(remaining, outstanding)
+            allocations.append((field, due, taken))
+            remaining -= taken
+
+        if not allocations:
+            return [payment]
+
+        def clone(amount, index):
+            return Payment(
+                student=payment.student,
+                amount=amount,
+                date=payment.date,
+                method=payment.method,
+                status=payment.status,
+                invoice_ref=f"{payment.invoice_ref}-{index}" if payment.invoice_ref else None,
+                notes=payment.notes,
+            )
+
+        payments = []
+        for index, (field, due, taken) in enumerate(allocations):
+            target = payment if index == 0 else clone(taken, index + 1)
+            target.amount = taken
+            setattr(target, field, due)
+            target.save()
+            payments.append(target)
+
+        if remaining > 0:
+            leftover = clone(remaining, len(allocations) + 1)
+            leftover.save()
+            payments.append(leftover)
+
+        for field, due, _ in allocations:
+            if field == 'subscription':
+                cls.sync_subscription_payment_status(due, today=today)
+            else:
+                cls.sync_student_fee_status(due, today=today)
+
+        return payments
+
+    @classmethod
+    @transaction.atomic
     def update_current_unpaid_subscription_plan(cls, enrollment, subscription_type):
         """Recalculate the current due when its payment has not started yet.
 

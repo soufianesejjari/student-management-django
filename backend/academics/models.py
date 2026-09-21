@@ -113,6 +113,13 @@ class Course(models.Model):
             if old_instance.status == 'ACTIVE' and self.status == 'INACTIVE':
                 # Disable related Enrollments
                 self.enrollments.filter(status='ACTIVE').update(status='CANCELLED')
+
+                # Close the dues that were generated for those enrollments so
+                # finance stops counting them as outstanding.
+                Subscription.objects.filter(
+                    enrollment__course=self,
+                    payment_status__in=['PENDING', 'OVERDUE'],
+                ).update(payment_status='CANCELLED')
                 
                 # Stop/Cancel related ClassSessions
                 # "le cours c'ets la source de descartivation de planing.. pour tjr"

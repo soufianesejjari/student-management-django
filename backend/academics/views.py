@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, filters, status
 from users.permissions import make_module_permission, StrictDjangoModelPermissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import APIException
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from .models import AcademicYear, Subject, Course, Enrollment, Subscription, StudentFee, AcademySettings
@@ -15,6 +16,12 @@ from .serializers import (
     StudentFeeSerializer,
 )
 from .services import BillingService, EnrollmentService
+
+
+class BusinessRuleError(APIException):
+    """400 error carrying a machine-readable code alongside the message."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_code = 'business_rule_error'
 
 
 class AcademicYearViewSet(viewsets.ModelViewSet):
@@ -59,6 +66,37 @@ class CourseViewSet(viewsets.ModelViewSet):
         course = serializer.save()
         from users.tma_sync import schedule_course_students_sync
         schedule_course_students_sync(course.id)
+
+    def perform_destroy(self, instance):
+        """Delete a course only while it carries no accounting history.
+
+        Deleting cascades to enrollments, subscriptions and their payments, so a
+        course that was already paid must be deactivated instead of erased.
+        """
+        from finances.models import Payment
+
+        paid_payments = Payment.objects.filter(
+            subscription__enrollment__course=instance,
+            status='PAID',
+        ).count()
+        if paid_payments:
+            raise BusinessRuleError({
+                'detail': (
+                    f"This course has {paid_payments} recorded payment(s). "
+                    "Deleting it would erase that accounting history. "
+                    "Set the course to INACTIVE instead."
+                ),
+                'code': 'course_has_payments',
+                'paid_payments': paid_payments,
+            })
+
+        student_ids = list(instance.enrollments.values_list('student_id', flat=True))
+        with transaction.atomic():
+            super().perform_destroy(instance)
+
+        from users.tma_sync import schedule_student_sync
+        for student_id in set(student_ids):
+            schedule_student_sync(student_id)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -106,8 +144,31 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         schedule_student_sync(enrollment.student_id)
 
     def perform_destroy(self, instance):
+        """Remove a student from a course group (enrollment created by mistake).
+
+        Only enrollments without paid history can be removed; a paid enrollment
+        must be cancelled (status=CANCELLED) so payments stay auditable.
+        """
+        from finances.models import Payment
+
+        paid_payments = Payment.objects.filter(
+            subscription__enrollment=instance,
+            status='PAID',
+        ).count()
+        if paid_payments:
+            raise BusinessRuleError({
+                'detail': (
+                    f"This enrollment has {paid_payments} recorded payment(s). "
+                    "Cancel it instead of deleting it so the payments stay traceable."
+                ),
+                'code': 'enrollment_has_payments',
+                'paid_payments': paid_payments,
+            })
+
         student_id = instance.student_id
-        super().perform_destroy(instance)
+        with transaction.atomic():
+            BillingService.cancel_open_subscriptions(instance)
+            super().perform_destroy(instance)
         from users.tma_sync import schedule_student_sync
         schedule_student_sync(student_id)
 

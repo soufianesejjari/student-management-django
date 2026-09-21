@@ -499,3 +499,195 @@ class BillingServiceTests(TestCase):
         skipped = BillingService.run_billing_automation(today=date(2025, 10, 1))
         self.assertEqual(skipped['status'], 'SKIPPED')
         self.assertEqual(skipped['reason'], 'already_succeeded_today')
+
+
+class ManualPaymentAllocationTests(TestCase):
+    """A payment recorded without a due must settle the student's open dues."""
+
+    def setUp(self):
+        import sys
+        from unittest import mock
+
+        # `requests` is only pulled in by the external TMA sync side effect.
+        patcher = mock.patch.dict(sys.modules, {'requests': mock.MagicMock()})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        AcademicYear.objects.filter(is_active=True).update(is_active=False)
+        self.academic_year = AcademicYear.objects.create(
+            name='2025-2026',
+            start_date=date(2025, 9, 1),
+            end_date=date(2026, 8, 31),
+            is_active=True,
+        )
+        self.user = User.objects.create_user(username='manual-student')
+        self.student = StudentProfile.objects.create(user=self.user, status='ACTIVE')
+        self.subject = Subject.objects.create(name='Guitare', subject_type='INSTRUMENT')
+        self.course = Course.objects.create(
+            name='Guitare A',
+            subject=self.subject,
+            level='BEGINNER',
+            price=Decimal('400.00'),
+        )
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            course=self.course,
+            academic_year=self.academic_year,
+            billing_plan='MONTHLY',
+            default_price=Decimal('400.00'),
+            custom_price=Decimal('400.00'),
+            status='ACTIVE',
+        )
+        self.subscription = Subscription.objects.create(
+            enrollment=self.enrollment,
+            subscription_type='MONTHLY',
+            start_date=date(2025, 9, 1),
+            end_date=date(2025, 9, 30),
+            amount=Decimal('400.00'),
+            payment_status='PENDING',
+        )
+        self.fee = StudentFee.objects.create(
+            student=self.student,
+            academic_year=self.academic_year,
+            fee_type='REGISTRATION',
+            amount=Decimal('300.00'),
+            due_date=date(2025, 9, 1),
+            status='PENDING',
+        )
+
+    def record_manual_payment(self, amount):
+        return Payment.objects.create(
+            student=self.student,
+            amount=Decimal(amount),
+            date=date(2025, 9, 15),
+            method='CASH',
+            status='PAID',
+            invoice_ref='INV-TEST',
+        )
+
+    def test_payment_covering_every_due_marks_them_paid(self):
+        payment = self.record_manual_payment('700.00')
+        BillingService.allocate_manual_payment(payment, academic_year=self.academic_year)
+
+        self.fee.refresh_from_db()
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.fee.status, 'PAID')
+        self.assertEqual(self.subscription.payment_status, 'PAID')
+
+        payments = Payment.objects.filter(student=self.student).order_by('id')
+        self.assertEqual(payments.count(), 2)
+        self.assertEqual(sum(p.amount for p in payments), Decimal('700.00'))
+        self.assertEqual(payments[0].student_fee_id, self.fee.id)
+        self.assertEqual(payments[1].subscription_id, self.subscription.id)
+
+    def test_partial_payment_settles_oldest_due_first(self):
+        payment = self.record_manual_payment('300.00')
+        BillingService.allocate_manual_payment(payment, academic_year=self.academic_year)
+
+        self.fee.refresh_from_db()
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.fee.status, 'PAID')
+        self.assertNotEqual(self.subscription.payment_status, 'PAID')
+        payment.refresh_from_db()
+        self.assertEqual(payment.student_fee_id, self.fee.id)
+        self.assertEqual(Payment.objects.filter(student=self.student).count(), 1)
+
+    def test_overpayment_keeps_the_remainder_as_a_free_payment(self):
+        # Only the registration fee stays open, so the extra 200 cannot be applied.
+        self.enrollment.status = 'CANCELLED'
+        self.enrollment.save(update_fields=['status'])
+        self.subscription.payment_status = 'CANCELLED'
+        self.subscription.save(update_fields=['payment_status'])
+
+        payment = self.record_manual_payment('500.00')
+        BillingService.allocate_manual_payment(payment, academic_year=self.academic_year)
+
+        leftovers = Payment.objects.filter(
+            student=self.student, subscription__isnull=True, student_fee__isnull=True
+        )
+        self.assertEqual(leftovers.count(), 1)
+        self.assertEqual(leftovers.first().amount, Decimal('200.00'))
+        self.assertEqual(
+            sum(p.amount for p in Payment.objects.filter(student=self.student)),
+            Decimal('500.00'),
+        )
+
+    def test_cancelled_course_dues_are_closed_on_deactivation(self):
+        self.course.status = 'INACTIVE'
+        self.course.save()
+
+        self.enrollment.refresh_from_db()
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.enrollment.status, 'CANCELLED')
+        self.assertEqual(self.subscription.payment_status, 'CANCELLED')
+
+    def test_course_with_payments_cannot_be_deleted(self):
+        from academics.views import BusinessRuleError, CourseViewSet, EnrollmentViewSet
+
+        Payment.objects.create(
+            student=self.student,
+            subscription=self.subscription,
+            amount=Decimal('400.00'),
+            date=date(2025, 9, 15),
+            method='CASH',
+            status='PAID',
+        )
+        with self.assertRaises(BusinessRuleError):
+            CourseViewSet().perform_destroy(self.course)
+        with self.assertRaises(BusinessRuleError):
+            EnrollmentViewSet().perform_destroy(self.enrollment)
+        self.assertTrue(Course.objects.filter(pk=self.course.pk).exists())
+        self.assertTrue(Enrollment.objects.filter(pk=self.enrollment.pk).exists())
+
+    def test_enrollment_without_payment_can_be_removed(self):
+        from academics.views import EnrollmentViewSet
+
+        EnrollmentViewSet().perform_destroy(self.enrollment)
+        self.assertFalse(Enrollment.objects.filter(pk=self.enrollment.pk).exists())
+        self.assertFalse(Subscription.objects.filter(pk=self.subscription.pk).exists())
+
+    def test_updating_a_payment_resyncs_the_old_and_the_new_due(self):
+        from finances.serializers import PaymentSerializer
+
+        payment = Payment.objects.create(
+            student=self.student,
+            subscription=self.subscription,
+            amount=Decimal('400.00'),
+            date=date(2025, 9, 15),
+            method='CASH',
+            status='PAID',
+        )
+        BillingService.sync_subscription_payment_status(self.subscription)
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.payment_status, 'PAID')
+
+        serializer = PaymentSerializer(
+            payment,
+            data={'subscription': None, 'student_fee': self.fee.id, 'amount': '300.00'},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        self.subscription.refresh_from_db()
+        self.fee.refresh_from_db()
+        self.assertNotEqual(self.subscription.payment_status, 'PAID')
+        self.assertEqual(self.fee.status, 'PAID')
+
+    def test_payment_switched_to_paid_is_allocated(self):
+        from finances.serializers import PaymentSerializer
+
+        payment = Payment.objects.create(
+            student=self.student,
+            amount=Decimal('300.00'),
+            date=date(2025, 9, 15),
+            method='CASH',
+            status='PENDING',
+        )
+        serializer = PaymentSerializer(payment, data={'status': 'PAID'}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        payment.refresh_from_db()
+        self.fee.refresh_from_db()
+        self.assertEqual(payment.student_fee_id, self.fee.id)
+        self.assertEqual(self.fee.status, 'PAID')

@@ -151,6 +151,7 @@ export const api = {
         create: (data: any) => mutationRequest('post', '/academics/enrollments/', data).then(res => res.data),
         get: (id: string) => axiosInstance.get(`/academics/enrollments/${id}/`).then(res => res.data),
         update: (id: string | number, data: any) => mutationRequest('patch', `/academics/enrollments/${id}/`, data).then(res => res.data),
+        remove: (id: string | number) => mutationRequest('delete', `/academics/enrollments/${id}/`).then(res => res.data),
         offerSettings: (student_id?: number) =>
             axiosInstance.get('/academics/offer-settings/', { params: student_id ? { student_id } : {} }).then(res => res.data),
         updateOfferSettings: (data: {
@@ -174,7 +175,10 @@ export const api = {
     },
     payments: {
         list: (params?: any) => axiosInstance.get('/finances/payments/', { params }).then(res => res.data),
+        get: (id: string | number) => axiosInstance.get(`/finances/payments/${id}/`).then(res => res.data),
         create: (data: any) => mutationRequest('post', '/finances/payments/', data).then(res => res.data),
+        update: (id: string | number, data: any) => mutationRequest('patch', `/finances/payments/${id}/`, data).then(res => res.data),
+        remove: (id: string | number) => mutationRequest('delete', `/finances/payments/${id}/`).then(res => res.data),
     },
     subjects: {
         list: () => axiosInstance.get('/academics/subjects/').then(res => res.data),

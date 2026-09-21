@@ -76,9 +76,14 @@ function CoursesContent() {
       } else {
         await mutate()
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error(t('courses.deleteError'))
+      const data = error?.response?.data
+      if (data?.code === 'course_has_payments') {
+        toast.error(t('courses.deleteBlockedByPayments'))
+      } else {
+        toast.error(data?.detail || t('courses.deleteError'))
+      }
     } finally {
       setIsDeleting(false)
     }

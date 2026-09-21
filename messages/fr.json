@@ -397,7 +397,8 @@
     "enrollments": "Inscriptions",
     "activeStudents": "Étudiants actifs",
     "notFound": "Cours non trouvé",
-    "failedLoad": "Erreur lors du chargement du cours"
+    "failedLoad": "Erreur lors du chargement du cours",
+    "deleteBlockedByPayments": "Ce cours a des paiements enregistrés. Passez-le en INACTIF au lieu de le supprimer."
   },
   "rooms": {
     "title": "Salles",
@@ -1034,7 +1035,13 @@
       "notesPlaceholder": "Notes supplémentaires...",
       "success": "Paiement enregistré avec succès",
       "error": "Échec de l'enregistrement",
-      "selectStudentError": "Veuillez sélectionner un étudiant"
+      "selectStudentError": "Veuillez sélectionner un étudiant",
+      "editTitle": "Modifier le paiement",
+      "updateSuccess": "Paiement mis à jour",
+      "updateError": "Impossible de mettre à jour ce paiement",
+      "applyTo": "Affecté à",
+      "applyToNone": "Aucune échéance (paiement libre)",
+      "applyToHint": "Rattachez le paiement à un abonnement ou à des frais pour mettre à jour le solde de l'élève."
     },
     "updatePaymentStatus": {
       "title": "Modifier le statut du paiement",
@@ -1089,7 +1096,18 @@
     "assignedStudents": "Élèves affectés",
     "assignStudents": "Affecter des élèves",
     "noAssignedStudents": "Aucun élève affecté à ce créneau.",
-    "sessionStudentsUpdated": "Affectations du créneau mises à jour."
+    "sessionStudentsUpdated": "Affectations du créneau mises à jour.",
+    "removeFromCourse": "Retirer du cours",
+    "removeTitle": "Retirer l’élève de ce cours ?",
+    "removeDescription": "L'inscription à « {course} » et ses échéances impayées seront supprimées. À utiliser uniquement si l'inscription a été créée par erreur.",
+    "removeSuccess": "Élève retiré du cours",
+    "removeError": "Impossible de retirer cette inscription",
+    "removeBlockedByPayments": "Cette inscription a déjà des paiements. Annulez-la plutôt que de la supprimer pour garder la traçabilité.",
+    "cancelEnrollment": "Annuler l’inscription",
+    "cancelTitle": "Annuler cette inscription ?",
+    "cancelDescription": "L'inscription à « {course} » passera en ANNULÉE et ses échéances impayées seront clôturées. Les paiements déjà enregistrés sont conservés.",
+    "cancelSuccess": "Inscription annulée",
+    "cancelError": "Impossible d'annuler cette inscription"
   },
   "studentFees": {
     "type": "Type",
@@ -1107,6 +1125,10 @@
     "amount": "Montant",
     "method": "Mode",
     "status": "Statut",
-    "noPayments": "Aucun paiement trouvé."
+    "noPayments": "Aucun paiement trouvé.",
+    "deleteTitle": "Supprimer ce paiement ?",
+    "deleteDescription": "Le paiement de {amount} MAD du {date} sera supprimé et l’échéance liée rouverte.",
+    "deleteSuccess": "Paiement supprimé",
+    "deleteError": "Impossible de supprimer ce paiement"
   }
 }

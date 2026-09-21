@@ -21,7 +21,6 @@ import { usePageSearch } from "@/hooks/usePageSearch"
 import { PageHeader } from "@/components/layout/page-header"
 import { ExpenseDialog } from "@/components/finances/expense-dialog"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
-import { UpdatePaymentStatusDialog } from "@/components/finances/update-payment-status-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,6 +56,7 @@ function FinancesContent() {
   const currentMonthDate = new Date()
   const { reports: financialReports, mutate: mutateReports } = useFinancialReports(currentMonthDate.getFullYear(), currentMonthDate.getMonth() + 1)
   const [deletingPaymentId, setDeletingPaymentId] = useState<number | null>(null)
+  const [editingPayment, setEditingPayment] = useState<any | null>(null)
   const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
 
   const formatPaymentPeriodDate = (value?: string) => {
@@ -144,6 +144,12 @@ function FinancesContent() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PaymentDialog
+        payment={editingPayment}
+        open={Boolean(editingPayment)}
+        onOpenChange={(open) => !open && setEditingPayment(null)}
+        onSuccess={() => { setEditingPayment(null); mutate() }}
+      />
       <PageHeader
         title={t('finances.title')}
         action={
@@ -283,11 +289,14 @@ function FinancesContent() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
                               {hasPermission("finances.change_payment") && (
-                                <UpdatePaymentStatusDialog
-                                  paymentId={payment.id}
-                                  currentStatus={payment.status}
-                                  onSuccess={mutate}
-                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('dialogs.payment.editTitle')}
+                                  onClick={() => setEditingPayment(payment)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
                               )}
                               {hasPermission("finances.delete_payment") && (
                                 <AlertDialog>

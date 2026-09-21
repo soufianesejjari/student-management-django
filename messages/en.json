@@ -397,7 +397,8 @@
     "enrollments": "Enrollments",
     "activeStudents": "Active students",
     "notFound": "Course not found",
-    "failedLoad": "Failed to load course details"
+    "failedLoad": "Failed to load course details",
+    "deleteBlockedByPayments": "This course has recorded payments. Set it to INACTIVE instead of deleting it."
   },
   "rooms": {
     "title": "Rooms",
@@ -1034,7 +1035,13 @@
       "notesPlaceholder": "Additional notes...",
       "success": "Payment recorded successfully",
       "error": "Failed to record payment",
-      "selectStudentError": "Please select a student"
+      "selectStudentError": "Please select a student",
+      "editTitle": "Edit payment",
+      "updateSuccess": "Payment updated",
+      "updateError": "Unable to update this payment",
+      "applyTo": "Applied to",
+      "applyToNone": "No due (free payment)",
+      "applyToHint": "Attach the payment to a subscription or a fee so the student balance is updated."
     },
     "updatePaymentStatus": {
       "title": "Update Payment Status",
@@ -1089,7 +1096,18 @@
     "assignedStudents": "Assigned students",
     "assignStudents": "Assign students",
     "noAssignedStudents": "No student is assigned to this slot.",
-    "sessionStudentsUpdated": "Schedule slot assignments updated."
+    "sessionStudentsUpdated": "Schedule slot assignments updated.",
+    "removeFromCourse": "Remove from course",
+    "removeTitle": "Remove the student from this course?",
+    "removeDescription": "The enrollment in \"{course}\" and its unpaid dues will be deleted. Use this only when the enrollment was created by mistake.",
+    "removeSuccess": "Student removed from the course",
+    "removeError": "Unable to remove this enrollment",
+    "removeBlockedByPayments": "This enrollment already has payments. Cancel it instead so the payments stay traceable.",
+    "cancelEnrollment": "Cancel enrollment",
+    "cancelTitle": "Cancel this enrollment?",
+    "cancelDescription": "The enrollment in \"{course}\" will be marked CANCELLED and its unpaid dues closed. Payments already recorded are kept.",
+    "cancelSuccess": "Enrollment cancelled",
+    "cancelError": "Unable to cancel this enrollment"
   },
   "studentFees": {
     "type": "Type",
@@ -1107,6 +1125,10 @@
     "amount": "Amount",
     "method": "Method",
     "status": "Status",
-    "noPayments": "No payments found."
+    "noPayments": "No payments found.",
+    "deleteTitle": "Delete this payment?",
+    "deleteDescription": "The payment of {amount} MAD dated {date} will be deleted and the related due reopened.",
+    "deleteSuccess": "Payment deleted",
+    "deleteError": "Unable to delete this payment"
   }
 }

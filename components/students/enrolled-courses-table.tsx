@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, CreditCard, CalendarClock } from "lucide-react"
+import { Loader2, CreditCard, CalendarClock, Trash2, Ban } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { api } from "@/lib/api"
 import { format } from "date-fns"
@@ -19,6 +19,16 @@ import { useTranslations } from "next-intl"
 import { PaymentDialog } from "@/components/finances/payment-dialog"
 import { toast } from "sonner"
 import { SessionAssignmentDialog } from "@/components/academics/session-assignment-dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface EnrolledCoursesTableProps {
     studentId: number
@@ -31,6 +41,9 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
     const [loading, setLoading] = useState(true)
     const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null)
     const [editingSessions, setEditingSessions] = useState<any | null>(null)
+    const [removingEnrollment, setRemovingEnrollment] = useState<any | null>(null)
+    const [cancellingEnrollment, setCancellingEnrollment] = useState<any | null>(null)
+    const [actionLoading, setActionLoading] = useState(false)
 
     const fetchEnrollments = async (showLoading = true) => {
         try {
@@ -137,6 +150,52 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
             toast.error(t('enrolledCourses.billingPlanUpdateError'))
         } finally {
             setUpdatingPlanId(null)
+        }
+    }
+
+    const notifyEnrollmentChanged = () => {
+        window.dispatchEvent(new Event("enrollment-updated"))
+        window.dispatchEvent(new Event("payment-updated"))
+    }
+
+    const removeEnrollment = async () => {
+        if (!removingEnrollment) return
+        setActionLoading(true)
+        try {
+            await api.enrollments.remove(removingEnrollment.id)
+            toast.success(t('enrolledCourses.removeSuccess'))
+            setRemovingEnrollment(null)
+            await fetchEnrollments(false)
+            notifyEnrollmentChanged()
+        } catch (error: any) {
+            console.error("Failed to remove enrollment:", error)
+            const detail = error?.response?.data?.detail
+            if (error?.response?.data?.code === 'enrollment_has_payments') {
+                toast.error(t('enrolledCourses.removeBlockedByPayments'))
+                setRemovingEnrollment(null)
+                setCancellingEnrollment(removingEnrollment)
+            } else {
+                toast.error(detail || t('enrolledCourses.removeError'))
+            }
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const cancelEnrollment = async () => {
+        if (!cancellingEnrollment) return
+        setActionLoading(true)
+        try {
+            await api.enrollments.update(cancellingEnrollment.id, { status: 'CANCELLED' })
+            toast.success(t('enrolledCourses.cancelSuccess'))
+            setCancellingEnrollment(null)
+            await fetchEnrollments(false)
+            notifyEnrollmentChanged()
+        } catch (error: any) {
+            console.error("Failed to cancel enrollment:", error)
+            toast.error(error?.response?.data?.detail || t('enrolledCourses.cancelError'))
+        } finally {
+            setActionLoading(false)
         }
     }
 
@@ -299,6 +358,25 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                                                 </Button>
                                             )}
                                             {enrollment.status === 'ACTIVE' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setCancellingEnrollment(enrollment)}
+                                                >
+                                                    <Ban className="mr-2 h-3 w-3" />
+                                                    {t('enrolledCourses.cancelEnrollment')}
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-red-600 hover:text-red-700"
+                                                onClick={() => setRemovingEnrollment(enrollment)}
+                                            >
+                                                <Trash2 className="mr-2 h-3 w-3" />
+                                                {t('enrolledCourses.removeFromCourse')}
+                                            </Button>
+                                            {enrollment.status === 'ACTIVE' && (
                                                 <PaymentDialog
                                                     studentId={studentId}
                                                     subscriptionId={subscription?.id}
@@ -323,6 +401,45 @@ export function EnrolledCoursesTable({ studentId }: EnrolledCoursesTableProps) {
                 </TableBody>
             </Table>
         </div>
+        <AlertDialog open={Boolean(removingEnrollment)} onOpenChange={(open) => !open && setRemovingEnrollment(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('enrolledCourses.removeTitle')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('enrolledCourses.removeDescription', { course: removingEnrollment?.course_name || '' })}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={actionLoading}>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={(event) => { event.preventDefault(); removeEnrollment() }}
+                        disabled={actionLoading}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                        {actionLoading ? t('common.loading') : t('common.delete')}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={Boolean(cancellingEnrollment)} onOpenChange={(open) => !open && setCancellingEnrollment(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('enrolledCourses.cancelTitle')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {t('enrolledCourses.cancelDescription', { course: cancellingEnrollment?.course_name || '' })}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={actionLoading}>{t('common.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={(event) => { event.preventDefault(); cancelEnrollment() }}
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? t('common.loading') : t('enrolledCourses.cancelEnrollment')}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         <SessionAssignmentDialog
             open={Boolean(editingSessions)}
             onOpenChange={(open) => !open && setEditingSessions(null)}

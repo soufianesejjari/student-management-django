@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -20,71 +20,182 @@ interface PaymentDialogProps {
     subscriptionId?: number | null
     studentFeeId?: number | null
     defaultAmount?: string | number
+    /** Existing payment to edit. When set the dialog runs in update mode. */
+    payment?: any
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
     children?: ReactNode
 }
 
-export function PaymentDialog({ onSuccess, studentId, subscriptionId, studentFeeId, defaultAmount, children }: PaymentDialogProps) {
+const NO_DUE = "NONE"
+
+type DueOption = {
+    value: string
+    label: string
+    amount: number
+}
+
+export function PaymentDialog({
+    onSuccess,
+    studentId,
+    subscriptionId,
+    studentFeeId,
+    defaultAmount,
+    payment,
+    open: controlledOpen,
+    onOpenChange,
+    children,
+}: PaymentDialogProps) {
     const t = useTranslations()
-    const [open, setOpen] = useState(false)
+    const isEdit = Boolean(payment?.id)
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+    const open = controlledOpen ?? uncontrolledOpen
+    const setOpen = onOpenChange ?? setUncontrolledOpen
     const [loading, setLoading] = useState(false)
-    const [formData, setFormData] = useState({
-        student: studentId || 0,
-        amount: defaultAmount != null ? String(defaultAmount) : "",
-        method: "CASH",
-        date: new Date().toISOString().split('T')[0],
-        status: "PAID",
-        notes: ""
-    })
+    const [dueOptions, setDueOptions] = useState<DueOption[]>([])
+    const [dueLoading, setDueLoading] = useState(false)
+
+    const currentStudentId = isEdit ? Number(payment.student) : studentId || 0
+
+    const buildInitialState = useCallback(() => {
+        if (isEdit) {
+            return {
+                student: Number(payment.student) || 0,
+                amount: payment.amount != null ? String(payment.amount) : "",
+                method: payment.method || "CASH",
+                date: payment.date || new Date().toISOString().split('T')[0],
+                status: payment.status || "PAID",
+                notes: payment.notes || "",
+                due: payment.subscription
+                    ? `subscription:${payment.subscription}`
+                    : payment.student_fee
+                        ? `student_fee:${payment.student_fee}`
+                        : NO_DUE,
+            }
+        }
+        return {
+            student: studentId || 0,
+            amount: defaultAmount != null ? String(defaultAmount) : "",
+            method: "CASH",
+            date: new Date().toISOString().split('T')[0],
+            status: "PAID",
+            notes: "",
+            due: subscriptionId
+                ? `subscription:${subscriptionId}`
+                : studentFeeId
+                    ? `student_fee:${studentFeeId}`
+                    : NO_DUE,
+        }
+    }, [isEdit, payment, studentId, defaultAmount, subscriptionId, studentFeeId])
+
+    const [formData, setFormData] = useState(buildInitialState)
 
     useEffect(() => {
-        if (!open) {
-            setFormData({
-                student: studentId || 0,
-                amount: defaultAmount != null ? String(defaultAmount) : "",
-                method: "CASH",
-                date: new Date().toISOString().split('T')[0],
-                status: "PAID",
-                notes: ""
-            })
+        if (open) {
+            setFormData(buildInitialState())
         }
-    }, [open, studentId, defaultAmount])
+    }, [open, buildInitialState])
+
+    // In edit mode the payment can be re-attached to another open due.
+    useEffect(() => {
+        if (!open || !isEdit || !currentStudentId) return
+
+        let cancelled = false
+        const loadDues = async () => {
+            setDueLoading(true)
+            try {
+                const [subscriptionsResult, feesResult] = await Promise.allSettled([
+                    api.subscriptions.list({ student: currentStudentId }),
+                    api.studentFees.list({ student: currentStudentId }),
+                ])
+                const unwrap = (result: PromiseSettledResult<any>) => {
+                    if (result.status !== "fulfilled") return []
+                    const data = result.value
+                    return Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : []
+                }
+
+                const options: DueOption[] = []
+                for (const subscription of unwrap(subscriptionsResult)) {
+                    const value = `subscription:${subscription.id}`
+                    if (subscription.payment_status === "CANCELLED" && value !== formData.due) continue
+                    options.push({
+                        value,
+                        label: `${subscription.course_name || t('finances.coursePayment')} · ${subscription.start_date} → ${subscription.end_date}`,
+                        amount: Number(subscription.amount || 0),
+                    })
+                }
+                for (const fee of unwrap(feesResult)) {
+                    const value = `student_fee:${fee.id}`
+                    if (fee.status === "EXEMPT" && value !== formData.due) continue
+                    options.push({
+                        value,
+                        label: fee.fee_type === "REGISTRATION"
+                            ? t('students.registrationFee')
+                            : t('students.insuranceFee'),
+                        amount: Number(fee.amount || 0),
+                    })
+                }
+                if (!cancelled) setDueOptions(options)
+            } catch (error) {
+                console.error("Failed to load dues:", error)
+                if (!cancelled) setDueOptions([])
+            } finally {
+                if (!cancelled) setDueLoading(false)
+            }
+        }
+
+        loadDues()
+        return () => { cancelled = true }
+    }, [open, isEdit, currentStudentId])
+
+    const duePayload = () => {
+        if (formData.due === NO_DUE) return { subscription: null, student_fee: null }
+        const [kind, id] = formData.due.split(":")
+        return kind === "subscription"
+            ? { subscription: Number(id), student_fee: null }
+            : { subscription: null, student_fee: Number(id) }
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        
+
         if (!formData.student) {
             toast.error(t('dialogs.payment.selectStudentError'))
             return
         }
-        
+
         setLoading(true)
 
         try {
-            await api.post("/finances/payments/", {
+            const body = {
                 student: formData.student,
-                subscription: subscriptionId || null,
-                student_fee: studentFeeId || null,
+                ...duePayload(),
                 amount: parseFloat(formData.amount),
                 method: formData.method,
                 date: formData.date,
                 status: formData.status,
-                notes: formData.notes
-            })
+                notes: formData.notes,
+            }
 
-            toast.success(t('dialogs.payment.success'))
+            if (isEdit) {
+                await api.payments.update(payment.id, body)
+                toast.success(t('dialogs.payment.updateSuccess'))
+            } else {
+                await api.post("/finances/payments/", {
+                    ...body,
+                    subscription: subscriptionId || body.subscription,
+                    student_fee: studentFeeId || body.student_fee,
+                })
+                toast.success(t('dialogs.payment.success'))
+            }
+
             setOpen(false)
-            setFormData({
-                student: studentId || 0,
-                amount: defaultAmount != null ? String(defaultAmount) : "",
-                method: "CASH",
-                date: new Date().toISOString().split('T')[0],
-                status: "PAID",
-                notes: ""
-            })
+            setFormData(buildInitialState())
             onSuccess?.()
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            toast.error(t('dialogs.payment.error'))
+            const detail = error?.response?.data?.detail || error?.response?.data?.[0]
+            toast.error(detail || (isEdit ? t('dialogs.payment.updateError') : t('dialogs.payment.error')))
         } finally {
             setLoading(false)
         }
@@ -103,15 +214,17 @@ export function PaymentDialog({ onSuccess, studentId, subscriptionId, studentFee
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {buttonContent}
-            </DialogTrigger>
+            {controlledOpen === undefined && (
+                <DialogTrigger asChild>
+                    {buttonContent}
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>{t('dialogs.payment.title')}</DialogTitle>
+                    <DialogTitle>{isEdit ? t('dialogs.payment.editTitle') : t('dialogs.payment.title')}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {!studentId && (
+                    {!studentId && !isEdit && (
                         <div className="space-y-2">
                             <Label htmlFor="student">{t('dialogs.payment.student')} *</Label>
                             <AsyncSelect
@@ -128,6 +241,15 @@ export function PaymentDialog({ onSuccess, studentId, subscriptionId, studentFee
                                 renderValue={(item: any) => item.id}
                                 placeholder={t('dialogs.payment.searchStudent')}
                             />
+                        </div>
+                    )}
+
+                    {isEdit && (
+                        <div className="space-y-2">
+                            <Label>{t('dialogs.payment.student')}</Label>
+                            <div className="rounded-md border px-3 py-2 text-sm">
+                                {payment.student_name || payment.student_username || `#${payment.student}`}
+                            </div>
                         </div>
                     )}
 
@@ -189,10 +311,35 @@ export function PaymentDialog({ onSuccess, studentId, subscriptionId, studentFee
                                 <SelectContent>
                                     <SelectItem value="PAID">{t('dialogs.payment.paid')}</SelectItem>
                                     <SelectItem value="PENDING">{t('dialogs.payment.pending')}</SelectItem>
+                                    <SelectItem value="LATE">{t('dialogs.updatePaymentStatus.late')}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
+
+                    {isEdit && (
+                        <div className="space-y-2">
+                            <Label htmlFor="due">{t('dialogs.payment.applyTo')}</Label>
+                            <Select
+                                value={formData.due}
+                                onValueChange={(value) => setFormData({ ...formData, due: value })}
+                                disabled={dueLoading}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NO_DUE}>{t('dialogs.payment.applyToNone')}</SelectItem>
+                                    {dueOptions.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label} — {option.amount.toFixed(2)} MAD
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">{t('dialogs.payment.applyToHint')}</p>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="notes">{t('dialogs.payment.notesOptional')}</Label>

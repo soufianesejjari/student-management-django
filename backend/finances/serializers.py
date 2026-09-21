@@ -46,6 +46,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             BillingService.sync_subscription_payment_status(payment.subscription)
         if payment.student_fee:
             BillingService.sync_student_fee_status(payment.student_fee)
+        if not payment.subscription_id and not payment.student_fee_id:
+            # Free payment captured from the finance page: apply it to the
+            # student's open dues so balances and analytics reflect it.
+            BillingService.allocate_manual_payment(payment)
 
         from users.tma_sync import schedule_student_sync
         schedule_student_sync(payment.student_id)
@@ -68,7 +72,16 @@ class PaymentSerializer(serializers.ModelSerializer):
         if student_fee and student_fee.student_id != student.id:
             raise serializers.ValidationError("Student fee does not belong to this student.")
 
+        previous_status = instance.status
         payment = super().update(instance, validated_data)
+
+        if (
+            payment.status == 'PAID'
+            and previous_status != 'PAID'
+            and not payment.subscription_id
+            and not payment.student_fee_id
+        ):
+            BillingService.allocate_manual_payment(payment)
 
         subscription_ids = {previous_subscription_id, payment.subscription_id}
         for subscription_id in filter(None, subscription_ids):
